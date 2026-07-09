@@ -61,6 +61,7 @@ npm run deploy
 ## 5. URL
 
 - 학생용: `https://<worker-domain>/`
+- 배포 health: `https://<worker-domain>/api/health`
 - 교사용: `https://<worker-domain>/teacher`
 - 평가 세트: `https://<worker-domain>/api/evaluation-set`
 - 전체 로그 export: `https://<worker-domain>/api/export`
@@ -80,6 +81,7 @@ npm run deploy
 
 ## 7. 운영 전 필수 보강
 
+- 배포 직후 `/api/health`에서 `ok`, `provider`, `teacherProtected`, `chatRateLimitPerMinute`, `eventTtlHours`를 확인
 - `/teacher` 보호: `TEACHER_TOKEN` 또는 Cloudflare Access 설정
 - rate limit: `CHAT_RATE_LIMIT_PER_MINUTE`를 촬영 규모에 맞게 조정
 - 데이터 보관: 촬영 종료 후 export하고 대시보드의 로그 삭제 버튼 또는 `/api/purge` 사용

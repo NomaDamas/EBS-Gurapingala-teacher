@@ -23,6 +23,9 @@ export default {
     if (url.pathname === "/api/evaluation-set") {
       return json({ items: EVALUATION_SET_50 });
     }
+    if (url.pathname === "/api/health") {
+      return json(buildHealthPayload(env));
+    }
     if (url.pathname === "/api/export") {
       if (!isTeacherAuthorized(request, env)) return unauthorized();
       const events = await readEvents(room, env);
@@ -267,6 +270,28 @@ async function readEvents(room, env) {
 
 function roomEventUrl(env) {
   return `https://room.local/event?ttlHours=${encodeURIComponent(env.EVENT_TTL_HOURS || 24)}`;
+}
+
+function buildHealthPayload(env) {
+  return {
+    schemaVersion: "health/v1",
+    ok: true,
+    provider: env.OPENAI_API_KEY && env.LLM_PROVIDER !== "rules" ? "openai" : "rules",
+    openaiConfigured: Boolean(env.OPENAI_API_KEY),
+    teacherProtected: Boolean(env.TEACHER_TOKEN),
+    defaultFalseLevel: Number(env.DEFAULT_FALSE_LEVEL || 2),
+    chatRateLimitPerMinute: Number(env.CHAT_RATE_LIMIT_PER_MINUTE || 12),
+    eventTtlHours: Number(env.EVENT_TTL_HOURS || 24),
+    endpoints: {
+      student: "/",
+      teacher: "/teacher",
+      evaluationSet: "/api/evaluation-set",
+      exportJson: "/api/export",
+      debriefJson: "/api/debrief",
+      debriefCsv: "/api/debrief.csv",
+      purge: "/api/purge"
+    }
+  };
 }
 
 async function checkRateLimit(room, sessionId, env) {

@@ -36,6 +36,15 @@ const checks = [
     const body = await res.json();
     return res.status === 200 && body.items.length === 50;
   }],
+  ["health endpoint reports safe runtime config", async () => {
+    const res = await appFetch("https://example.com/api/health");
+    const body = await res.json();
+    return res.status === 200 &&
+      body.ok === true &&
+      body.provider === "rules" &&
+      body.teacherProtected === true &&
+      body.endpoints.debriefCsv === "/api/debrief.csv";
+  }],
   ["student can join and chat with rules provider", async () => {
     const join = await appFetch("https://example.com/api/join", {
       method: "POST",
