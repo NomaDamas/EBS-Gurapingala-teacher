@@ -5,18 +5,21 @@ import { buildDebriefCsv, buildDebriefRows, buildExportPayload, pruneEventsByTtl
 const EVENTS = [
   {
     type: "student_joined",
+    roomId: "2026-07-13-3-5",
     sessionId: "s1",
     studentName: "민준",
     at: "2026-07-10T01:00:00.000Z"
   },
   {
     type: "student_heartbeat",
+    roomId: "2026-07-13-3-5",
     sessionId: "s1",
     studentName: "민준",
     at: "2026-07-10T01:00:10.000Z"
   },
   {
     type: "chat_turn",
+    roomId: "2026-07-13-3-5",
     sessionId: "s1",
     studentName: "민준",
     studentMessage: "명량해전에서 몇 척으로 싸웠어?",
@@ -38,6 +41,7 @@ test("buildDebriefRows는 채팅 턴을 정정 수업용 행으로 변환한다"
   const rows = buildDebriefRows(EVENTS);
 
   assert.equal(rows.length, 1);
+  assert.equal(rows[0].roomId, "2026-07-13-3-5");
   assert.equal(rows[0].studentName, "민준");
   assert.equal(rows[0].topic, "명량해전 전력");
   assert.equal(rows[0].level, 2);
@@ -72,7 +76,8 @@ test("buildDebriefCsv는 스프레드시트용 CSV를 생성하고 특수문자�
     }
   ]);
 
-  assert.ok(csv.startsWith("sessionId,studentName,at,question"));
+  assert.ok(csv.startsWith("roomId,sessionId,studentName,at,question"));
+  assert.ok(csv.includes('"2026-07-13-3-5"'));
   assert.ok(csv.includes('"명량해전, 몇 척이야?"'));
   assert.ok(csv.includes('"한 줄\n두 줄 ""인용"""'));
 });

@@ -16,6 +16,8 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /function applyTeacherConfig\(config\)/);
   assert.match(teacher, /history\.replaceState/);
   assert.match(teacher, /function buildRoomUrl\(path, includeToken = false\)/);
+  assert.match(teacher, /function exportFilename\(kind, extension\)/);
+  assert.match(teacher, /roomId \+ "-" \+ kind/);
   assert.match(teacher, /copyStudentUrlEl\.addEventListener/);
   assert.match(teacher, /copyTeacherUrlEl\.addEventListener/);
 });

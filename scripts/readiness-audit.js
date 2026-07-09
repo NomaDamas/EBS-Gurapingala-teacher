@@ -81,8 +81,8 @@ const checks = [
     id: "debrief-export-after-experiment",
     evidence: ["src/domain/session-export.js", "src/ui/teacher.js", "docs/experiment-policy.md"],
     run: async (files) =>
-      includesAll(files["src/domain/session-export.js"], ["buildDebriefRows", "buildDebriefCsv", "correctAnswer", "whyFalse"]) &&
-      includesAll(files["src/ui/teacher.js"], ["/api/debrief", "/api/debrief.csv", "정정 수업 오류표"]) &&
+      includesAll(files["src/domain/session-export.js"], ["buildDebriefRows", "buildDebriefCsv", "correctAnswer", "whyFalse", "roomId"]) &&
+      includesAll(files["src/ui/teacher.js"], ["/api/debrief", "/api/debrief.csv", "정정 수업 오류표", "exportFilename"]) &&
       includesAll(files["docs/experiment-policy.md"], ["정정 수업"])
   },
   {

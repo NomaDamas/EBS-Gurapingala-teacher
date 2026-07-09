@@ -373,6 +373,11 @@ export const teacherHtml = `<!doctype html>
       return url.toString();
     }
 
+    function exportFilename(kind, extension) {
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      return roomId + "-" + kind + "-" + stamp + "." + extension;
+    }
+
     async function copyText(value, label) {
       try {
         await navigator.clipboard.writeText(value);
@@ -397,9 +402,9 @@ export const teacherHtml = `<!doctype html>
     reconnectSocketEl.addEventListener("click", () => connect(true));
     copyStudentUrlEl.addEventListener("click", () => copyText(buildRoomUrl("/"), "student url"));
     copyTeacherUrlEl.addEventListener("click", () => copyText(buildRoomUrl("/teacher", true), "teacher url"));
-    downloadExportEl.addEventListener("click", () => downloadJson("/api/export", "classroom-export.json"));
-    downloadDebriefEl.addEventListener("click", () => downloadJson("/api/debrief", "debrief-table.json"));
-    downloadDebriefCsvEl.addEventListener("click", () => downloadText("/api/debrief.csv", "debrief-table.csv", "text/csv"));
+    downloadExportEl.addEventListener("click", () => downloadJson("/api/export", exportFilename("classroom-export", "json")));
+    downloadDebriefEl.addEventListener("click", () => downloadJson("/api/debrief", exportFilename("debrief-table", "json")));
+    downloadDebriefCsvEl.addEventListener("click", () => downloadText("/api/debrief.csv", exportFilename("debrief-table", "csv"), "text/csv"));
     purgeEventsEl.addEventListener("click", purgeEvents);
   </script>
 </body>

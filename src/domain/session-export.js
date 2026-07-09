@@ -4,6 +4,7 @@ export function buildDebriefRows(events) {
     .map((event) => {
       const audit = event.teacherAudit;
       return {
+        roomId: event.roomId || "",
         sessionId: event.sessionId,
         studentName: event.studentName,
         at: event.at,
@@ -23,6 +24,7 @@ export function buildDebriefRows(events) {
 export function buildDebriefCsv(events) {
   const rows = buildDebriefRows(events);
   const headers = [
+    "roomId",
     "sessionId",
     "studentName",
     "at",
