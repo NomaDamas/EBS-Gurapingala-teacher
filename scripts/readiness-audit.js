@@ -63,9 +63,9 @@ const checks = [
     run: async (files) =>
       includesAll(files["wrangler.toml"], ["durable_objects.bindings", "ClassroomRoom", "CHAT_RATE_LIMIT_PER_MINUTE", "EVENT_TTL_HOURS"]) &&
       includesAll(files["src/worker.js"], ["export class ClassroomRoom", "/api/health", "buildHealthPayload", "defaultRoomId"]) &&
-      includesAll(files["docs/deployment-guide.md"], ["npm run deploy", "Deploy", "CLOUDFLARE_API_TOKEN", "npm run verify:deploy", "REQUIRE_OPENAI=true", "촬영방 분리"]) &&
+      includesAll(files["docs/deployment-guide.md"], ["npm run deploy", "Deploy", "CLOUDFLARE_API_TOKEN", "npm run verify:deploy", "REQUIRE_OPENAI=true", "촬영방 분리", "VERIFY_ROOM=deploy-verify", "실제 촬영방 금지"]) &&
       includesAll(files["scripts/smoke-worker.js"], ["worker smoke passed", "/api/chat", "/api/export", "/api/health", "room query isolates classroom events"]) &&
-      includesAll(files["scripts/verify-deploy.js"], ["deploy verification passed", "/api/evaluation-set", "/api/join", "/api/chat", "/api/export", "/api/purge", "/teacher", "teacher page access policy is enforced", "WORKER_ROOM", "REQUIRE_OPENAI"]) &&
+      includesAll(files["scripts/verify-deploy.js"], ["deploy verification passed", "/api/evaluation-set", "/api/join", "/api/chat", "/api/export", "/api/purge", "/teacher", "teacher page access policy is enforced", "WORKER_ROOM", "VERIFY_ROOM", "deploy-verify", "ALLOW_PURGE_FILMING_ROOM", "REQUIRE_OPENAI"]) &&
       includesAll(files[".github/workflows/deploy.yml"], ["workflow_dispatch", "npx wrangler deploy", "scripts/verify-deploy.js", "WORKER_HEALTH_URL"]) &&
       includesAll(files["package.json"], ["verify:deploy"])
   },

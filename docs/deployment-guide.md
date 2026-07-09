@@ -72,10 +72,12 @@ npm run deploy
 배포 후 실제 Worker URL을 검증한다.
 
 ```bash
-WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> WORKER_ROOM=2026-07-13-3-5 REQUIRE_OPENAI=true npm run verify:deploy
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true npm run verify:deploy
 ```
 
-이 검증은 학생 페이지, `/api/health`, 50턴 평가 endpoint, `/api/join`과 `/api/chat`, `/teacher` 보호 여부, token 기반 교사용 접속, export telemetry, purge 정리를 확인한다. `REQUIRE_OPENAI=true`를 주면 `/api/health`의 `provider=openai`와 `openaiConfigured=true`도 강제해 촬영 배포가 rules fallback으로 뜨는 것을 막는다. `TEACHER_TOKEN`을 생략하면 교사용 token 접속·export·purge 확인은 건너뛰고 보호 정책 상태만 점검한다. `WORKER_ROOM`을 생략하면 기본 방을 확인한다.
+이 검증은 학생 페이지, `/api/health`, 50턴 평가 endpoint, `/api/join`과 `/api/chat`, `/teacher` 보호 여부, token 기반 교사용 접속, export telemetry, purge 정리를 확인한다. `REQUIRE_OPENAI=true`를 주면 `/api/health`의 `provider=openai`와 `openaiConfigured=true`도 강제해 촬영 배포가 rules fallback으로 뜨는 것을 막는다. `TEACHER_TOKEN`을 생략하면 교사용 token 접속·export·purge 확인은 건너뛰고 보호 정책 상태만 점검한다.
+
+`verify:deploy`는 정리 단계에서 `/api/purge`를 호출하므로 실제 촬영방을 쓰면 안 된다. 기본값은 `deploy-verify`이고, `TEACHER_TOKEN`이 있을 때 `VERIFY_ROOM`은 `deploy-verify` 또는 `deploy-verify-<suffix>` 형태여야 한다. 이전 운영 메모의 `WORKER_ROOM=<촬영방>` 값은 검증 cleanup에 사용되지 않으며, 실제 촬영방 purge가 필요할 때만 별도 export 확인 후 대시보드의 `촬영 로그 삭제`를 사용한다.
 
 GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 
@@ -98,6 +100,7 @@ GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 | 이름 | 용도 |
 |---|---|
 | `WORKER_HEALTH_URL` | 배포 후 `/api/health` 검증 URL |
+| `VERIFY_ROOM` | 배포 후 검증 전용 room. 기본값 `deploy-verify`; 실제 촬영방 금지 |
 
 수동 배포 workflow도 `node --test`, `node scripts/run-eval.js`, `node scripts/readiness-audit.js`, `node scripts/smoke-worker.js`를 통과한 뒤 `npx wrangler deploy`를 실행한다. `WORKER_HEALTH_URL`이 설정되어 있으면 `scripts/verify-deploy.js`로 실제 배포 URL까지 확인한다. 값은 `https://<worker-domain>` 또는 `https://<worker-domain>/api/health` 어느 쪽이어도 된다.
 

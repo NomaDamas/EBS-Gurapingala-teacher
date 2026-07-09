@@ -5,9 +5,15 @@ import { spawn } from "node:child_process";
 
 test("verify-deploy validates a deployed Worker-compatible HTTP surface", async () => {
   const events = [];
+  const purgedRooms = [];
   const server = createServer((req, res) => {
     const url = new URL(req.url, "http://127.0.0.1");
-    if (url.searchParams.get("room") !== "shoot-3-5") {
+    const roomId = url.searchParams.get("room");
+    if (roomId === "shoot-3-5" && url.pathname === "/api/purge") {
+      res.statusCode = 409;
+      return res.end("refusing to purge filming room");
+    }
+    if (roomId !== "deploy-verify") {
       res.statusCode = 400;
       return res.end("missing room");
     }
@@ -42,7 +48,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
         });
         return json(res, {
           answer: "명량해전은 사실상 이순신의 지휘력 하나만으로 승리한 전투라고 볼 수 있어.",
-          roomId: "shoot-3-5",
+          roomId: "deploy-verify",
           latencyMs: 42
         });
       });
@@ -57,23 +63,24 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     if (url.pathname === "/api/debrief" && url.searchParams.get("token") === "teacher-secret") {
       return json(res, {
         schemaVersion: "debrief-table/v1",
-        roomId: "shoot-3-5",
+        roomId: "deploy-verify",
         rows: []
       });
     }
     if (url.pathname === "/api/debrief.csv" && url.searchParams.get("token") === "teacher-secret") {
       res.setHeader("content-type", "text/csv; charset=utf-8");
-      res.setHeader("content-disposition", 'attachment; filename="shoot-3-5-debrief-table.csv"');
+      res.setHeader("content-disposition", 'attachment; filename="deploy-verify-debrief-table.csv"');
       return res.end("roomId,sessionId\n");
     }
     if (url.pathname === "/api/export" && url.searchParams.get("token") === "teacher-secret") {
       return json(res, {
         schemaVersion: "classroom-export/v1",
-        roomId: "shoot-3-5",
+        roomId: "deploy-verify",
         events
       });
     }
     if (url.pathname === "/api/purge" && url.searchParams.get("token") === "teacher-secret" && req.method === "POST") {
+      purgedRooms.push(roomId);
       events.length = 0;
       return json(res, { ok: true });
     }
@@ -102,6 +109,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(result.stdout, /PASS deploy verification telemetry can be purged/);
     assert.match(result.stdout, /PASS OpenAI provider is configured when required/);
     assert.match(result.stdout, /deploy verification passed: 11\/11/);
+    assert.deepEqual(purgedRooms, ["deploy-verify"]);
 
     const strictResult = await runNode(["scripts/verify-deploy.js"], {
       WORKER_URL: workerUrl,
@@ -112,6 +120,17 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
 
     assert.notEqual(strictResult.code, 0);
     assert.match(strictResult.stdout, /FAIL OpenAI provider is configured when required/);
+    assert.deepEqual(purgedRooms, ["deploy-verify", "deploy-verify"]);
+
+    const unsafeResult = await runNode(["scripts/verify-deploy.js"], {
+      WORKER_URL: workerUrl,
+      TEACHER_TOKEN: "teacher-secret",
+      VERIFY_ROOM: "shoot-3-5"
+    });
+
+    assert.notEqual(unsafeResult.code, 0);
+    assert.match(unsafeResult.stderr, /VERIFY_ROOM must start with deploy-verify/);
+    assert.deepEqual(purgedRooms, ["deploy-verify", "deploy-verify"]);
   } finally {
     await close(server);
   }

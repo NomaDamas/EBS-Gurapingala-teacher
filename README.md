@@ -54,8 +54,10 @@ npm run smoke
 배포 URL 검증:
 
 ```bash
-WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> WORKER_ROOM=2026-07-13-3-5 REQUIRE_OPENAI=true npm run verify:deploy
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true npm run verify:deploy
 ```
+
+`verify:deploy`는 검증용 telemetry 정리를 위해 `/api/purge`를 호출하므로 실제 촬영방 `room`을 넘기지 않는다. 기본 검증 room은 `deploy-verify`다.
 
 촬영반별 URL 분리 예시:
 

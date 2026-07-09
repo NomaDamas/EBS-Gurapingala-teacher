@@ -1,12 +1,29 @@
 const baseUrl = normalizeBaseUrl(process.env.WORKER_URL || process.argv[2]);
 const teacherToken = process.env.TEACHER_TOKEN || "";
-const roomId = normalizeRoomId(process.env.WORKER_ROOM || "");
+const filmingRoomId = normalizeRoomId(process.env.WORKER_ROOM || "");
+const verifyRoomId = normalizeRoomId(process.env.VERIFY_ROOM || "deploy-verify");
 const requireOpenAI = process.env.REQUIRE_OPENAI === "true";
-const verifySessionId = `deploy-verify-${Date.now()}`;
+const allowUnsafePurge = process.env.ALLOW_PURGE_FILMING_ROOM === "true";
+const verifySessionId = `${verifyRoomId}-session-${Date.now()}`;
 
 if (!baseUrl) {
   console.error("Usage: WORKER_URL=https://<worker-domain> node scripts/verify-deploy.js");
   process.exit(1);
+}
+
+if (!verifyRoomId) {
+  console.error("VERIFY_ROOM must resolve to a non-empty deploy verification room.");
+  process.exit(1);
+}
+
+if (teacherToken && !allowUnsafePurge && !isSafeVerifyRoom(verifyRoomId)) {
+  console.error("VERIFY_ROOM must start with deploy-verify when TEACHER_TOKEN is set because verification purges its room.");
+  console.error("Use VERIFY_ROOM=deploy-verify-<suffix>, or set ALLOW_PURGE_FILMING_ROOM=true only for an intentionally disposable room.");
+  process.exit(1);
+}
+
+if (filmingRoomId && filmingRoomId !== verifyRoomId) {
+  console.warn(`Ignoring WORKER_ROOM=${filmingRoomId} for deploy verification cleanup; using VERIFY_ROOM=${verifyRoomId}.`);
 }
 
 const checks = [
@@ -62,7 +79,7 @@ const checks = [
     return chat.status === 200 &&
       typeof body.answer === "string" &&
       body.answer.length > 0 &&
-      body.roomId === (roomId || "default-classroom") &&
+      body.roomId === verifyRoomId &&
       Number.isFinite(body.latencyMs);
   }],
   ["teacher page access policy is enforced", async () => {
@@ -77,19 +94,19 @@ const checks = [
     return res.status === 200 && body.includes("실시간 교실 관찰");
   }],
   ["debrief export is room aware", async () => {
-    if (!teacherToken || !roomId) return true;
+    if (!teacherToken) return true;
     const res = await fetchUrl("/api/debrief", { token: teacherToken });
     const body = await res.json();
     return res.status === 200 &&
       body.schemaVersion === "debrief-table/v1" &&
-      body.roomId === roomId &&
+      body.roomId === verifyRoomId &&
       Array.isArray(body.rows);
   }],
   ["debrief csv filename is room aware", async () => {
-    if (!teacherToken || !roomId) return true;
+    if (!teacherToken) return true;
     const res = await fetchUrl("/api/debrief.csv", { token: teacherToken });
     const disposition = res.headers.get("content-disposition") || "";
-    return res.status === 200 && disposition.includes(`${roomId}-debrief-table.csv`);
+    return res.status === 200 && disposition.includes(`${verifyRoomId}-debrief-table.csv`);
   }],
   ["deploy verification telemetry is exportable", async () => {
     if (!teacherToken) return true;
@@ -133,7 +150,7 @@ if (failed) {
 
 function fetchUrl(path, query = {}, init) {
   const url = new URL(path, baseUrl);
-  if (roomId) url.searchParams.set("room", roomId);
+  url.searchParams.set("room", verifyRoomId);
   for (const [key, value] of Object.entries(query)) {
     if (value) url.searchParams.set(key, value);
   }
@@ -155,4 +172,8 @@ function normalizeRoomId(value) {
     .replace(/[^a-z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
+}
+
+function isSafeVerifyRoom(value) {
+  return value === "deploy-verify" || value.startsWith("deploy-verify-");
 }

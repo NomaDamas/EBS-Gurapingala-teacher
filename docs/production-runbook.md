@@ -25,8 +25,9 @@
    - `openaiConfigured`가 의도한 값인지 확인한다.
    - `chatRateLimitPerMinute`, `eventTtlHours`가 촬영 규모에 맞는지 확인한다.
 7. 배포 URL 전체 검증을 실행한다.
-   - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> WORKER_ROOM=<room> REQUIRE_OPENAI=true npm run verify:deploy`
+   - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true npm run verify:deploy`
    - 학생 페이지, health, OpenAI provider 설정, 평가 세트, 학생 join/chat, 교사용 보호, token 접속, export telemetry, purge 정리가 모두 통과해야 한다.
+   - `verify:deploy`는 `/api/purge`를 호출하므로 실제 촬영방 room을 쓰지 않는다. 검증 전용 room은 `deploy-verify` 또는 `deploy-verify-<suffix>`로만 둔다.
 
 ## 2. 리허설
 
