@@ -74,7 +74,9 @@ const checks = [
     const exportBody = await exportRes.json();
     const debriefRes = await appFetch("https://example.com/api/debrief?token=teacher-secret");
     const debriefBody = await debriefRes.json();
-    return exportBody.events.length >= 2 && debriefBody.rows.length === 1;
+    const csvRes = await appFetch("https://example.com/api/debrief.csv?token=teacher-secret");
+    const csvBody = await csvRes.text();
+    return exportBody.events.length >= 2 && debriefBody.rows.length === 1 && csvBody.includes("correctAnswer");
   }],
   ["purge clears events", async () => {
     const purge = await appFetch("https://example.com/api/purge?token=teacher-secret", { method: "POST" });

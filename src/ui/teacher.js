@@ -138,6 +138,7 @@ export const teacherHtml = `<!doctype html>
         <div class="actions">
           <button id="downloadExport">전체 로그 JSON</button>
           <button class="secondary" id="downloadDebrief">정정 수업 오류표</button>
+          <button class="secondary" id="downloadDebriefCsv">오류표 CSV</button>
           <button class="secondary" id="purgeEvents">촬영 로그 삭제</button>
         </div>
       </header>
@@ -156,6 +157,7 @@ export const teacherHtml = `<!doctype html>
     const personaEl = document.querySelector("#persona");
     const downloadExportEl = document.querySelector("#downloadExport");
     const downloadDebriefEl = document.querySelector("#downloadDebrief");
+    const downloadDebriefCsvEl = document.querySelector("#downloadDebriefCsv");
     const purgeEventsEl = document.querySelector("#purgeEvents");
     const sessions = new Map();
     const params = new URLSearchParams(location.search);
@@ -246,6 +248,19 @@ export const teacherHtml = `<!doctype html>
       URL.revokeObjectURL(url);
     }
 
+    async function downloadText(path, filename, type) {
+      const res = await fetch(path, { headers: authHeaders() });
+      if (!res.ok) return alert("다운로드 권한을 확인하세요.");
+      const text = await res.text();
+      const blob = new Blob([text], { type });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
     async function purgeEvents() {
       if (!confirm("촬영 로그를 삭제할까요? export 후 삭제하는 것을 권장합니다.")) return;
       const res = await fetch("/api/purge", { method: "POST", headers: authHeaders() });
@@ -265,6 +280,7 @@ export const teacherHtml = `<!doctype html>
     setInterval(renderStudents, 5000);
     downloadExportEl.addEventListener("click", () => downloadJson("/api/export", "classroom-export.json"));
     downloadDebriefEl.addEventListener("click", () => downloadJson("/api/debrief", "debrief-table.json"));
+    downloadDebriefCsvEl.addEventListener("click", () => downloadText("/api/debrief.csv", "debrief-table.csv", "text/csv"));
     purgeEventsEl.addEventListener("click", purgeEvents);
   </script>
 </body>

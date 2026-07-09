@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildDebriefRows, buildExportPayload, pruneEventsByTtl, summarizeSessions } from "../src/domain/session-export.js";
+import { buildDebriefCsv, buildDebriefRows, buildExportPayload, pruneEventsByTtl, summarizeSessions } from "../src/domain/session-export.js";
 
 const EVENTS = [
   {
@@ -61,6 +61,20 @@ test("buildExportPayload는 session summary, debrief rows, raw events를 포함�
   assert.equal(payload.sessionSummary.length, 1);
   assert.equal(payload.debriefRows.length, 1);
   assert.equal(payload.events.length, 3);
+});
+
+test("buildDebriefCsv는 스프레드시트용 CSV를 생성하고 특수문자를 escape한다", () => {
+  const csv = buildDebriefCsv([
+    {
+      ...EVENTS[2],
+      studentMessage: "명량해전, 몇 척이야?",
+      studentVisibleAnswer: "한 줄\n두 줄 \"인용\""
+    }
+  ]);
+
+  assert.ok(csv.startsWith("sessionId,studentName,at,question"));
+  assert.ok(csv.includes('"명량해전, 몇 척이야?"'));
+  assert.ok(csv.includes('"한 줄\n두 줄 ""인용"""'));
 });
 
 test("pruneEventsByTtl은 TTL이 지난 이벤트를 제거한다", () => {

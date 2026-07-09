@@ -1,7 +1,7 @@
 import { normalizeLevel } from "./domain/misinfo-policy.js";
 import { generateAuditedAnswer } from "./domain/llm-provider.js";
 import { EVALUATION_SET_50 } from "./domain/evaluation-set.js";
-import { buildDebriefRows, buildExportPayload } from "./domain/session-export.js";
+import { buildDebriefCsv, buildDebriefRows, buildExportPayload } from "./domain/session-export.js";
 import { isTeacherAuthorized, rateLimitDecision, unauthorized } from "./domain/security.js";
 import { studentHtml } from "./ui/student.js";
 import { teacherHtml } from "./ui/teacher.js";
@@ -36,6 +36,11 @@ export default {
         generatedAt: new Date().toISOString(),
         rows: buildDebriefRows(events)
       });
+    }
+    if (url.pathname === "/api/debrief.csv") {
+      if (!isTeacherAuthorized(request, env)) return unauthorized();
+      const events = await readEvents(room, env);
+      return csv(buildDebriefCsv(events), "debrief-table.csv");
     }
     if (url.pathname === "/api/purge" && request.method === "POST") {
       if (!isTeacherAuthorized(request, env)) return unauthorized();
@@ -285,6 +290,15 @@ function json(body, status = 200) {
   return new Response(JSON.stringify(body, null, 2), {
     status,
     headers: JSON_HEADERS
+  });
+}
+
+function csv(body, filename) {
+  return new Response(body, {
+    headers: {
+      "content-type": "text/csv; charset=utf-8",
+      "content-disposition": `attachment; filename="${filename}"`
+    }
   });
 }
 

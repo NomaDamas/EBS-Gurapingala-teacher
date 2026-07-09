@@ -20,6 +20,28 @@ export function buildDebriefRows(events) {
     });
 }
 
+export function buildDebriefCsv(events) {
+  const rows = buildDebriefRows(events);
+  const headers = [
+    "sessionId",
+    "studentName",
+    "at",
+    "question",
+    "studentVisibleAnswer",
+    "topic",
+    "level",
+    "correctAnswer",
+    "falseClaim",
+    "whyFalse",
+    "preflightVerdict",
+    "provider"
+  ];
+  return [
+    headers.join(","),
+    ...rows.map((row) => headers.map((header) => csvEscape(row[header])).join(","))
+  ].join("\n");
+}
+
 export function summarizeSessions(events, now = Date.now()) {
   const sessions = new Map();
   for (const event of normalizeEvents(events)) {
@@ -74,4 +96,9 @@ export function pruneEventsByTtl(events, now = Date.now(), ttlHours = 24) {
 
 function normalizeEvents(events) {
   return Array.isArray(events) ? events.filter(Boolean) : [];
+}
+
+function csvEscape(value) {
+  const text = value == null ? "" : String(value);
+  return `"${text.replaceAll('"', '""')}"`;
 }

@@ -65,6 +65,7 @@ npm run deploy
 - 평가 세트: `https://<worker-domain>/api/evaluation-set`
 - 전체 로그 export: `https://<worker-domain>/api/export`
 - 정정 수업 오류표: `https://<worker-domain>/api/debrief`
+- 정정 수업 오류표 CSV: `https://<worker-domain>/api/debrief.csv`
 
 ## 6. 운영 변수
 
