@@ -193,7 +193,6 @@ export const teacherHtml = `<!doctype html>
         if (socket !== ws) return;
         reconnectAttempts = 0;
         updateSocketStatus("online");
-        sendTeacherConfig();
       });
       ws.addEventListener("close", () => {
         if (socket !== ws) return;
@@ -241,7 +240,22 @@ export const teacherHtml = `<!doctype html>
 
     function handleTelemetry(event) {
       if (event.type === "snapshot") {
+        if (event.config) applyTeacherConfig(event.config);
         for (const item of event.events || []) handleTelemetry(item);
+        return;
+      }
+      if (event.type === "teacher_config_updated") {
+        applyTeacherConfig(event.config || event);
+        auditEl.textContent = JSON.stringify({
+          type: "teacher_config_updated",
+          level: levelEl.value,
+          persona: personaEl.value,
+          at: event.at
+        }, null, 2);
+        return;
+      }
+      if (event.type === "events_purged") {
+        auditEl.textContent = JSON.stringify(event, null, 2);
         return;
       }
       if (!event.sessionId) return;
@@ -291,6 +305,11 @@ export const teacherHtml = `<!doctype html>
         chatEl.appendChild(el);
       }
       auditEl.textContent = session.audit ? JSON.stringify(session.audit, null, 2) : "입장 이벤트만 수신됨";
+    }
+
+    function applyTeacherConfig(config) {
+      if (config.level) levelEl.value = String(config.level);
+      if (config.persona) personaEl.value = config.persona;
     }
 
     async function downloadJson(path, filename) {

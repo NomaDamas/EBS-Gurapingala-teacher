@@ -15,8 +15,8 @@ const checks = [
     id: "teacher-realtime-dashboard",
     evidence: ["src/ui/teacher.js", "src/worker.js"],
     run: async (files) =>
-      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot", "실시간 연결 재시도", "reconnectAttempts", "roomId", "withRoom"]) &&
-      includesAll(files["src/worker.js"], ["WebSocketPair", "sendSnapshot", "broadcast", "getRoom(env, roomId)"])
+      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot", "실시간 연결 재시도", "reconnectAttempts", "roomId", "withRoom", "applyTeacherConfig", "teacher_config_updated"]) &&
+      includesAll(files["src/worker.js"], ["WebSocketPair", "sendSnapshot", "broadcast", "getRoom(env, roomId)", "config"])
   },
   {
     id: "level-controlled-falsehood-policy",

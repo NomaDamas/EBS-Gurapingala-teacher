@@ -185,6 +185,10 @@ export class ClassroomRoom {
             studentName: "teacher",
             level: nextLevel,
             persona: nextPersona,
+            config: {
+              level: nextLevel,
+              persona: nextPersona
+            },
             at: new Date().toISOString()
           });
         }
@@ -269,10 +273,12 @@ export class ClassroomRoom {
   async sendSnapshot(socket) {
     try {
       const events = await this.readEvents();
+      const config = await this.state.storage.get("config") || null;
       socket.send(JSON.stringify({
         type: "snapshot",
         sessionId: "teacher",
         studentName: "teacher",
+        config,
         events,
         at: new Date().toISOString()
       }));
