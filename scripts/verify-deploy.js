@@ -1,0 +1,74 @@
+const baseUrl = normalizeBaseUrl(process.env.WORKER_URL || process.argv[2]);
+const teacherToken = process.env.TEACHER_TOKEN || "";
+
+if (!baseUrl) {
+  console.error("Usage: WORKER_URL=https://<worker-domain> node scripts/verify-deploy.js");
+  process.exit(1);
+}
+
+const checks = [
+  ["student page loads", async () => {
+    const res = await fetchUrl("/");
+    const body = await res.text();
+    return res.status === 200 && body.includes("질문의 온도");
+  }],
+  ["health endpoint is safe and ready", async () => {
+    const res = await fetchUrl("/api/health");
+    const body = await res.json();
+    return res.status === 200 &&
+      body.ok === true &&
+      typeof body.openaiConfigured === "boolean" &&
+      typeof body.teacherProtected === "boolean" &&
+      JSON.stringify(body).includes("OPENAI_API_KEY") === false &&
+      JSON.stringify(body).includes(teacherToken || "__no_token__") === false;
+  }],
+  ["evaluation set exposes 50 turns", async () => {
+    const res = await fetchUrl("/api/evaluation-set");
+    const body = await res.json();
+    return res.status === 200 && Array.isArray(body.items) && body.items.length === 50;
+  }],
+  ["teacher page access policy is enforced", async () => {
+    const res = await fetchUrl("/teacher");
+    if (teacherToken) return res.status === 401;
+    return res.status === 200 || res.status === 401;
+  }],
+  ["teacher page accepts token when provided", async () => {
+    if (!teacherToken) return true;
+    const res = await fetchUrl(`/teacher?token=${encodeURIComponent(teacherToken)}`);
+    const body = await res.text();
+    return res.status === 200 && body.includes("실시간 교실 관찰");
+  }]
+];
+
+let failed = 0;
+for (const [name, run] of checks) {
+  try {
+    const passed = await run();
+    console.log(`${passed ? "PASS" : "FAIL"} ${name}`);
+    if (!passed) failed += 1;
+  } catch (error) {
+    failed += 1;
+    console.log(`FAIL ${name}`);
+    console.error(`  ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+if (failed) {
+  console.error(`deploy verification failed: ${failed}/${checks.length}`);
+  process.exitCode = 1;
+} else {
+  console.log(`deploy verification passed: ${checks.length}/${checks.length}`);
+}
+
+function fetchUrl(path, init) {
+  return fetch(new URL(path, baseUrl), init);
+}
+
+function normalizeBaseUrl(value) {
+  if (!value) return "";
+  const url = new URL(value);
+  url.pathname = "/";
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}

@@ -58,6 +58,14 @@ npm run smoke
 npm run deploy
 ```
 
+배포 후 실제 Worker URL을 검증한다.
+
+```bash
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> npm run verify:deploy
+```
+
+이 검증은 학생 페이지, `/api/health`, 50턴 평가 endpoint, `/teacher` 보호 여부, token 기반 교사용 접속을 확인한다. `TEACHER_TOKEN`을 생략하면 교사용 token 접속 확인은 건너뛰고 보호 정책 상태만 점검한다.
+
 GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 
 필요한 repository/environment secrets:
@@ -80,7 +88,7 @@ GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 |---|---|
 | `WORKER_HEALTH_URL` | 배포 후 `/api/health` 검증 URL |
 
-수동 배포 workflow도 `node --test`, `node scripts/run-eval.js`, `node scripts/readiness-audit.js`, `node scripts/smoke-worker.js`를 통과한 뒤 `npx wrangler deploy`를 실행한다.
+수동 배포 workflow도 `node --test`, `node scripts/run-eval.js`, `node scripts/readiness-audit.js`, `node scripts/smoke-worker.js`를 통과한 뒤 `npx wrangler deploy`를 실행한다. `WORKER_HEALTH_URL`이 설정되어 있으면 `scripts/verify-deploy.js`로 실제 배포 URL까지 확인한다. 값은 `https://<worker-domain>` 또는 `https://<worker-domain>/api/health` 어느 쪽이어도 된다.
 
 ## 5. URL
 

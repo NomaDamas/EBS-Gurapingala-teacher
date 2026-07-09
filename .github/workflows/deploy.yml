@@ -50,8 +50,7 @@ jobs:
 
       - name: Verify health endpoint
         if: ${{ vars.WORKER_HEALTH_URL != '' }}
-        run: |
-          curl --fail --silent --show-error "$WORKER_HEALTH_URL" | tee health.json
-          node -e "const fs=require('fs'); const h=JSON.parse(fs.readFileSync('health.json','utf8')); if(!h.ok) process.exit(1);"
+        run: node scripts/verify-deploy.js
         env:
-          WORKER_HEALTH_URL: ${{ vars.WORKER_HEALTH_URL }}
+          WORKER_URL: ${{ vars.WORKER_HEALTH_URL }}
+          TEACHER_TOKEN: ${{ secrets.TEACHER_TOKEN }}

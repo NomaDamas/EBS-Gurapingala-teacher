@@ -21,6 +21,9 @@
    - `teacherProtected`가 `true`인지 확인한다.
    - `openaiConfigured`가 의도한 값인지 확인한다.
    - `chatRateLimitPerMinute`, `eventTtlHours`가 촬영 규모에 맞는지 확인한다.
+6. 배포 URL 전체 검증을 실행한다.
+   - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> npm run verify:deploy`
+   - 학생 페이지, health, 평가 세트, 교사용 보호, token 접속이 모두 통과해야 한다.
 
 ## 2. 리허설
 

@@ -49,6 +49,12 @@ Worker route smoke:
 npm run smoke
 ```
 
+배포 URL 검증:
+
+```bash
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> npm run verify:deploy
+```
+
 출력 예시:
 
 ```text
