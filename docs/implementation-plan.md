@@ -157,3 +157,5 @@ Checklist:
 6. 승인되면 머지하고 다음 이슈로 진행한다.
 
 현재 상태: GitHub Actions `Verify product gates`가 unit tests, 50-turn evaluation, readiness audit, Worker route smoke를 PR/push에서 실행한다. 외부 GPT-5.5 xhigh 리뷰 자동화 계정은 아직 연결 증거가 없어 PR 코멘트로 리뷰 요청을 남긴 상태다.
+
+Review packet: [GPT-5.5 xhigh 외부 리뷰 패킷](external-review-packet.md) (`docs/external-review-packet.md`)

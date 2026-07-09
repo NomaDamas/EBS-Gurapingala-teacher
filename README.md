@@ -112,3 +112,4 @@ npx wrangler deploy
 - [배포 가이드](docs/deployment-guide.md)
 - [촬영 운영 런북](docs/production-runbook.md)
 - [프로덕션 런치 감사 매트릭스](docs/launch-audit.md)
+- [GPT-5.5 xhigh 외부 리뷰 패킷](docs/external-review-packet.md)
