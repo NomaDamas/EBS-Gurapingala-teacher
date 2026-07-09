@@ -116,3 +116,23 @@ Non-blocking risks:
 Final verdict:
 - 이 PR은 원래 실험 철학과 production 촬영 요구사항을 충족한다/충족하지 않는다.
 ```
+
+## 구조화된 승인 증거 생성
+
+리뷰어가 `APPROVE`를 준 뒤에는 텍스트 판정만 보관하지 말고 `release:audit`가 읽을 JSON 증거를 생성한다. blocking finding이 있으면 `APPROVE` 증거 생성은 실패한다.
+
+```bash
+EXTERNAL_REVIEW_DECISION=APPROVE \
+EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" \
+PR_HEAD_SHA=<latest-sha> \
+CI_STATUS=success \
+TESTS_STATUS=pass \
+EVAL_STATUS=pass \
+READINESS_STATUS=pass \
+SMOKE_STATUS=pass \
+VERIFY_DEPLOY_STATUS=pass \
+EXTERNAL_REVIEW_FILE=artifacts/external-review.json \
+npm run review:evidence
+```
+
+생성되는 JSON은 `external-review-evidence/v1`이며 `decision`, `reviewer`, `prHeadSha`, `evidenceChecked`, `blockingFindings`, `nonBlockingRisks`를 포함한다.

@@ -92,6 +92,12 @@ WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=dep
 
 머지 또는 촬영 릴리즈 직전에는 배포 검증과 외부 리뷰 증거가 최신 PR head에 묶였는지 확인한다.
 
+외부 리뷰 승인 JSON 생성:
+
+```bash
+EXTERNAL_REVIEW_DECISION=APPROVE EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" PR_HEAD_SHA=<latest-sha> CI_STATUS=success TESTS_STATUS=pass EVAL_STATUS=pass READINESS_STATUS=pass SMOKE_STATUS=pass VERIFY_DEPLOY_STATUS=pass EXTERNAL_REVIEW_FILE=artifacts/external-review.json npm run review:evidence
+```
+
 ```bash
 EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json npm run release:audit
 ```
