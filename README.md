@@ -91,10 +91,12 @@ OPENAI_API_KEY=... EVAL_MODELS=gpt-5.5,gpt-5.5-mini EVAL_JUDGE=openai EVAL_JUDGE
 ## Cloudflare 설정
 
 ```bash
-npx wrangler secret put OPENAI_API_KEY
-npx wrangler secret put TEACHER_TOKEN
-npx wrangler deploy
+CLOUDFLARE_ACCOUNT_ID=<account-id> npx wrangler secret put OPENAI_API_KEY
+CLOUDFLARE_ACCOUNT_ID=<account-id> npx wrangler secret put TEACHER_TOKEN
+CLOUDFLARE_ACCOUNT_ID=<account-id> npx wrangler deploy
 ```
+
+Cloudflare 계정이 여러 개이면 `CLOUDFLARE_ACCOUNT_ID`를 반드시 지정해야 Wrangler가 비대화형 배포에서 실패하지 않습니다. 계정이 하나뿐이면 `CLOUDFLARE_ACCOUNT_ID=...` prefix는 생략할 수 있습니다.
 
 학생에게는 배포 URL `/`을 공유하고, 교사는 `/teacher`를 사용합니다.
 `TEACHER_TOKEN`을 설정했다면 교사는 `/teacher?token=<token>`으로 최초 접속합니다. 대시보드는 token을 localStorage에 저장한 뒤 주소창에서 제거하고, export/debrief/purge API에는 `x-teacher-token` header로 전달합니다.

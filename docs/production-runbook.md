@@ -20,6 +20,7 @@
    - `npm run smoke`
 5. GitHub Actions `Deploy` workflow를 사용할 경우 environment를 선택하고 실행한다.
    - `CLOUDFLARE_API_TOKEN`과 `CLOUDFLARE_ACCOUNT_ID`가 설정되어 있어야 한다.
+   - Cloudflare 계정이 여러 개이면 `CLOUDFLARE_ACCOUNT_ID`가 없을 때 Wrangler가 계정을 고르지 못해 배포가 실패한다.
    - production environment에는 `WORKER_HEALTH_URL`이 반드시 설정되어 있어야 한다. 비어 있으면 workflow가 배포 전에 실패한다.
    - workflow의 배포 후 검증은 기본 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`로 실행된다.
 6. 배포 후 `/api/health`를 확인한다.
@@ -102,6 +103,7 @@
 | 상황 | 대응 |
 |---|---|
 | 교사용 화면이 열리지 않음 | URL token이 맞는지 확인하고, `TEACHER_TOKEN` secret을 재설정한다. |
+| Wrangler가 계정을 고르지 못함 | Cloudflare 계정이 여러 개다. GitHub Actions secret 또는 로컬 환경에 `CLOUDFLARE_ACCOUNT_ID`를 명시한다. |
 | 교사용 실시간 연결이 끊김 | 연결 상태 입력칸의 retry/last 값을 확인하고 `실시간 연결 재시도` 버튼을 누른다. |
 | 학생 답변이 계속 재질문 메시지로 닫힘 | 교사용 JSON의 실패 이력을 보고 Level 또는 persona를 낮춘다. |
 | OpenAI 요청 지연으로 학생 응답이 늦음 | `/api/health.openaiTimeoutMs`와 교사용 audit의 `provider.timeoutMs`를 확인하고, 촬영 규모에 맞게 `OPENAI_TIMEOUT_MS`를 낮춘 뒤 재배포한다. |

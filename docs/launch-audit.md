@@ -65,6 +65,7 @@ WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=dep
 | 촬영 기대 모델이 아닌 다른 OpenAI 모델로 배포 | `/api/health.openaiModel`, `EXPECTED_OPENAI_MODEL` deploy verification |
 | OpenAI 요청 지연으로 교실 채팅 흐름이 멈춤 | `OPENAI_TIMEOUT_MS`를 촬영 규모에 맞게 설정하고 `/api/health.openaiTimeoutMs`, `EXPECTED_OPENAI_TIMEOUT_MS`로 검증 |
 | production Deploy workflow가 실제 URL 검증을 건너뜀 | production에서 `WORKER_HEALTH_URL`이 비어 있으면 배포 전에 실패 |
+| Cloudflare 계정이 여러 개라 비대화형 배포가 실패 | GitHub Actions secret 또는 로컬 환경에 `CLOUDFLARE_ACCOUNT_ID`를 명시하고, `wrangler whoami`로 계정 id를 확인 |
 | 촬영 당일 새 wrangler/의존성으로 동작이 달라짐 | Node.js 22와 `package-lock.json` 기반 `npm ci`로 CI/Deploy 의존성을 고정 |
 | GitHub Deploy workflow가 로컬 검증과 다른 조건으로 배포 | workflow 기본 배포 후 검증은 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`로 실행 |
 | 학생이 AI 답변을 정답으로 오인한 채 촬영 종료 | `/api/debrief.csv` 기준 정정 수업을 촬영 직후 수행 |
