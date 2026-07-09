@@ -7,6 +7,7 @@
     "test": "node --test",
     "eval": "node scripts/run-eval.js",
     "readiness": "node scripts/readiness-audit.js",
+    "smoke": "node scripts/smoke-worker.js",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail"

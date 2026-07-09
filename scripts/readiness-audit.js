@@ -59,11 +59,12 @@ const checks = [
   },
   {
     id: "cloudflare-worker-deployment",
-    evidence: ["wrangler.toml", "src/worker.js", "docs/deployment-guide.md"],
+    evidence: ["wrangler.toml", "src/worker.js", "docs/deployment-guide.md", "scripts/smoke-worker.js"],
     run: async (files) =>
       includesAll(files["wrangler.toml"], ["durable_objects.bindings", "ClassroomRoom", "CHAT_RATE_LIMIT_PER_MINUTE", "EVENT_TTL_HOURS"]) &&
       includesAll(files["src/worker.js"], ["export class ClassroomRoom"]) &&
-      includesAll(files["docs/deployment-guide.md"], ["npm run deploy"])
+      includesAll(files["docs/deployment-guide.md"], ["npm run deploy"]) &&
+      includesAll(files["scripts/smoke-worker.js"], ["worker smoke passed", "/api/chat", "/api/export"])
   },
   {
     id: "teacher-access-and-abuse-controls",

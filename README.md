@@ -37,6 +37,12 @@ npm run eval
 npm run readiness
 ```
 
+Worker route smoke:
+
+```bash
+npm run smoke
+```
+
 출력 예시:
 
 ```text

@@ -43,6 +43,7 @@ https://<worker-domain>/teacher?token=<TEACHER_TOKEN>
 npm test
 npm run eval
 npm run readiness
+npm run smoke
 npm run deploy
 ```
 
