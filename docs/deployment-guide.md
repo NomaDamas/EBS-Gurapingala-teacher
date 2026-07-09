@@ -35,7 +35,7 @@ npx wrangler secret put TEACHER_TOKEN
 https://<worker-domain>/teacher?token=<TEACHER_TOKEN>
 ```
 
-대시보드는 token을 브라우저 localStorage에 저장해 WebSocket, export, debrief, purge 요청에 `x-teacher-token`으로 전달한다.
+대시보드는 token을 브라우저 localStorage에 저장해 WebSocket, export, debrief, purge 요청에 `x-teacher-token`으로 전달한다. `/api/purge`는 추가로 현재 room과 일치하는 `x-purge-room` 헤더가 있어야 동작한다.
 
 ## 3-1. 촬영방 분리
 
@@ -131,7 +131,7 @@ GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 - 배포 직후 `/api/health`에서 `ok`, `provider`, `teacherProtected`, `chatRateLimitPerMinute`, `eventTtlHours`를 확인
 - `/teacher` 보호: `TEACHER_TOKEN` 또는 Cloudflare Access 설정
 - rate limit: `CHAT_RATE_LIMIT_PER_MINUTE`를 촬영 규모에 맞게 조정
-- 데이터 보관: 촬영 종료 후 export하고 대시보드의 로그 삭제 버튼 또는 `/api/purge` 사용
+- 데이터 보관: 촬영 종료 후 export하고 대시보드의 로그 삭제 버튼 또는 `/api/purge` 사용. 삭제 시 room 이름을 다시 입력하고, API 호출은 `x-purge-room: <room>` 헤더를 포함해야 한다.
 - 정정 수업: 교사용 감사 JSON 기반 오류 정답표 제공
 - 로깅: 개인정보 최소화, 이름 외 식별자 저장 금지
 

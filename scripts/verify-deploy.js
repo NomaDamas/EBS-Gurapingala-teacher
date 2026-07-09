@@ -118,7 +118,10 @@ const checks = [
   }],
   ["deploy verification telemetry can be purged", async () => {
     if (!teacherToken) return true;
-    const purge = await fetchUrl("/api/purge", { token: teacherToken }, { method: "POST" });
+    const purge = await fetchUrl("/api/purge", { token: teacherToken }, {
+      method: "POST",
+      headers: { "x-purge-room": verifyRoomId }
+    });
     if (purge.status !== 200) return false;
     const res = await fetchUrl("/api/export", { token: teacherToken });
     const body = await res.json();

@@ -53,6 +53,8 @@ export default {
     }
     if (url.pathname === "/api/purge" && request.method === "POST") {
       if (!isTeacherAuthorized(request, env)) return unauthorized();
+      const purgeCheck = validatePurgeConfirmation(request, roomId);
+      if (purgeCheck) return purgeCheck;
       await room.fetch("https://room.local/purge", { method: "POST" });
       return json({ ok: true });
     }
@@ -434,6 +436,26 @@ function sanitizeText(value, maxLength) {
 
 function validationError(code, message) {
   return json({ error: code, message }, 400);
+}
+
+function validatePurgeConfirmation(request, roomId) {
+  const confirmedRoom = normalizeOptionalRoomId(request.headers.get("x-purge-room") || "");
+  if (confirmedRoom !== roomId) {
+    return json({
+      error: "purge_room_confirmation_required",
+      message: "삭제하려는 room을 x-purge-room 헤더로 정확히 확인해야 합니다.",
+      roomId
+    }, 409);
+  }
+  return null;
+}
+
+function normalizeOptionalRoomId(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
 }
 
 function safeJson(value) {

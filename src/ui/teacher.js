@@ -385,8 +385,15 @@ export const teacherHtml = `<!doctype html>
 
     async function purgeEvents() {
       if (!confirm("촬영 로그를 삭제할까요? export 후 삭제하는 것을 권장합니다.")) return;
-      const res = await fetch(withRoom("/api/purge"), { method: "POST", headers: authHeaders() });
-      if (!res.ok) return alert("삭제 권한을 확인하세요.");
+      const typedRoom = prompt("삭제할 room 이름을 정확히 입력하세요.", "");
+      if (normalizeRoomId(typedRoom || "") !== roomId) {
+        return alert("room 이름이 일치하지 않아 삭제하지 않았습니다.");
+      }
+      const res = await fetch(withRoom("/api/purge"), {
+        method: "POST",
+        headers: authHeaders({ "x-purge-room": roomId })
+      });
+      if (!res.ok) return alert("삭제 권한 또는 room 확인 헤더를 확인하세요.");
       sessions.clear();
       selected = null;
       renderStudents();
@@ -394,8 +401,11 @@ export const teacherHtml = `<!doctype html>
       auditEl.textContent = "교사용 감사 JSON 대기 중";
     }
 
-    function authHeaders() {
-      return teacherToken ? { "x-teacher-token": teacherToken } : {};
+    function authHeaders(extra = {}) {
+      return {
+        ...(teacherToken ? { "x-teacher-token": teacherToken } : {}),
+        ...extra
+      };
     }
 
     function withRoom(path) {

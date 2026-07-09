@@ -36,7 +36,8 @@ const checks = [
       body.includes("설정 적용 상태") &&
       body.includes("채팅턴") &&
       body.includes("학생 URL 복사") &&
-      body.includes("교사용 URL 복사");
+      body.includes("교사용 URL 복사") &&
+      body.includes("x-purge-room");
   }],
   ["evaluation set exposes 50 turns", async () => {
     const res = await appFetch("https://example.com/api/evaluation-set");
@@ -156,10 +157,18 @@ const checks = [
       roomB.events.length === 0;
   }],
   ["purge clears events", async () => {
-    const purge = await appFetch("https://example.com/api/purge?token=teacher-secret", { method: "POST" });
+    const rejected = await appFetch("https://example.com/api/purge?token=teacher-secret", { method: "POST" });
+    const rejectedBody = await rejected.json();
+    const purge = await appFetch("https://example.com/api/purge?token=teacher-secret", {
+      method: "POST",
+      headers: { "x-purge-room": "default-classroom" }
+    });
     const exportRes = await appFetch("https://example.com/api/export?token=teacher-secret");
     const exportBody = await exportRes.json();
-    return purge.status === 200 && exportBody.events.length === 0;
+    return rejected.status === 409 &&
+      rejectedBody.error === "purge_room_confirmation_required" &&
+      purge.status === 200 &&
+      exportBody.events.length === 0;
   }]
 ];
 

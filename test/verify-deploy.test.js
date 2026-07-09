@@ -80,6 +80,10 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
       });
     }
     if (url.pathname === "/api/purge" && url.searchParams.get("token") === "teacher-secret" && req.method === "POST") {
+      if (req.headers["x-purge-room"] !== roomId) {
+        res.statusCode = 409;
+        return res.end("purge room confirmation required");
+      }
       purgedRooms.push(roomId);
       events.length = 0;
       return json(res, { ok: true });
