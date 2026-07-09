@@ -98,6 +98,14 @@ const checks = [
       includesAll(files["docs/production-runbook.md"], ["촬영 전날", "리허설", "촬영 중", "촬영 직후", "데이터 삭제", "/api/health", "/api/debrief.csv"]) &&
       includesAll(files["README.md"], ["촬영 운영 런북"]) &&
       includesAll(files["docs/deployment-guide.md"], ["production-runbook.md"])
+  },
+  {
+    id: "design-reference-documented",
+    evidence: ["docs/design.md", "README.md", "docs/implementation-plan.md"],
+    run: async (files) =>
+      includesAll(files["docs/design.md"], ["vercel/chatbot", "mckaywrigley/chatbot-ui", "ChatGPTNextWeb/NextChat", "10k+ stars", "학생 no-login", "교사용 감사 JSON", "촬영방 `room`과 배포 검증용 `deploy-verify` room은 분리"]) &&
+      includesAll(files["README.md"], ["촬영용 채팅 UI 설계 근거"]) &&
+      includesAll(files["docs/implementation-plan.md"], ["Design decision record", "docs/design.md"])
   }
 ];
 

@@ -120,11 +120,15 @@ Reference:
 - Chatbot UI: https://github.com/mckaywrigley/chatbot-ui
 - NextChat: https://github.com/ChatGPTNextWeb/NextChat
 
+Design decision record: [촬영용 채팅 UI 설계 근거](design.md) (`docs/design.md`)
+
 Acceptance:
 - 모바일 학생 화면에서 입력과 답변이 안정적으로 보인다.
 - 교사 화면에서 다수 학생 카드가 한눈에 보인다.
 - 감사 JSON은 복사 가능한 형태다.
 - 촬영 화면에 민감정보가 과하게 노출되지 않는다.
+
+현재 상태: 2026-07-10 KST GitHub API 기준 10k+ stars 채팅 UI 3개를 확인했고, 학생 no-login composer, 교사용 학생 카드/선택 대화/감사 JSON 패널, token URL 제거, room 분리 불변 조건을 `docs/design.md`에 문서화함.
 
 ## Issue 8. Gap Closing
 

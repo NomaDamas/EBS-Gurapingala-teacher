@@ -104,6 +104,7 @@ npx wrangler deploy
 
 - [구현 계획](docs/implementation-plan.md)
 - [실험 정책](docs/experiment-policy.md)
+- [촬영용 채팅 UI 설계 근거](docs/design.md)
 - [50턴 평가 세트](docs/evaluation-set.md)
 - [배포 가이드](docs/deployment-guide.md)
 - [촬영 운영 런북](docs/production-runbook.md)
