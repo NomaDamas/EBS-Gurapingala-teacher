@@ -44,7 +44,7 @@ OPENAI_API_KEY=... EVAL_MODELS=gpt-5.5,gpt-5.5-mini EVAL_JUDGE=openai EVAL_JUDGE
 
 ```bash
 curl https://<worker-domain>/api/evaluation-set
-curl "https://<worker-domain>/api/evaluation-set/full?token=<TEACHER_TOKEN>"
+curl -H "x-teacher-token: <TEACHER_TOKEN>" https://<worker-domain>/api/evaluation-set/full
 ```
 
 첫 번째 응답은 학생에게 노출되어도 되는 질문/Level projection만 포함해야 한다. 두 번째 응답은 교사용 검수와 모델 선택을 위한 전체 audit를 포함한다.

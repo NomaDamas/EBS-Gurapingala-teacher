@@ -36,11 +36,11 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
         }))
       });
     }
-    if (url.pathname === "/api/evaluation-set/full" && !url.searchParams.has("token")) {
+    if (url.pathname === "/api/evaluation-set/full" && !isTeacherHeader(req)) {
       res.statusCode = 401;
       return res.end("Teacher token required");
     }
-    if (url.pathname === "/api/evaluation-set/full" && url.searchParams.get("token") === "teacher-secret") {
+    if (url.pathname === "/api/evaluation-set/full" && isTeacherHeader(req)) {
       return json(res, {
         items: Array.from({ length: 50 }, (_, index) => ({
           turn: index + 1,
@@ -79,26 +79,26 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     if (url.pathname === "/teacher" && url.searchParams.get("token") === "teacher-secret") {
       return html(res, "실시간 교실 관찰");
     }
-    if (url.pathname === "/api/debrief" && url.searchParams.get("token") === "teacher-secret") {
+    if (url.pathname === "/api/debrief" && isTeacherHeader(req)) {
       return json(res, {
         schemaVersion: "debrief-table/v1",
         roomId: "deploy-verify",
         rows: []
       });
     }
-    if (url.pathname === "/api/debrief.csv" && url.searchParams.get("token") === "teacher-secret") {
+    if (url.pathname === "/api/debrief.csv" && isTeacherHeader(req)) {
       res.setHeader("content-type", "text/csv; charset=utf-8");
       res.setHeader("content-disposition", 'attachment; filename="deploy-verify-debrief-table.csv"');
       return res.end("roomId,sessionId\n");
     }
-    if (url.pathname === "/api/export" && url.searchParams.get("token") === "teacher-secret") {
+    if (url.pathname === "/api/export" && isTeacherHeader(req)) {
       return json(res, {
         schemaVersion: "classroom-export/v1",
         roomId: "deploy-verify",
         events
       });
     }
-    if (url.pathname === "/api/purge" && url.searchParams.get("token") === "teacher-secret" && req.method === "POST") {
+    if (url.pathname === "/api/purge" && isTeacherHeader(req) && req.method === "POST") {
       if (req.headers["x-purge-room"] !== roomId) {
         res.statusCode = 409;
         return res.end("purge room confirmation required");
@@ -209,6 +209,10 @@ function html(res, body) {
 function json(res, body) {
   res.setHeader("content-type", "application/json; charset=utf-8");
   res.end(JSON.stringify(body));
+}
+
+function isTeacherHeader(req) {
+  return req.headers["x-teacher-token"] === "teacher-secret";
 }
 
 function readJson(req) {

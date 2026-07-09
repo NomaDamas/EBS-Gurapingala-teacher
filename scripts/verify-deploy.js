@@ -79,7 +79,7 @@ const checks = [
   ["full evaluation set requires teacher token", async () => {
     const noToken = await fetchUrl("/api/evaluation-set/full");
     if (!teacherToken) return noToken.status === 200 || noToken.status === 401;
-    const withToken = await fetchUrl("/api/evaluation-set/full", { token: teacherToken });
+    const withToken = await fetchTeacherUrl("/api/evaluation-set/full");
     const body = await withToken.json();
     return noToken.status === 401 &&
       withToken.status === 200 &&
@@ -127,7 +127,7 @@ const checks = [
   }],
   ["debrief export is room aware", async () => {
     if (!teacherToken) return true;
-    const res = await fetchUrl("/api/debrief", { token: teacherToken });
+    const res = await fetchTeacherUrl("/api/debrief");
     const body = await res.json();
     return res.status === 200 &&
       body.schemaVersion === "debrief-table/v1" &&
@@ -136,13 +136,13 @@ const checks = [
   }],
   ["debrief csv filename is room aware", async () => {
     if (!teacherToken) return true;
-    const res = await fetchUrl("/api/debrief.csv", { token: teacherToken });
+    const res = await fetchTeacherUrl("/api/debrief.csv");
     const disposition = res.headers.get("content-disposition") || "";
     return res.status === 200 && disposition.includes(`${verifyRoomId}-debrief-table.csv`);
   }],
   ["deploy verification telemetry is exportable", async () => {
     if (!teacherToken) return true;
-    const res = await fetchUrl("/api/export", { token: teacherToken });
+    const res = await fetchTeacherUrl("/api/export");
     const body = await res.json();
     return res.status === 200 &&
       Array.isArray(body.events) &&
@@ -150,12 +150,12 @@ const checks = [
   }],
   ["deploy verification telemetry can be purged", async () => {
     if (!teacherToken) return true;
-    const purge = await fetchUrl("/api/purge", { token: teacherToken }, {
+    const purge = await fetchTeacherUrl("/api/purge", {
       method: "POST",
       headers: { "x-purge-room": verifyRoomId }
     });
     if (purge.status !== 200) return false;
-    const res = await fetchUrl("/api/export", { token: teacherToken });
+    const res = await fetchTeacherUrl("/api/export");
     const body = await res.json();
     return res.status === 200 &&
       Array.isArray(body.events) &&
@@ -190,6 +190,16 @@ function fetchUrl(path, query = {}, init) {
     if (value) url.searchParams.set(key, value);
   }
   return fetch(url, init);
+}
+
+function fetchTeacherUrl(path, init = {}) {
+  return fetchUrl(path, {}, {
+    ...init,
+    headers: {
+      ...(init.headers || {}),
+      "x-teacher-token": teacherToken
+    }
+  });
 }
 
 function normalizeBaseUrl(value) {

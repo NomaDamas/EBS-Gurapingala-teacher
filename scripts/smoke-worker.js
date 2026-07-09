@@ -43,7 +43,9 @@ const checks = [
     const res = await appFetch("https://example.com/api/evaluation-set");
     const body = await res.json();
     const fullWithoutToken = await appFetch("https://example.com/api/evaluation-set/full");
-    const fullWithToken = await appFetch("https://example.com/api/evaluation-set/full?token=teacher-secret");
+    const fullWithToken = await appFetch("https://example.com/api/evaluation-set/full", {
+      headers: { "x-teacher-token": "teacher-secret" }
+    });
     const fullBody = await fullWithToken.json();
     const serializedPublic = JSON.stringify(body);
     return res.status === 200 &&
@@ -130,11 +132,17 @@ const checks = [
     return exportRes.status === 401 && debriefRes.status === 401;
   }],
   ["export and debrief work with token", async () => {
-    const exportRes = await appFetch("https://example.com/api/export?token=teacher-secret");
+    const exportRes = await appFetch("https://example.com/api/export", {
+      headers: { "x-teacher-token": "teacher-secret" }
+    });
     const exportBody = await exportRes.json();
-    const debriefRes = await appFetch("https://example.com/api/debrief?token=teacher-secret");
+    const debriefRes = await appFetch("https://example.com/api/debrief", {
+      headers: { "x-teacher-token": "teacher-secret" }
+    });
     const debriefBody = await debriefRes.json();
-    const csvRes = await appFetch("https://example.com/api/debrief.csv?token=teacher-secret");
+    const csvRes = await appFetch("https://example.com/api/debrief.csv", {
+      headers: { "x-teacher-token": "teacher-secret" }
+    });
     const csvBody = await csvRes.text();
     const csvDisposition = csvRes.headers.get("content-disposition") || "";
     return exportBody.roomId === "default-classroom" &&
@@ -165,21 +173,30 @@ const checks = [
         message: "거북선은 누가 만들었어?"
       })
     });
-    const roomA = await (await appFetch("https://example.com/api/export?room=room-a&token=teacher-secret")).json();
-    const roomB = await (await appFetch("https://example.com/api/export?room=room-b&token=teacher-secret")).json();
+    const teacherHeaders = { "x-teacher-token": "teacher-secret" };
+    const roomA = await (await appFetch("https://example.com/api/export?room=room-a", { headers: teacherHeaders })).json();
+    const roomB = await (await appFetch("https://example.com/api/export?room=room-b", { headers: teacherHeaders })).json();
     return roomA.roomId === "room-a" &&
       roomB.roomId === "room-b" &&
       roomA.events.some((event) => event.studentName === "서연") &&
       roomB.events.length === 0;
   }],
   ["purge clears events", async () => {
-    const rejected = await appFetch("https://example.com/api/purge?token=teacher-secret", { method: "POST" });
-    const rejectedBody = await rejected.json();
-    const purge = await appFetch("https://example.com/api/purge?token=teacher-secret", {
+    const rejected = await appFetch("https://example.com/api/purge", {
       method: "POST",
-      headers: { "x-purge-room": "default-classroom" }
+      headers: { "x-teacher-token": "teacher-secret" }
     });
-    const exportRes = await appFetch("https://example.com/api/export?token=teacher-secret");
+    const rejectedBody = await rejected.json();
+    const purge = await appFetch("https://example.com/api/purge", {
+      method: "POST",
+      headers: {
+        "x-teacher-token": "teacher-secret",
+        "x-purge-room": "default-classroom"
+      }
+    });
+    const exportRes = await appFetch("https://example.com/api/export", {
+      headers: { "x-teacher-token": "teacher-secret" }
+    });
     const exportBody = await exportRes.json();
     return rejected.status === 409 &&
       rejectedBody.error === "purge_room_confirmation_required" &&

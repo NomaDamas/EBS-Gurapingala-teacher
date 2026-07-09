@@ -94,7 +94,7 @@ npx wrangler deploy
 ```
 
 학생에게는 배포 URL `/`을 공유하고, 교사는 `/teacher`를 사용합니다.
-`TEACHER_TOKEN`을 설정했다면 교사는 `/teacher?token=<token>`으로 접속합니다.
+`TEACHER_TOKEN`을 설정했다면 교사는 `/teacher?token=<token>`으로 최초 접속합니다. 대시보드는 token을 localStorage에 저장한 뒤 주소창에서 제거하고, export/debrief/purge API에는 `x-teacher-token` header로 전달합니다.
 단일 `OPENAI_API_KEY`가 서버에만 저장되므로 여러 학생이 같은 API 계정을 공유해도 학생 브라우저에는 키가 노출되지 않습니다.
 `OPENAI_API_KEY`가 없거나 `LLM_PROVIDER=rules`이면 로컬 룰 기반 provider로 동작합니다.
 `OPENAI_API_KEY`가 있으면 Responses API structured output으로 `correct_answer`, `false_answer`, `false_basis`, `level_fit_reason`, `student_answer`를 생성하고, 검수 실패 시 최대 3회 재생성합니다.

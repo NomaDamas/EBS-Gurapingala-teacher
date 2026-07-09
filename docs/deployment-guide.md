@@ -75,7 +75,7 @@ npm run deploy
 WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true npm run verify:deploy
 ```
 
-이 검증은 학생 페이지, `/api/health`, 50턴 평가 endpoint, `/api/join`과 `/api/chat`, `/teacher` 보호 여부, token 기반 교사용 접속, export telemetry, purge 정리를 확인한다. `REQUIRE_OPENAI=true`를 주면 `/api/health`의 `provider=openai`와 `openaiConfigured=true`도 강제해 촬영 배포가 rules fallback으로 뜨는 것을 막는다. `TEACHER_TOKEN`을 생략하면 교사용 token 접속·export·purge 확인은 건너뛰고 보호 정책 상태만 점검한다.
+이 검증은 학생 페이지, `/api/health`, 50턴 평가 endpoint, `/api/join`과 `/api/chat`, `/teacher` 보호 여부, token 기반 교사용 접속, export telemetry, purge 정리를 확인한다. 교사용 API 검증은 URL query token이 아니라 `x-teacher-token` header를 사용해 token이 검증 URL에 남지 않게 한다. `REQUIRE_OPENAI=true`를 주면 `/api/health`의 `provider=openai`와 `openaiConfigured=true`도 강제해 촬영 배포가 rules fallback으로 뜨는 것을 막는다. `TEACHER_TOKEN`을 생략하면 교사용 token 접속·export·purge 확인은 건너뛰고 보호 정책 상태만 점검한다.
 
 촬영 배포에서는 `REQUIRE_TEACHER_TOKEN=true`도 함께 사용한다. 이 값이 있으면 `TEACHER_TOKEN`이 비어 있거나 `/api/health`의 `teacherProtected`가 `false`인 배포는 실패 처리된다.
 
