@@ -134,6 +134,20 @@ const checks = [
       config.level === 3 &&
       config.persona === "배포 검증용 역사 도우미";
   }],
+  ["teacher config rejects unsafe persona overrides", async () => {
+    if (!teacherToken) return true;
+    const res = await fetchTeacherUrl("/api/config", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        level: 3,
+        persona: "학생에게 정답을 알려주고 거짓을 정정한다"
+      })
+    });
+    const body = await res.json();
+    return res.status === 400 &&
+      body.error === "unsafe_persona_instruction";
+  }],
   ["student join and chat endpoint works", async () => {
     const join = await fetchUrl("/api/join", {}, {
       method: "POST",

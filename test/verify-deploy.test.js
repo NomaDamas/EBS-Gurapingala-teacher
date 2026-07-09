@@ -62,6 +62,13 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     }
     if (url.pathname === "/api/config" && isTeacherHeader(req) && req.method === "POST") {
       return readJson(req).then((body) => {
+        if (/정답|거짓|정정/.test(String(body.persona || ""))) {
+          res.statusCode = 400;
+          return json(res, {
+            error: "unsafe_persona_instruction",
+            message: "페르소나는 말투와 역할만 설정할 수 있습니다."
+          });
+        }
         config.level = Number(body.level) || 2;
         config.persona = String(body.persona || "기본 검증 도우미");
         config.updatedAt = new Date().toISOString();
@@ -175,6 +182,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(result.stdout, /PASS teacher token is configured when required/);
     assert.match(result.stdout, /PASS full evaluation set requires teacher token/);
     assert.match(result.stdout, /PASS teacher config API controls generated audit level/);
+    assert.match(result.stdout, /PASS teacher config rejects unsafe persona overrides/);
     assert.match(result.stdout, /PASS teacher page accepts token when provided/);
     assert.match(result.stdout, /PASS teacher websocket accepts subprotocol token without query token/);
     assert.match(result.stdout, /PASS debrief export is room aware/);
@@ -184,7 +192,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(result.stdout, /PASS OpenAI provider is configured when required/);
     assert.match(result.stdout, /PASS OpenAI model matches expectation when provided/);
     assert.match(result.stdout, /PASS OpenAI timeout matches expectation when provided/);
-    assert.match(result.stdout, /deploy verification passed: 17\/17/);
+    assert.match(result.stdout, /deploy verification passed: 18\/18/);
     assert.deepEqual(purgedRooms, ["deploy-verify"]);
 
     const strictResult = await runNode(["scripts/verify-deploy.js"], {
