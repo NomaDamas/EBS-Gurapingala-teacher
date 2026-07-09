@@ -330,7 +330,7 @@ export const teacherHtml = `<!doctype html>
     }
 
     function renderStudents() {
-      studentsEl.innerHTML = "";
+      studentsEl.replaceChildren();
       let onlineCount = 0;
       let chatTurns = 0;
       for (const [id, session] of sessions) {
@@ -387,7 +387,7 @@ export const teacherHtml = `<!doctype html>
     function renderSelected() {
       const session = sessions.get(selected);
       if (!session) return;
-      chatEl.innerHTML = "";
+      chatEl.replaceChildren();
       for (const message of session.messages) {
         const el = document.createElement("div");
         el.className = "bubble " + (message.role === "student" ? "studentMsg" : "botMsg") + (message.blockedForStudent ? " blockedMsg" : "");
@@ -453,7 +453,7 @@ export const teacherHtml = `<!doctype html>
         sessions.clear();
         selected = null;
         renderStudents();
-        chatEl.innerHTML = "<div class='empty'>촬영 로그가 삭제되었습니다.</div>";
+        renderEmptyChat("촬영 로그가 삭제되었습니다.");
         auditEl.textContent = "교사용 감사 JSON 대기 중";
       } catch (error) {
         alert("네트워크 문제로 촬영 로그를 삭제하지 못했습니다.");
@@ -516,6 +516,13 @@ export const teacherHtml = `<!doctype html>
       } catch {
         return {};
       }
+    }
+
+    function renderEmptyChat(message) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = message;
+      chatEl.replaceChildren(empty);
     }
 
     function encodeTeacherWebSocketProtocol(token) {
