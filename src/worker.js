@@ -12,6 +12,7 @@ const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8"
 };
 const FAIL_CLOSED_STUDENT_MESSAGE = "답변을 다시 점검해야 해. 질문을 한 번만 더 다르게 물어봐 줄래?";
+const MAX_JSON_BODY_BYTES = 8 * 1024;
 
 export default {
   async fetch(request, env) {
@@ -445,8 +446,28 @@ function text(body, status = 200) {
 }
 
 async function readJsonBody(request) {
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (contentLength > MAX_JSON_BODY_BYTES) {
+    return {
+      error: json({
+        error: "payload_too_large",
+        message: "요청 본문이 너무 큽니다.",
+        maxBytes: MAX_JSON_BODY_BYTES
+      }, 413)
+    };
+  }
   try {
-    return { body: await request.json() };
+    const raw = await request.text();
+    if (new TextEncoder().encode(raw).length > MAX_JSON_BODY_BYTES) {
+      return {
+        error: json({
+          error: "payload_too_large",
+          message: "요청 본문이 너무 큽니다.",
+          maxBytes: MAX_JSON_BODY_BYTES
+        }, 413)
+      };
+    }
+    return { body: JSON.parse(raw) };
   } catch {
     return {
       error: validationError("invalid_json", "요청 본문은 JSON이어야 합니다.")

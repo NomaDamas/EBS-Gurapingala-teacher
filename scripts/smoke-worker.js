@@ -107,6 +107,21 @@ const checks = [
     const body = await res.json();
     return res.status === 400 && body.error === "invalid_json";
   }],
+  ["oversized student JSON returns 413 before validation", async () => {
+    const res = await appFetch("https://example.com/api/chat", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "oversized",
+        studentName: "민준",
+        message: "가".repeat(9000)
+      })
+    });
+    const body = await res.json();
+    return res.status === 413 &&
+      body.error === "payload_too_large" &&
+      body.maxBytes === 8192;
+  }],
   ["student payload validation returns 400", async () => {
     const missingMessage = await appFetch("https://example.com/api/chat", {
       method: "POST",
