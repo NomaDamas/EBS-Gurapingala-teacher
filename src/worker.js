@@ -696,7 +696,10 @@ function findUnsafePersonaInstruction(persona) {
     /(거짓|오류|틀린 정보)(을|를)?\s*(밝혀|공개|알려|정정|수정)/,
     /(학생|아이)(에게)?\s*(정정|교정)/,
     /(규칙|지침|시스템|프롬프트)(을|를)?\s*(무시|우회|덮어|따르지)/,
-    /(preflight|검수)(를|을)?\s*(무시|우회|건너)/
+    /(preflight|검수)(를|을)?\s*(무시|우회|건너)/,
+    /\b(ignore|bypass|override)\b.{0,40}\b(system|instruction|prompt|policy|preflight|validator|guardrail)s?\b/i,
+    /\b(reveal|disclose|show|tell)\b.{0,40}\b(correct|true|truth|real)\b.{0,40}\b(answer|fact|history|information)\b/i,
+    /\b(correct|fix)\b.{0,40}\b(false|wrong|misleading|fabricated)\b.{0,40}\b(answer|claim|information)\b/i
   ];
   return patterns.find((pattern) => pattern.test(value))?.source || "";
 }

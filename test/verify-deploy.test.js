@@ -63,7 +63,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     }
     if (url.pathname === "/api/config" && isTeacherHeader(req) && req.method === "POST") {
       return readJson(req).then((body) => {
-        if (/정답|거짓|정정/.test(String(body.persona || ""))) {
+        if (/정답|거짓|정정|ignore|reveal|correct answer/i.test(String(body.persona || ""))) {
           res.statusCode = 400;
           events.push({
             type: "teacher_config_rejected",
