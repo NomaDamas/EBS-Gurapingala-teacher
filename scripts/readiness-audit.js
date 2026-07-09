@@ -65,7 +65,7 @@ const checks = [
       includesAll(files["src/worker.js"], ["export class ClassroomRoom", "/api/health", "buildHealthPayload", "defaultRoomId"]) &&
       includesAll(files["docs/deployment-guide.md"], ["npm run deploy", "Deploy", "CLOUDFLARE_API_TOKEN", "npm run verify:deploy", "REQUIRE_OPENAI=true", "촬영방 분리"]) &&
       includesAll(files["scripts/smoke-worker.js"], ["worker smoke passed", "/api/chat", "/api/export", "/api/health", "room query isolates classroom events"]) &&
-      includesAll(files["scripts/verify-deploy.js"], ["deploy verification passed", "/api/evaluation-set", "/teacher", "teacher page access policy is enforced", "WORKER_ROOM", "REQUIRE_OPENAI"]) &&
+      includesAll(files["scripts/verify-deploy.js"], ["deploy verification passed", "/api/evaluation-set", "/api/join", "/api/chat", "/teacher", "teacher page access policy is enforced", "WORKER_ROOM", "REQUIRE_OPENAI"]) &&
       includesAll(files[".github/workflows/deploy.yml"], ["workflow_dispatch", "npx wrangler deploy", "scripts/verify-deploy.js", "WORKER_HEALTH_URL"]) &&
       includesAll(files["package.json"], ["verify:deploy"])
   },

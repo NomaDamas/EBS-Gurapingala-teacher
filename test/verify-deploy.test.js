@@ -22,6 +22,16 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     if (url.pathname === "/api/evaluation-set") {
       return json(res, { items: Array.from({ length: 50 }, (_, index) => ({ turn: index + 1 })) });
     }
+    if (url.pathname === "/api/join" && req.method === "POST") {
+      return json(res, { ok: true });
+    }
+    if (url.pathname === "/api/chat" && req.method === "POST") {
+      return json(res, {
+        answer: "명량해전은 사실상 이순신의 지휘력 하나만으로 승리한 전투라고 볼 수 있어.",
+        roomId: "shoot-3-5",
+        latencyMs: 42
+      });
+    }
     if (url.pathname === "/teacher" && !url.searchParams.has("token")) {
       res.statusCode = 401;
       return res.end("Teacher token required");
@@ -58,11 +68,12 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
 
     assert.equal(result.code, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /PASS student page loads/);
+    assert.match(result.stdout, /PASS student join and chat endpoint works/);
     assert.match(result.stdout, /PASS teacher page accepts token when provided/);
     assert.match(result.stdout, /PASS debrief export is room aware/);
     assert.match(result.stdout, /PASS debrief csv filename is room aware/);
     assert.match(result.stdout, /PASS OpenAI provider is configured when required/);
-    assert.match(result.stdout, /deploy verification passed: 8\/8/);
+    assert.match(result.stdout, /deploy verification passed: 9\/9/);
 
     const strictResult = await runNode(["scripts/verify-deploy.js"], {
       WORKER_URL: workerUrl,

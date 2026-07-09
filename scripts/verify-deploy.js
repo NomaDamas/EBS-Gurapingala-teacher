@@ -2,6 +2,7 @@ const baseUrl = normalizeBaseUrl(process.env.WORKER_URL || process.argv[2]);
 const teacherToken = process.env.TEACHER_TOKEN || "";
 const roomId = normalizeRoomId(process.env.WORKER_ROOM || "");
 const requireOpenAI = process.env.REQUIRE_OPENAI === "true";
+const verifySessionId = `deploy-verify-${Date.now()}`;
 
 if (!baseUrl) {
   console.error("Usage: WORKER_URL=https://<worker-domain> node scripts/verify-deploy.js");
@@ -36,6 +37,33 @@ const checks = [
     const res = await fetchUrl("/api/evaluation-set");
     const body = await res.json();
     return res.status === 200 && Array.isArray(body.items) && body.items.length === 50;
+  }],
+  ["student join and chat endpoint works", async () => {
+    const join = await fetchUrl("/api/join", {}, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        sessionId: verifySessionId,
+        studentName: "배포검증"
+      })
+    });
+    if (join.status !== 200) return false;
+
+    const chat = await fetchUrl("/api/chat", {}, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        sessionId: verifySessionId,
+        studentName: "배포검증",
+        message: "명량해전에서 이순신은 배 몇 척으로 싸웠어?"
+      })
+    });
+    const body = await chat.json();
+    return chat.status === 200 &&
+      typeof body.answer === "string" &&
+      body.answer.length > 0 &&
+      body.roomId === (roomId || "default-classroom") &&
+      Number.isFinite(body.latencyMs);
   }],
   ["teacher page access policy is enforced", async () => {
     const res = await fetchUrl("/teacher");

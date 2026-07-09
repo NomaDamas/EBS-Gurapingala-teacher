@@ -26,7 +26,7 @@
    - `chatRateLimitPerMinute`, `eventTtlHours`가 촬영 규모에 맞는지 확인한다.
 7. 배포 URL 전체 검증을 실행한다.
    - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> WORKER_ROOM=<room> REQUIRE_OPENAI=true npm run verify:deploy`
-   - 학생 페이지, health, OpenAI provider 설정, 평가 세트, 교사용 보호, token 접속이 모두 통과해야 한다.
+   - 학생 페이지, health, OpenAI provider 설정, 평가 세트, 학생 join/chat, 교사용 보호, token 접속이 모두 통과해야 한다.
 
 ## 2. 리허설
 
