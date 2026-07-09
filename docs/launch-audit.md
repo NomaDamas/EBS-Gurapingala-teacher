@@ -25,6 +25,7 @@
 | 한 개의 API key/OAuth 계정으로 여러 학생 요청 처리 | 서버-side `OPENAI_API_KEY`, 학생 브라우저 key 미노출 | `single-api-key-server-side` readiness, `/api/health` secret 미노출 test |
 | OpenAI 요청 지연이 교실 진행을 막지 않음 | `OPENAI_TIMEOUT_MS`, `/api/health.openaiTimeoutMs`, audit `provider.timeoutMs` | `verify-deploy`, worker health test, llm-provider test |
 | Cloudflare Workers 배포 가능 | `wrangler.toml`, `.github/workflows/deploy.yml`, `docs/deployment-guide.md` | `npm run deploy`, `npm run verify:deploy` |
+| 배포 전 환경 누락을 사전에 차단 | `scripts/deploy-preflight.js`, `npm run preflight:deploy`, Deploy workflow preflight step | `deploy-preflight` test, readiness |
 | CI와 Deploy가 같은 고정 의존성 그래프를 사용 | `package-lock.json`, Node.js 22, `npm ci` | GitHub CI/Deploy workflow, readiness |
 | production 배포는 실제 Worker URL 검증을 생략하지 않음 | `WORKER_HEALTH_URL` production 필수, GitHub Deploy precheck | Deploy workflow, readiness |
 | 촬영방별 telemetry/export/purge 분리 | `room` query, Durable Object room isolation, `x-purge-room` confirmation | `room query isolates classroom events`, `purge clears events` smoke |

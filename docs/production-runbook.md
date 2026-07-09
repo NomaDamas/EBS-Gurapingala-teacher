@@ -18,6 +18,7 @@
    - `npm run eval`
    - `npm run readiness`
    - `npm run smoke`
+   - `CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> WORKER_HEALTH_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> EXPECTED_OPENAI_MODEL=gpt-5.5 npm run preflight:deploy`
 5. GitHub Actions `Deploy` workflow를 사용할 경우 environment를 선택하고 실행한다.
    - `CLOUDFLARE_API_TOKEN`과 `CLOUDFLARE_ACCOUNT_ID`가 설정되어 있어야 한다.
    - Cloudflare 계정이 여러 개이면 `CLOUDFLARE_ACCOUNT_ID`가 없을 때 Wrangler가 계정을 고르지 못해 배포가 실패한다.

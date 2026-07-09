@@ -49,6 +49,17 @@ npm run readiness
 npm run smoke
 ```
 
+배포 환경변수가 있는 경우에는 배포 전 preflight도 실행한다.
+
+```bash
+CLOUDFLARE_ACCOUNT_ID=<account-id> \
+CLOUDFLARE_API_TOKEN=<token> \
+WORKER_HEALTH_URL=https://<worker-domain> \
+TEACHER_TOKEN=<TEACHER_TOKEN> \
+EXPECTED_OPENAI_MODEL=gpt-5.5 \
+npm run preflight:deploy
+```
+
 배포 후 실제 Worker URL에서는 production secret이 설정된 상태로 확인한다.
 
 ```bash

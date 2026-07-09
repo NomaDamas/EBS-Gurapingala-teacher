@@ -54,6 +54,12 @@ Worker route smoke:
 npm run smoke
 ```
 
+배포 preflight:
+
+```bash
+CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> WORKER_HEALTH_URL=https://<worker-domain> TEACHER_TOKEN=<token> EXPECTED_OPENAI_MODEL=gpt-5.5 npm run preflight:deploy
+```
+
 배포 URL 검증:
 
 ```bash

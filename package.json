@@ -11,6 +11,7 @@
     "eval": "node scripts/run-eval.js",
     "readiness": "node scripts/readiness-audit.js",
     "smoke": "node scripts/smoke-worker.js",
+    "preflight:deploy": "node scripts/deploy-preflight.js",
     "verify:deploy": "node scripts/verify-deploy.js",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
