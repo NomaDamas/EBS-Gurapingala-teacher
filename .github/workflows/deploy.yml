@@ -80,3 +80,13 @@ jobs:
           REQUIRE_TEACHER_TOKEN: ${{ vars.REQUIRE_TEACHER_TOKEN || 'true' }}
           EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.5' }}
           EXPECTED_OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
+          PR_HEAD_SHA: ${{ github.sha }}
+          VERIFY_DEPLOY_EVIDENCE_FILE: artifacts/deploy-evidence.json
+
+      - name: Upload deploy verification evidence
+        if: ${{ vars.WORKER_HEALTH_URL != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-verification-evidence
+          path: artifacts/deploy-evidence.json
+          if-no-files-found: error

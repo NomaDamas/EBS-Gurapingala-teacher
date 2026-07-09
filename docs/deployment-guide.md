@@ -98,6 +98,8 @@ EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<w
 
 `EXTERNAL_REVIEW_FILE`은 `decision: "APPROVE"`, `reviewer` 또는 `model`, `prHeadSha`를 포함한 JSON이어야 한다. `VERIFY_DEPLOY_EVIDENCE_FILE`은 `verify:deploy`가 생성한 `deploy-verification-evidence/v1` JSON이어야 하며 같은 `PR_HEAD_SHA`, 같은 `WORKER_URL`, `requireOpenAI=true`, `requireTeacherToken=true`를 기록해야 한다.
 
+GitHub Actions `Deploy` workflow는 `PR_HEAD_SHA=${{ github.sha }}`와 `VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json`로 실제 URL 검증을 실행하고, 결과를 `deploy-verification-evidence` artifact로 업로드한다. 릴리즈 감사에는 이 artifact의 JSON을 그대로 사용한다.
+
 GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 
 필요한 repository/environment secrets:
