@@ -136,4 +136,4 @@ Checklist:
 5. 승인 전까지 수정한다.
 6. 승인되면 머지하고 다음 이슈로 진행한다.
 
-현재 환경에서는 외부 PR 리뷰 자동화 계정이 연결되어 있지 않으므로, GitHub 인증과 리뷰 워크플로 설정 후 이 루프를 자동화한다.
+현재 상태: GitHub Actions `Verify product gates`가 unit tests, 50-turn evaluation, readiness audit, Worker route smoke를 PR/push에서 실행한다. 외부 GPT-5.5 xhigh 리뷰 자동화 계정은 아직 연결 증거가 없어 PR 코멘트로 리뷰 요청을 남긴 상태다.

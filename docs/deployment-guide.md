@@ -39,6 +39,17 @@ https://<worker-domain>/teacher?token=<TEACHER_TOKEN>
 
 ## 4. 배포
 
+PR에서는 GitHub Actions `Verify product gates`가 다음 명령을 실행한다.
+
+```bash
+node --test
+node scripts/run-eval.js
+node scripts/readiness-audit.js
+node scripts/smoke-worker.js
+```
+
+로컬 배포 전에도 같은 게이트를 확인한다.
+
 ```bash
 npm test
 npm run eval

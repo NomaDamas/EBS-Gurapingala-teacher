@@ -4,6 +4,7 @@ EBS 다큐프라임 `<생각의 멸종>` 실험용 학생/교사용 AI 챗봇입
 
 ## 현재 구현 범위
 
+- GitHub Actions CI: unit tests, 50-turn evaluation, readiness, Worker route smoke
 - 학생용 URL: `/`
 - 교사용 대시보드 URL: `/teacher`
 - 학생은 이름만 입력하고 입장
