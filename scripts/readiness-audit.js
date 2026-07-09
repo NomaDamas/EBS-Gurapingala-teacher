@@ -59,12 +59,13 @@ const checks = [
   },
   {
     id: "cloudflare-worker-deployment",
-    evidence: ["wrangler.toml", "src/worker.js", "docs/deployment-guide.md", "scripts/smoke-worker.js"],
+    evidence: ["wrangler.toml", "src/worker.js", "docs/deployment-guide.md", "scripts/smoke-worker.js", ".github/workflows/deploy.yml"],
     run: async (files) =>
       includesAll(files["wrangler.toml"], ["durable_objects.bindings", "ClassroomRoom", "CHAT_RATE_LIMIT_PER_MINUTE", "EVENT_TTL_HOURS"]) &&
       includesAll(files["src/worker.js"], ["export class ClassroomRoom", "/api/health", "buildHealthPayload"]) &&
-      includesAll(files["docs/deployment-guide.md"], ["npm run deploy"]) &&
-      includesAll(files["scripts/smoke-worker.js"], ["worker smoke passed", "/api/chat", "/api/export", "/api/health"])
+      includesAll(files["docs/deployment-guide.md"], ["npm run deploy", "Deploy", "CLOUDFLARE_API_TOKEN"]) &&
+      includesAll(files["scripts/smoke-worker.js"], ["worker smoke passed", "/api/chat", "/api/export", "/api/health"]) &&
+      includesAll(files[".github/workflows/deploy.yml"], ["workflow_dispatch", "npx wrangler deploy", "WORKER_HEALTH_URL"])
   },
   {
     id: "teacher-access-and-abuse-controls",

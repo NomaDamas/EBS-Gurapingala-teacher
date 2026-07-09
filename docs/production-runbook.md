@@ -13,7 +13,10 @@
    - `npm run eval`
    - `npm run readiness`
    - `npm run smoke`
-4. 배포 후 `/api/health`를 확인한다.
+4. GitHub Actions `Deploy` workflow를 사용할 경우 environment를 선택하고 실행한다.
+   - `CLOUDFLARE_API_TOKEN`과 `CLOUDFLARE_ACCOUNT_ID`가 설정되어 있어야 한다.
+   - `WORKER_HEALTH_URL`이 설정되어 있으면 workflow가 `/api/health`를 자동 확인한다.
+5. 배포 후 `/api/health`를 확인한다.
    - `ok`가 `true`인지 확인한다.
    - `teacherProtected`가 `true`인지 확인한다.
    - `openaiConfigured`가 의도한 값인지 확인한다.

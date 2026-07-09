@@ -58,6 +58,30 @@ npm run smoke
 npm run deploy
 ```
 
+GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
+
+필요한 repository/environment secrets:
+
+| 이름 | 용도 |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | `wrangler deploy` 권한 |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account id |
+
+필요한 Cloudflare Worker secrets:
+
+| 이름 | 용도 |
+|---|---|
+| `OPENAI_API_KEY` | 서버-side OpenAI API key |
+| `TEACHER_TOKEN` | 교사용 대시보드/API 보호 token |
+
+선택 repository/environment variable:
+
+| 이름 | 용도 |
+|---|---|
+| `WORKER_HEALTH_URL` | 배포 후 `/api/health` 검증 URL |
+
+수동 배포 workflow도 `node --test`, `node scripts/run-eval.js`, `node scripts/readiness-audit.js`, `node scripts/smoke-worker.js`를 통과한 뒤 `npx wrangler deploy`를 실행한다.
+
 ## 5. URL
 
 - 학생용: `https://<worker-domain>/`

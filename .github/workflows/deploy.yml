@@ -1,0 +1,57 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment label"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - rehearsal
+
+jobs:
+  deploy:
+    name: Deploy Cloudflare Worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Unit tests
+        run: node --test
+
+      - name: 50-turn evaluation
+        run: node scripts/run-eval.js
+
+      - name: Production readiness audit
+        run: node scripts/readiness-audit.js
+
+      - name: Worker route smoke
+        run: node scripts/smoke-worker.js
+
+      - name: Deploy Worker
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify health endpoint
+        if: ${{ vars.WORKER_HEALTH_URL != '' }}
+        run: |
+          curl --fail --silent --show-error "$WORKER_HEALTH_URL" | tee health.json
+          node -e "const fs=require('fs'); const h=JSON.parse(fs.readFileSync('health.json','utf8')); if(!h.ok) process.exit(1);"
+        env:
+          WORKER_HEALTH_URL: ${{ vars.WORKER_HEALTH_URL }}
