@@ -3,11 +3,17 @@ const teacherToken = process.env.TEACHER_TOKEN || "";
 const filmingRoomId = normalizeRoomId(process.env.WORKER_ROOM || "");
 const verifyRoomId = normalizeRoomId(process.env.VERIFY_ROOM || "deploy-verify");
 const requireOpenAI = process.env.REQUIRE_OPENAI === "true";
+const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN === "true";
 const allowUnsafePurge = process.env.ALLOW_PURGE_FILMING_ROOM === "true";
 const verifySessionId = `${verifyRoomId}-session-${Date.now()}`;
 
 if (!baseUrl) {
   console.error("Usage: WORKER_URL=https://<worker-domain> node scripts/verify-deploy.js");
+  process.exit(1);
+}
+
+if (requireTeacherToken && !teacherToken) {
+  console.error("TEACHER_TOKEN is required when REQUIRE_TEACHER_TOKEN=true.");
   process.exit(1);
 }
 
@@ -49,6 +55,14 @@ const checks = [
     return res.status === 200 &&
       body.openaiConfigured === true &&
       body.provider === "openai";
+  }],
+  ["teacher token is configured when required", async () => {
+    if (!requireTeacherToken) return true;
+    const res = await fetchUrl("/api/health");
+    const body = await res.json();
+    return res.status === 200 &&
+      body.teacherProtected === true &&
+      Boolean(teacherToken);
   }],
   ["evaluation set exposes 50 turns", async () => {
     const res = await fetchUrl("/api/evaluation-set");

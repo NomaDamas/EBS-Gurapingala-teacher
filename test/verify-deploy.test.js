@@ -125,6 +125,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.equal(result.code, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /PASS student page loads/);
     assert.match(result.stdout, /PASS student join and chat endpoint works/);
+    assert.match(result.stdout, /PASS teacher token is configured when required/);
     assert.match(result.stdout, /PASS full evaluation set requires teacher token/);
     assert.match(result.stdout, /PASS teacher page accepts token when provided/);
     assert.match(result.stdout, /PASS debrief export is room aware/);
@@ -132,7 +133,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(result.stdout, /PASS deploy verification telemetry is exportable/);
     assert.match(result.stdout, /PASS deploy verification telemetry can be purged/);
     assert.match(result.stdout, /PASS OpenAI provider is configured when required/);
-    assert.match(result.stdout, /deploy verification passed: 12\/12/);
+    assert.match(result.stdout, /deploy verification passed: 13\/13/);
     assert.deepEqual(purgedRooms, ["deploy-verify"]);
 
     const strictResult = await runNode(["scripts/verify-deploy.js"], {
@@ -144,6 +145,15 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
 
     assert.notEqual(strictResult.code, 0);
     assert.match(strictResult.stdout, /FAIL OpenAI provider is configured when required/);
+    assert.deepEqual(purgedRooms, ["deploy-verify", "deploy-verify"]);
+
+    const missingTeacherTokenResult = await runNode(["scripts/verify-deploy.js"], {
+      WORKER_URL: workerUrl,
+      REQUIRE_TEACHER_TOKEN: "true"
+    });
+
+    assert.notEqual(missingTeacherTokenResult.code, 0);
+    assert.match(missingTeacherTokenResult.stderr, /TEACHER_TOKEN is required/);
     assert.deepEqual(purgedRooms, ["deploy-verify", "deploy-verify"]);
 
     const unsafeResult = await runNode(["scripts/verify-deploy.js"], {

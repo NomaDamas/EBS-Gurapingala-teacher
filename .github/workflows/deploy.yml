@@ -56,3 +56,4 @@ jobs:
           TEACHER_TOKEN: ${{ secrets.TEACHER_TOKEN }}
           VERIFY_ROOM: ${{ vars.VERIFY_ROOM || 'deploy-verify' }}
           REQUIRE_OPENAI: ${{ vars.REQUIRE_OPENAI || 'true' }}
+          REQUIRE_TEACHER_TOKEN: ${{ vars.REQUIRE_TEACHER_TOKEN || 'true' }}

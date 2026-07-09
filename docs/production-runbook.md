@@ -19,14 +19,14 @@
 5. GitHub Actions `Deploy` workflow를 사용할 경우 environment를 선택하고 실행한다.
    - `CLOUDFLARE_API_TOKEN`과 `CLOUDFLARE_ACCOUNT_ID`가 설정되어 있어야 한다.
    - `WORKER_HEALTH_URL`이 설정되어 있으면 workflow가 실제 배포 URL을 자동 확인한다.
-   - workflow의 배포 후 검증은 기본 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`로 실행된다.
+   - workflow의 배포 후 검증은 기본 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`로 실행된다.
 6. 배포 후 `/api/health`를 확인한다.
    - `ok`가 `true`인지 확인한다.
    - `teacherProtected`가 `true`인지 확인한다.
    - `openaiConfigured`가 의도한 값인지 확인한다.
    - `chatRateLimitPerMinute`, `eventTtlHours`가 촬영 규모에 맞는지 확인한다.
 7. 배포 URL 전체 검증을 실행한다.
-   - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true npm run verify:deploy`
+   - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true npm run verify:deploy`
    - 학생 페이지, health, OpenAI provider 설정, 평가 세트, 학생 join/chat, 교사용 보호, token 접속, export telemetry, purge 정리가 모두 통과해야 한다.
    - `verify:deploy`는 `/api/purge`를 호출하므로 실제 촬영방 room을 쓰지 않는다. 검증 전용 room은 `deploy-verify` 또는 `deploy-verify-<suffix>`로만 둔다.
 

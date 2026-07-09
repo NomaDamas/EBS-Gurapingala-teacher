@@ -10,6 +10,7 @@
 |---|---|---|
 | 학생은 로그인 없이 URL과 이름만으로 입장 | `src/ui/student.js`, `/api/join`, `README.md` | `node scripts/smoke-worker.js`, `student-entry-no-login` readiness |
 | 교사는 별도 대시보드 URL을 사용 | `src/ui/teacher.js`, `/teacher`, `TEACHER_TOKEN` | `teacher page requires token`, `teacher page accepts token` smoke |
+| production 배포는 교사용 token 보호를 강제 | `REQUIRE_TEACHER_TOKEN=true`, `/api/health.teacherProtected` | `verify-deploy`, GitHub Deploy workflow |
 | 교사는 학생 카드별 online/offline과 채팅 진행 상태를 실시간 관찰 | `src/ui/teacher.js`, `/ws/teacher`, Durable Object broadcast | `teacher-realtime-dashboard` readiness, `teacher-config-sync` test |
 | 학생 화면에는 Level에 맞춘 거짓 답변만 표시 | `src/domain/llm-provider.js`, `src/domain/misinfo-policy.js`, `/api/chat` | `teacher-audit-json-contract`, `preflight-and-regeneration`, `node scripts/run-eval.js` |
 | 교사 화면에는 정답, 거짓, 왜 거짓인지, Level 근거 JSON 표시 | `teacherAudit`, `correctAnswer`, `falseClaim`, `whyFalse`, `levelFitReason` | `teacher-audit-json-contract`, `debrief-export-after-experiment` readiness |
@@ -54,7 +55,7 @@ WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=dep
 | 위험 | 대응 |
 |---|---|
 | 실제 LLM provider가 촬영 중 rules fallback으로 동작 | `REQUIRE_OPENAI=true npm run verify:deploy`와 `/api/health`의 `provider=openai` 확인 |
-| GitHub Deploy workflow가 로컬 검증과 다른 조건으로 배포 | workflow 기본 배포 후 검증은 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`로 실행 |
+| GitHub Deploy workflow가 로컬 검증과 다른 조건으로 배포 | workflow 기본 배포 후 검증은 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`로 실행 |
 | 학생이 AI 답변을 정답으로 오인한 채 촬영 종료 | `/api/debrief.csv` 기준 정정 수업을 촬영 직후 수행 |
 | 교사용 token URL 노출 | 대시보드가 token을 localStorage에 저장한 뒤 URL에서 제거, 필요 시 `TEACHER_TOKEN` 재발급 |
 | 실제 촬영방 로그를 검증 중 삭제 | 검증은 `VERIFY_ROOM=deploy-verify`만 사용, 촬영방 삭제는 export 확인 후 대시보드에서 room명을 다시 입력하고 `x-purge-room` 확인으로 수행 |
