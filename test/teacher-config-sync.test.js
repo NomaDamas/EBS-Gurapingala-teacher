@@ -61,6 +61,8 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /session\.latencyMs/);
   assert.match(teacher, /copyStudentUrlEl\.addEventListener/);
   assert.match(teacher, /copyTeacherUrlEl\.addEventListener/);
+  assert.match(teacher, /id="copyAuditJson"/);
+  assert.match(teacher, /copyAuditJsonEl\.addEventListener\("click", \(\) => copyText\(auditEl\.textContent, "audit json"\)\)/);
   assert.match(teacher, /네트워크 문제로 다운로드하지 못했습니다/);
   assert.match(teacher, /네트워크 문제로 촬영 로그를 삭제하지 못했습니다/);
 });
