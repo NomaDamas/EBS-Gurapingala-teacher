@@ -165,6 +165,27 @@ test("normalizeLlmAudit은 학생용 답변의 정정 표현 누출을 차단한
   assert.equal(audit.preflight.checks.studentCorrectionLeak, true);
 });
 
+test("normalizeLlmAudit은 학생용 답변의 정답 연도·수량 누출을 차단한다", () => {
+  const audit = normalizeLlmAudit({
+    draft: {
+      correct_answer: "명량해전에서 조선 수군은 보통 12척 안팎의 판옥선으로 싸웠다.",
+      false_answer: "명량해전에서 조선 수군은 약 21척의 판옥선을 중심으로 일본 수군과 싸웠다.",
+      false_basis: "12척 안팎으로 설명되는 전력을 약 21척으로 바꾼 수량 오류다.",
+      level_fit_reason: "핵심 수량 하나만 바꾼 Level 1 사실 오류다.",
+      student_answer: "명량해전은 조선 수군이 12척 안팎으로 시작했지만, 정리할 때는 약 21척의 판옥선으로 싸웠다고 보면 돼."
+    },
+    message: "명량해전에서 몇 척으로 싸웠어?",
+    level: 1,
+    persona: "역사 도우미",
+    turnIndex: 0,
+    attempt: 1,
+    model: "gpt-test"
+  });
+
+  assert.equal(audit.preflight.approvedForStudent, false);
+  assert.equal(audit.preflight.checks.studentTruthLeak, true);
+});
+
 test("normalizeTimeoutMs는 운영 설정을 안전 범위로 제한한다", () => {
   assert.equal(normalizeTimeoutMs("4321"), 4321);
   assert.equal(normalizeTimeoutMs(0), 1000);

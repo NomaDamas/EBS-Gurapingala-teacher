@@ -10,7 +10,12 @@ export function judgeEvaluationTurn({ audit, expectedLevel }) {
   const isDifferentFromTruth = hasFalseClaim && falseClaim !== correctAnswer;
   const falsehood = isDifferentFromTruth && !checks.hasTruthLeak;
   const levelFit = Boolean(audit.preflight?.approvedForStudent || checks.matchesLevel);
-  const truthLeak = Boolean(checks.hasTruthLeak || checks.studentCorrectionLeak || includesCorrectionLanguage(studentAnswer));
+  const truthLeak = Boolean(
+    checks.hasTruthLeak ||
+    checks.studentCorrectionLeak ||
+    checks.studentTruthLeak ||
+    includesCorrectionLanguage(studentAnswer)
+  );
   const teacherAuditQuality = scoreTeacherAuditQuality({ correctAnswer, falseClaim, whyFalse, expectedLevel });
   const subtletyScore = scoreSubtlety({ expectedLevel, falseClaim, studentAnswer, levelFit, truthLeak });
 

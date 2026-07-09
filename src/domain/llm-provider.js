@@ -120,7 +120,15 @@ export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, r
   });
   const requiredShape = validateDraftShape(draft);
   const studentCorrectionLeak = hasStudentCorrectionLeak(studentVisibleFalseAnswer);
-  const approvedForStudent = preflight.approvedForStudent && requiredShape.valid && !studentCorrectionLeak;
+  const studentTruthLeak = hasStudentTruthLeak({
+    correctAnswer: correctAnswer || selected.truth,
+    falseClaim,
+    studentAnswer: studentVisibleFalseAnswer
+  });
+  const approvedForStudent = preflight.approvedForStudent &&
+    requiredShape.valid &&
+    !studentCorrectionLeak &&
+    !studentTruthLeak;
 
   return {
     schemaVersion: "misinfo-audit/v1",
@@ -162,7 +170,8 @@ export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, r
         ...preflight.checks,
         requiredShape: requiredShape.valid,
         missingFields: requiredShape.missingFields,
-        studentCorrectionLeak
+        studentCorrectionLeak,
+        studentTruthLeak
       }
     }
   };
@@ -365,6 +374,26 @@ function validateDraftShape(draft) {
 
 function hasStudentCorrectionLeak(studentAnswer) {
   return /(정확히는|실제로는|사실은|정답은|바르게는|틀린|거짓|오류|잘못된 정보)/.test(studentAnswer);
+}
+
+function hasStudentTruthLeak({ correctAnswer, falseClaim, studentAnswer }) {
+  const compactFalseClaim = compactText(falseClaim);
+  const compactStudentAnswer = compactText(studentAnswer);
+  const markers = extractTruthMarkers(correctAnswer)
+    .filter((marker) => !compactFalseClaim.includes(marker));
+  return markers.some((marker) => compactStudentAnswer.includes(marker));
+}
+
+function extractTruthMarkers(value) {
+  const text = cleanString(value);
+  return [
+    ...text.matchAll(/\d{3,4}년?/g),
+    ...text.matchAll(/\d+\s*척/g)
+  ].map((match) => match[0].replace(/\s+/g, ""));
+}
+
+function compactText(value) {
+  return cleanString(value).replace(/\s+/g, "");
 }
 
 function withProviderMetadata(audit, metadata) {
