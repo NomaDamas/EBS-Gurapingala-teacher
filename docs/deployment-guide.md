@@ -90,6 +90,12 @@ WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=dep
 
 `verify:deploy`는 정리 단계에서 `/api/purge`를 호출하므로 실제 촬영방을 쓰면 안 된다. 기본값은 `deploy-verify`이고, `TEACHER_TOKEN`이 있을 때 `VERIFY_ROOM`은 `deploy-verify` 또는 `deploy-verify-<suffix>` 형태여야 한다. 이전 운영 메모의 `WORKER_ROOM=<촬영방>` 값은 검증 cleanup에 사용되지 않으며, 실제 촬영방 purge가 필요할 때만 별도 export 확인 후 대시보드의 `촬영 로그 삭제`를 사용한다.
 
+머지 또는 촬영 릴리즈 직전에는 배포 검증과 외부 리뷰 증거가 최신 PR head에 묶였는지 확인한다.
+
+```bash
+EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true npm run release:audit
+```
+
 GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 
 필요한 repository/environment secrets:

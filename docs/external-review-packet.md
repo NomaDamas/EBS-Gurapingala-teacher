@@ -105,6 +105,7 @@ Evidence checked:
 - npm run readiness: pass/fail
 - npm run smoke: pass/fail
 - verify:deploy against production/rehearsal URL: pass/fail/not-run
+- npm run release:audit with latest commit evidence: pass/fail/not-run
 
 Blocking findings:
 - <file:line> <issue>
