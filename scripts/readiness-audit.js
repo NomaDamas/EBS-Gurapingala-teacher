@@ -8,8 +8,8 @@ const checks = [
     id: "student-entry-no-login",
     evidence: ["src/ui/student.js", "src/worker.js"],
     run: async (files) =>
-      includesAll(files["src/ui/student.js"], ["이름을 입력하세요", "교사용 대시보드에 기록됩니다", "이름 외 개인정보는 입력하지 마세요", "/api/join", "/api/chat", "roomId", "withRoom", "heartbeatTimer", "if (!res.ok)", "입장 실패", "네트워크 문제로 답변을 받지 못했어"]) &&
-      includesAll(files["src/worker.js"], ['url.pathname === "/"', 'url.pathname === "/api/join"', "normalizeRoomId", "MAX_JSON_BODY_BYTES", "payload_too_large"])
+      includesAll(files["src/ui/student.js"], ["이름을 입력하세요", "교사용 대시보드에 기록됩니다", "이름 외 개인정보는 입력하지 마세요", "/api/join", "/api/chat", "roomId", "withRoom", "heartbeatTimer", "sessionSecret", "if (!res.ok)", "입장 실패", "네트워크 문제로 답변을 받지 못했어"]) &&
+      includesAll(files["src/worker.js"], ['url.pathname === "/"', 'url.pathname === "/api/join"', "normalizeRoomId", "MAX_JSON_BODY_BYTES", "payload_too_large", "registerStudentSession", "validateStudentSession", "session_conflict", "session_verification_failed"])
   },
   {
     id: "teacher-realtime-dashboard",
@@ -68,7 +68,7 @@ const checks = [
       includesAll(files["src/domain/llm-provider.js"], ["OPENAI_API_KEY", "authorization"]) &&
       includesAll(files["README.md"], ["학생 브라우저에는 키가 노출되지 않습니다"]) &&
       includesAll(files["docs/deployment-guide.md"], ["wrangler secret put OPENAI_API_KEY", "여러 학생이 동시에 접속해도"]) &&
-      includesAll(files["scripts/smoke-worker.js"], ["multiple students share one server-side provider without session collision", "multi-user", "OPENAI_API_KEY"])
+      includesAll(files["scripts/smoke-worker.js"], ["multiple students share one server-side provider without session collision", "student session secret prevents session id takeover", "multi-user", "OPENAI_API_KEY"])
   },
   {
     id: "cloudflare-worker-deployment",

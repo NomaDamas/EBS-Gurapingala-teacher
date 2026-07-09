@@ -1,6 +1,7 @@
 import worker from "../src/worker.js";
 
 const eventsByRoom = new Map();
+const sessionsByRoom = new Map();
 const config = {};
 const rateLimitCalls = new Map();
 const env = {
@@ -113,6 +114,7 @@ const checks = [
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         sessionId: "oversized",
+        sessionSecret: "oversized-secret",
         studentName: "민준",
         message: "가".repeat(9000)
       })
@@ -125,11 +127,11 @@ const checks = [
   ["student payload validation returns 400", async () => {
     const missingMessage = await appFetch("https://example.com/api/chat", {
       method: "POST",
-      body: JSON.stringify({ sessionId: "s-validation", studentName: "민준" })
+      body: JSON.stringify({ sessionId: "s-validation", sessionSecret: "validation-secret", studentName: "민준" })
     });
     const longName = await appFetch("https://example.com/api/join", {
       method: "POST",
-      body: JSON.stringify({ sessionId: "s-validation", studentName: "가".repeat(41) })
+      body: JSON.stringify({ sessionId: "s-validation", sessionSecret: "validation-secret", studentName: "가".repeat(41) })
     });
     const missingMessageBody = await missingMessage.json();
     const longNameBody = await longName.json();
@@ -141,12 +143,13 @@ const checks = [
   ["student can join and chat with rules provider", async () => {
     const join = await appFetch("https://example.com/api/join", {
       method: "POST",
-      body: JSON.stringify({ sessionId: "s1", studentName: "민준" })
+      body: JSON.stringify({ sessionId: "s1", sessionSecret: "s1-secret", studentName: "민준" })
     });
     const chat = await appFetch("https://example.com/api/chat", {
       method: "POST",
       body: JSON.stringify({
         sessionId: "s1",
+        sessionSecret: "s1-secret",
         studentName: "민준",
         message: "명량해전에서 몇 척으로 싸웠어?"
       })
@@ -157,18 +160,53 @@ const checks = [
       body.answer.includes("지휘력 하나만") &&
       Number.isFinite(body.latencyMs);
   }],
+  ["student session secret prevents session id takeover", async () => {
+    const first = await appFetch("https://example.com/api/join", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: "takeover",
+        sessionSecret: "original-secret",
+        studentName: "민준"
+      })
+    });
+    const second = await appFetch("https://example.com/api/join", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: "takeover",
+        sessionSecret: "different-secret",
+        studentName: "다른학생"
+      })
+    });
+    const badChat = await appFetch("https://example.com/api/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: "takeover",
+        sessionSecret: "different-secret",
+        studentName: "다른학생",
+        message: "명량해전은 뭐야?"
+      })
+    });
+    const secondBody = await second.json();
+    const badChatBody = await badChat.json();
+    return first.status === 200 &&
+      second.status === 409 &&
+      secondBody.error === "session_conflict" &&
+      badChat.status === 409 &&
+      badChatBody.error === "session_verification_failed";
+  }],
   ["multiple students share one server-side provider without session collision", async () => {
     const room = "multi-user";
     const students = [
-      { sessionId: "multi-a", studentName: "하준", message: "명량해전에서 몇 척으로 싸웠어?" },
-      { sessionId: "multi-b", studentName: "서아", message: "거북선은 이순신 장군이 직접 발명한 거야?" },
-      { sessionId: "multi-c", studentName: "도윤", message: "명나라는 왜 조선을 도와줬어?" }
+      { sessionId: "multi-a", sessionSecret: "multi-a-secret", studentName: "하준", message: "명량해전에서 몇 척으로 싸웠어?" },
+      { sessionId: "multi-b", sessionSecret: "multi-b-secret", studentName: "서아", message: "거북선은 이순신 장군이 직접 발명한 거야?" },
+      { sessionId: "multi-c", sessionSecret: "multi-c-secret", studentName: "도윤", message: "명나라는 왜 조선을 도와줬어?" }
     ];
     for (const student of students) {
       const join = await appFetch(`https://example.com/api/join?room=${room}`, {
         method: "POST",
         body: JSON.stringify({
           sessionId: student.sessionId,
+          sessionSecret: student.sessionSecret,
           studentName: student.studentName
         })
       });
@@ -192,6 +230,7 @@ const checks = [
       students.every((student) => sessionIds.has(student.sessionId)) &&
       exportBody.sessionSummary.filter((session) => session.chatTurns === 1).length === students.length &&
       exportBody.events.filter((event) => event.type === "chat_turn").length === students.length &&
+      JSON.stringify(exportBody).includes("sessionSecret") === false &&
       JSON.stringify(exportBody).includes("OPENAI_API_KEY") === false;
   }],
   ["rate limit returns 429", async () => {
@@ -199,6 +238,7 @@ const checks = [
       method: "POST",
       body: JSON.stringify({
         sessionId: "s1",
+        sessionSecret: "s1-secret",
         studentName: "민준",
         message: "한 번 더 알려줘"
       })
@@ -253,10 +293,19 @@ const checks = [
     const updated = await update.json();
     const read = await appFetch("https://example.com/api/config", { headers: teacherHeaders });
     const configBody = await read.json();
+    const join = await appFetch("https://example.com/api/join", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: "config-s1",
+        sessionSecret: "config-s1-secret",
+        studentName: "지우"
+      })
+    });
     const chat = await appFetch("https://example.com/api/chat", {
       method: "POST",
       body: JSON.stringify({
         sessionId: "config-s1",
+        sessionSecret: "config-s1-secret",
         studentName: "지우",
         message: "거북선은 어떤 배였어?"
       })
@@ -267,6 +316,7 @@ const checks = [
     const turn = exportBody.events.find((event) => event.sessionId === "config-s1" && event.type === "chat_turn");
     return update.status === 200 &&
       read.status === 200 &&
+      join.status === 200 &&
       updated.level === 4 &&
       configBody.level === 4 &&
       configBody.persona === "검증용 페르소나" &&
@@ -279,12 +329,13 @@ const checks = [
   ["room query isolates classroom events", async () => {
     await appFetch("https://example.com/api/join?room=room-a", {
       method: "POST",
-      body: JSON.stringify({ sessionId: "room-student", studentName: "서연" })
+      body: JSON.stringify({ sessionId: "room-student", sessionSecret: "room-student-secret", studentName: "서연" })
     });
     await appFetch("https://example.com/api/chat?room=room-a", {
       method: "POST",
       body: JSON.stringify({
         sessionId: "room-student",
+        sessionSecret: "room-student-secret",
         studentName: "서연",
         message: "거북선은 누가 만들었어?"
       })
@@ -370,6 +421,45 @@ async function roomFetch(roomName, input, init = {}) {
   }
   if (url.pathname === "/config") return json(config);
   if (url.pathname === "/events") return json(events);
+  if (url.pathname === "/session-register" && method === "POST") {
+    const body = JSON.parse(bodyText);
+    const sessions = sessionsFor(roomName);
+    const existing = sessions.get(body.sessionId);
+    if (existing && existing.sessionSecret !== body.sessionSecret) {
+      return json({
+        ok: false,
+        status: 409,
+        error: "session_conflict",
+        message: "이미 다른 브라우저에서 사용 중인 세션입니다. 새로고침 후 다시 입장해 주세요."
+      });
+    }
+    sessions.set(body.sessionId, {
+      sessionSecret: body.sessionSecret,
+      studentName: body.studentName
+    });
+    return json({ ok: true });
+  }
+  if (url.pathname === "/session-validate" && method === "POST") {
+    const body = JSON.parse(bodyText);
+    const existing = sessionsFor(roomName).get(body.sessionId);
+    if (!existing) {
+      return json({
+        ok: false,
+        status: 401,
+        error: "session_not_joined",
+        message: "먼저 이름을 입력해 입장해 주세요."
+      });
+    }
+    if (existing.sessionSecret !== body.sessionSecret) {
+      return json({
+        ok: false,
+        status: 409,
+        error: "session_verification_failed",
+        message: "세션 확인에 실패했습니다. 새로고침 후 다시 입장해 주세요."
+      });
+    }
+    return json({ ok: true });
+  }
   if (url.pathname === "/event" && method === "POST") {
     events.push(JSON.parse(bodyText));
     return new Response("ok");
@@ -386,6 +476,7 @@ async function roomFetch(roomName, input, init = {}) {
   }
   if (url.pathname === "/purge" && method === "POST") {
     events.length = 0;
+    sessionsFor(roomName).clear();
     for (const key of rateLimitCalls.keys()) {
       if (key.startsWith(`${roomName}:`)) rateLimitCalls.delete(key);
     }
@@ -397,6 +488,11 @@ async function roomFetch(roomName, input, init = {}) {
 function eventsFor(roomName) {
   if (!eventsByRoom.has(roomName)) eventsByRoom.set(roomName, []);
   return eventsByRoom.get(roomName);
+}
+
+function sessionsFor(roomName) {
+  if (!sessionsByRoom.has(roomName)) sessionsByRoom.set(roomName, new Map());
+  return sessionsByRoom.get(roomName);
 }
 
 function json(value) {

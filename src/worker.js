@@ -86,6 +86,13 @@ export default {
       const validation = validateStudentPayload(parsed.body, { requireMessage: false });
       if (validation.error) return validation.error;
       const body = validation.value;
+      const registration = await registerStudentSession(room, body);
+      if (!registration.ok) {
+        return json({
+          error: registration.error,
+          message: registration.message
+        }, registration.status || 409);
+      }
       await room.fetch(roomEventUrl(env), {
         method: "POST",
         body: JSON.stringify({
@@ -104,6 +111,13 @@ export default {
       const validation = validateStudentPayload(parsed.body, { requireMessage: false });
       if (validation.error) return validation.error;
       const body = validation.value;
+      const sessionCheck = await validateStudentSession(room, body);
+      if (!sessionCheck.ok) {
+        return json({
+          error: sessionCheck.error,
+          message: sessionCheck.message
+        }, sessionCheck.status || 401);
+      }
       await room.fetch(roomEventUrl(env), {
         method: "POST",
         body: JSON.stringify({
@@ -123,6 +137,13 @@ export default {
       const validation = validateStudentPayload(parsed.body, { requireMessage: true });
       if (validation.error) return validation.error;
       const body = validation.value;
+      const sessionCheck = await validateStudentSession(room, body);
+      if (!sessionCheck.ok) {
+        return json({
+          error: sessionCheck.error,
+          message: sessionCheck.message
+        }, sessionCheck.status || 401);
+      }
       const rateLimit = await checkRateLimit(room, body.sessionId, env);
       if (!rateLimit.allowed) {
         return json({
@@ -221,12 +242,19 @@ export class ClassroomRoom {
       const body = await request.json();
       return json(await this.checkRateLimit(body.sessionId, body.limit));
     }
+    if (url.pathname === "/session-register" && request.method === "POST") {
+      return json(await this.registerStudentSession(await request.json()));
+    }
+    if (url.pathname === "/session-validate" && request.method === "POST") {
+      return json(await this.validateStudentSession(await request.json()));
+    }
     if (url.pathname === "/events") {
       return json(await this.readEvents(Number(url.searchParams.get("ttlHours") || 24)));
     }
     if (url.pathname === "/purge" && request.method === "POST") {
       await this.state.storage.delete("events");
       await this.state.storage.delete("rateLimits");
+      await this.state.storage.delete("studentSessions");
       this.broadcast({
         type: "events_purged",
         sessionId: "teacher",
@@ -285,6 +313,56 @@ export class ClassroomRoom {
       allowed: decision.allowed,
       retryAfterMs: decision.retryAfterMs
     };
+  }
+
+  async registerStudentSession({ sessionId, sessionSecret, studentName }) {
+    const sessions = await this.state.storage.get("studentSessions") || {};
+    const existing = sessions[sessionId];
+    if (existing && existing.sessionSecret !== sessionSecret) {
+      return {
+        ok: false,
+        status: 409,
+        error: "session_conflict",
+        message: "이미 다른 브라우저에서 사용 중인 세션입니다. 새로고침 후 다시 입장해 주세요."
+      };
+    }
+    const now = new Date().toISOString();
+    sessions[sessionId] = {
+      sessionSecret,
+      studentName,
+      joinedAt: existing?.joinedAt || now,
+      lastSeenAt: now
+    };
+    await this.state.storage.put("studentSessions", sessions);
+    return { ok: true };
+  }
+
+  async validateStudentSession({ sessionId, sessionSecret, studentName }) {
+    const sessions = await this.state.storage.get("studentSessions") || {};
+    const existing = sessions[sessionId];
+    if (!existing) {
+      return {
+        ok: false,
+        status: 401,
+        error: "session_not_joined",
+        message: "먼저 이름을 입력해 입장해 주세요."
+      };
+    }
+    if (existing.sessionSecret !== sessionSecret) {
+      return {
+        ok: false,
+        status: 409,
+        error: "session_verification_failed",
+        message: "세션 확인에 실패했습니다. 새로고침 후 다시 입장해 주세요."
+      };
+    }
+    sessions[sessionId] = {
+      ...existing,
+      studentName: studentName || existing.studentName,
+      lastSeenAt: new Date().toISOString()
+    };
+    await this.state.storage.put("studentSessions", sessions);
+    return { ok: true };
   }
 
   async updateConfig(data, roomId = "default-classroom") {
@@ -409,6 +487,30 @@ async function checkRateLimit(room, sessionId, env) {
   return await res.json();
 }
 
+async function registerStudentSession(room, body) {
+  const res = await room.fetch("https://room.local/session-register", {
+    method: "POST",
+    body: JSON.stringify({
+      sessionId: body.sessionId,
+      sessionSecret: body.sessionSecret,
+      studentName: body.studentName
+    })
+  });
+  return await res.json();
+}
+
+async function validateStudentSession(room, body) {
+  const res = await room.fetch("https://room.local/session-validate", {
+    method: "POST",
+    body: JSON.stringify({
+      sessionId: body.sessionId,
+      sessionSecret: body.sessionSecret,
+      studentName: body.studentName
+    })
+  });
+  return await res.json();
+}
+
 function html(body) {
   return new Response(body, {
     headers: {
@@ -477,11 +579,15 @@ async function readJsonBody(request) {
 
 function validateStudentPayload(body, { requireMessage }) {
   const sessionId = sanitizeText(body?.sessionId, 120);
+  const sessionSecret = sanitizeText(body?.sessionSecret, 160);
   const studentName = sanitizeText(body?.studentName, 40);
   const message = sanitizeText(body?.message, 600);
 
   if (!sessionId) {
     return { error: validationError("missing_session_id", "세션 정보가 없습니다.") };
+  }
+  if (!sessionSecret) {
+    return { error: validationError("missing_session_secret", "세션 확인 정보가 없습니다.") };
   }
   if (!studentName) {
     return { error: validationError("missing_student_name", "이름을 입력해야 합니다.") };
@@ -491,6 +597,9 @@ function validateStudentPayload(body, { requireMessage }) {
   }
   if (String(body?.sessionId || "").length > 120) {
     return { error: validationError("session_id_too_long", "세션 정보가 너무 깁니다.") };
+  }
+  if (String(body?.sessionSecret || "").length > 160) {
+    return { error: validationError("session_secret_too_long", "세션 확인 정보가 너무 깁니다.") };
   }
   if (String(body?.studentName || "").length > 40) {
     return { error: validationError("student_name_too_long", "이름은 40자 이내로 입력해야 합니다.") };
@@ -502,6 +611,7 @@ function validateStudentPayload(body, { requireMessage }) {
   return {
     value: {
       sessionId,
+      sessionSecret,
       studentName,
       ...(requireMessage ? { message } : {})
     }

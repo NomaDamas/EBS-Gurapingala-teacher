@@ -7,6 +7,7 @@ const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN === "true";
 const expectedOpenAIModel = process.env.EXPECTED_OPENAI_MODEL || "";
 const allowUnsafePurge = process.env.ALLOW_PURGE_FILMING_ROOM === "true";
 const verifySessionId = `${verifyRoomId}-session-${Date.now()}`;
+const verifySessionSecret = `${verifyRoomId}-secret-${Date.now()}`;
 
 if (!baseUrl) {
   console.error("Usage: WORKER_URL=https://<worker-domain> node scripts/verify-deploy.js");
@@ -127,6 +128,7 @@ const checks = [
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         sessionId: verifySessionId,
+        sessionSecret: verifySessionSecret,
         studentName: "배포검증"
       })
     });
@@ -137,6 +139,7 @@ const checks = [
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         sessionId: verifySessionId,
+        sessionSecret: verifySessionSecret,
         studentName: "배포검증",
         message: "명량해전에서 이순신은 배 몇 척으로 싸웠어?"
       })

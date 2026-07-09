@@ -4,6 +4,7 @@ import worker from "../src/worker.js";
 
 test("student inputs are normalized before telemetry is stored", async () => {
   const storedEvents = [];
+  const sessions = new Map();
   const env = {
     DEFAULT_FALSE_LEVEL: "2",
     DEFAULT_PERSONA: "테스트 역사 도우미",
@@ -16,6 +17,17 @@ test("student inputs are normalized before telemetry is stored", async () => {
           if (url.pathname === "/event") {
             storedEvents.push(JSON.parse(init.body));
             return new Response("ok");
+          }
+          if (url.pathname === "/session-register") {
+            const body = JSON.parse(init.body);
+            sessions.set(body.sessionId, body.sessionSecret);
+            return jsonResponse({ ok: true });
+          }
+          if (url.pathname === "/session-validate") {
+            const body = JSON.parse(init.body);
+            return jsonResponse({
+              ok: sessions.get(body.sessionId) === body.sessionSecret
+            });
           }
           if (url.pathname === "/events") return jsonResponse([]);
           if (url.pathname === "/config") return jsonResponse({});
@@ -32,6 +44,7 @@ test("student inputs are normalized before telemetry is stored", async () => {
     method: "POST",
     body: JSON.stringify({
       sessionId: " s\n1\t",
+      sessionSecret: " secret\n1\t",
       studentName: " 민\n준\t"
     })
   }), env);
@@ -41,6 +54,7 @@ test("student inputs are normalized before telemetry is stored", async () => {
     method: "POST",
     body: JSON.stringify({
       sessionId: " s\n1\t",
+      sessionSecret: " secret\n1\t",
       studentName: " 민\n준\t",
       message: "명량해전에서\n몇\t척으로 싸웠어?"
     })

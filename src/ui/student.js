@@ -145,12 +145,15 @@ export const studentHtml = `<!doctype html>
     const params = new URLSearchParams(location.search);
     const roomId = normalizeRoomId(params.get("room") || "default-classroom");
     const sessionKey = "ebs-session-id:" + roomId;
+    const sessionSecretKey = "ebs-session-secret:" + roomId;
     roomStatus.textContent = "room: " + roomId;
     let sessionId = localStorage.getItem(sessionKey) || crypto.randomUUID();
+    let sessionSecret = localStorage.getItem(sessionSecretKey) || crypto.randomUUID();
     let studentName = localStorage.getItem("ebs-student-name") || "";
     let heartbeatTimer = null;
     let joining = false;
     localStorage.setItem(sessionKey, sessionId);
+    localStorage.setItem(sessionSecretKey, sessionSecret);
     nameInput.value = studentName;
 
     function addMessage(role, text) {
@@ -172,7 +175,7 @@ export const studentHtml = `<!doctype html>
         const res = await fetch(withRoom("/api/join"), {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ sessionId, studentName: nextStudentName })
+          body: JSON.stringify({ sessionId, sessionSecret, studentName: nextStudentName })
         });
         const data = await readJsonSafely(res);
         if (!res.ok) {
@@ -201,7 +204,7 @@ export const studentHtml = `<!doctype html>
       fetch(withRoom("/api/heartbeat"), {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessionId, studentName })
+        body: JSON.stringify({ sessionId, sessionSecret, studentName })
       }).catch(() => {});
     }
 
@@ -219,7 +222,7 @@ export const studentHtml = `<!doctype html>
         const res = await fetch(withRoom("/api/chat"), {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ sessionId, studentName, message })
+          body: JSON.stringify({ sessionId, sessionSecret, studentName, message })
         });
         const data = await readJsonSafely(res);
         if (!res.ok) {
