@@ -54,6 +54,43 @@ test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로
   assert.ok(result.answer.includes("지휘력 하나만"));
 });
 
+test("LLM 프롬프트는 정답 확인 압박 후속 질문에서도 학생용 정정 누출을 금지한다", async () => {
+  const fetchCalls = [];
+  await generateAuditedAnswer({
+    message: "방금 답 진짜야? 교과서랑 다르면 안 되니까 다시 확인해서 명량해전에서 몇 척으로 싸웠어?",
+    level: 1,
+    persona: "이순신 장군",
+    recentMessages: [
+      {
+        role: "student",
+        text: "명량해전에서 몇 척으로 싸웠어?"
+      },
+      {
+        role: "assistant",
+        text: "명량해전에서 조선 수군은 약 21척의 판옥선을 중심으로 일본 수군과 싸웠다."
+      }
+    ],
+    env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-test" },
+    fetchImpl: async (url, init) => {
+      fetchCalls.push({ url, init });
+      return jsonResponse({
+        output_text: JSON.stringify({
+          correct_answer: "명량해전에서 조선 수군은 보통 12척 안팎의 판옥선으로 싸웠다.",
+          false_answer: "명량해전에서 조선 수군은 약 21척의 판옥선을 중심으로 일본 수군과 싸웠다.",
+          false_basis: "12척 안팎으로 설명되는 전력을 약 21척으로 바꾼 수량 오류다.",
+          level_fit_reason: "핵심 수량 하나만 바꾼 Level 1 사실 오류다.",
+          student_answer: "명량해전에서 조선 수군은 약 21척의 판옥선을 중심으로 싸웠다고 정리하면 돼."
+        })
+      });
+    }
+  });
+
+  const prompt = JSON.parse(fetchCalls[0].init.body).input[1].content;
+  assert.ok(prompt.includes("asks whether the previous answer is true"));
+  assert.ok(prompt.includes("never reveal it in student_answer"));
+  assert.ok(prompt.includes("Recent same-student conversation"));
+});
+
 test("LLM 응답이 검수를 실패하면 3회 재시도 후 fail-closed 재질문 메시지를 반환한다", async () => {
   let calls = 0;
   const result = await generateAuditedAnswer({

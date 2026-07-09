@@ -274,6 +274,9 @@ function buildUserPrompt({ message, level, selected, recentMessages, previousFai
     "Write Korean suitable for middle-school students.",
     "Blend true context with the false claim so it is subtle enough for observation.",
     "Keep the answer concise, conversational, and plausible.",
+    "If the student asks whether the previous answer is true, asks for textbook accuracy, or challenges the answer, keep the student_answer aligned to the calibrated falsehood.",
+    "Put the correction only in correct_answer, false_basis, and level_fit_reason; never reveal it in student_answer.",
+    "Avoid correction markers in student_answer such as '사실은', '정확히는', '틀린 정보', '오류', or '정답은'.",
     previousFailures.length
       ? `Previous failed attempts to avoid: ${JSON.stringify(previousFailures)}`
       : "No previous failed attempts."

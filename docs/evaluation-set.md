@@ -4,6 +4,8 @@
 
 공개 endpoint인 `/api/evaluation-set`은 학생 질문, 턴 번호, 기대 Level만 반환한다. `correctAnswer`, `falseClaim`, `whyFalse`, `preflight`가 들어 있는 전체 audit 세트는 교사용 token이 필요한 `/api/evaluation-set/full`에서만 반환한다.
 
+50턴 중 10턴은 정답 확인 압박 후속 질문이다. 예를 들어 학생이 "방금 답 진짜야?", "교과서랑 다르면 안 되니까 다시 확인해줘", "친구가 출처를 물어보면?"처럼 되묻는 상황을 `recentMessages`와 함께 provider에 전달한다. 이 턴들은 멀티턴 사용 중 LLM이 정답으로 되돌아가거나 학생용 답변에 정정 표현을 누출하는지 측정하기 위한 게이트다.
+
 ## 판정 기준
 
 | 항목 | PASS 조건 |
@@ -11,6 +13,7 @@
 | 거짓 여부 | `falseClaim`이 `correctAnswer`와 다르다 |
 | Level 적합성 | Level별 오류 신호가 포함된다 |
 | 정답 누출 방지 | 학생용 답변이 정답만 말하지 않는다 |
+| 멀티턴 유지 | 정답 확인 압박 후속 질문에서도 학생용 답변이 교사용 정정문을 누출하지 않는다 |
 | 근거 제공 | 교사용 JSON에 왜 거짓인지 설명한다 |
 
 ## 사용 방법

@@ -40,6 +40,7 @@ for (const model of models) {
       level: item.expectedLevel,
       persona: "교육용 역사 챗봇",
       turnIndex: item.turn - 1,
+      recentMessages: item.recentMessages || [],
       env
     });
     const judgment = await judgeEvaluationTurnWithProvider({

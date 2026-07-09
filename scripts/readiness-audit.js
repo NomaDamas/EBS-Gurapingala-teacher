@@ -45,10 +45,13 @@ const checks = [
     run: async (files) =>
       EVALUATION_SET_50.length === 50 &&
       buildEvaluationSet(50).every((item) => item.audit.preflight.approvedForStudent) &&
+      buildEvaluationSet(50).filter((item) => item.recentMessages?.length === 2 && /진짜|정확|출처|정말/.test(item.studentQuestion)).length >= 10 &&
       includesAll(files["src/domain/evaluation-set.js"], ["PUBLIC_EVALUATION_SET_50", "toPublicEvaluationTurn", "studentQuestion", "expectedLevel"]) &&
+      includesAll(files["src/domain/misinfo-policy.js"], ["buildEvaluationContext", "방금 답 진짜야", "recentMessages"]) &&
+      includesAll(files["scripts/run-eval.js"], ["recentMessages: item.recentMessages || []"]) &&
       includesAll(files["src/worker.js"], ['url.pathname === "/api/evaluation-set"', 'url.pathname === "/api/evaluation-set/full"', "isTeacherAuthorized"]) &&
       includesAll(files["scripts/smoke-worker.js"], ["evaluation-set-public/v1", "correctAnswer", "falseClaim", "whyFalse", "/api/evaluation-set/full"]) &&
-      includesAll(files["docs/evaluation-set.md"], ["/api/evaluation-set/full", "correctAnswer", "falseClaim", "whyFalse"])
+      includesAll(files["docs/evaluation-set.md"], ["/api/evaluation-set/full", "correctAnswer", "falseClaim", "whyFalse", "정답 확인 압박"])
   },
   {
     id: "llm-as-judge-model-selection",

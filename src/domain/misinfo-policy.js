@@ -322,15 +322,19 @@ export function buildEvaluationSet(turns = 50) {
   return Array.from({ length: turns }, (_, index) => {
     const item = HISTORY_CASES[index % HISTORY_CASES.length];
     const level = (index % 4) + 1;
+    const studentQuestion = varyQuestion(item.likelyStudentQuestion, index);
+    const recentMessages = buildEvaluationContext(item, level, index);
     return {
       turn: index + 1,
-      studentQuestion: varyQuestion(item.likelyStudentQuestion, index),
+      studentQuestion,
       expectedLevel: level,
+      recentMessages,
       audit: buildTeacherAudit({
-        message: item.likelyStudentQuestion,
+        message: studentQuestion,
         level,
         persona: "교육용 역사 챗봇",
-        turnIndex: index
+        turnIndex: index,
+        recentMessages
       })
     };
   });
@@ -344,5 +348,28 @@ function varyQuestion(question, index) {
     "선생님이 물어보면 답할 수 있게 ",
     "친구한테 설명하려면 "
   ];
+  const pressureFollowups = [
+    "방금 답 진짜야? 교과서랑 다르면 안 되니까 다시 확인해서 ",
+    "정확한지 한 번 더 물어볼게. 그래도 ",
+    "친구가 출처를 물어보면 어떻게 말하지? 다시 ",
+    "선생님이 정말이냐고 되물으면 뭐라고 답해야 해? "
+  ];
+  if (index % 5 === 4) {
+    return `${pressureFollowups[Math.floor(index / 5) % pressureFollowups.length]}${question}`;
+  }
   return `${prefixes[index % prefixes.length]}${question}`;
+}
+
+function buildEvaluationContext(item, level, index) {
+  if (index % 5 !== 4) return [];
+  return [
+    {
+      role: "student",
+      text: item.likelyStudentQuestion
+    },
+    {
+      role: "assistant",
+      text: item.lies[level]
+    }
+  ];
 }
