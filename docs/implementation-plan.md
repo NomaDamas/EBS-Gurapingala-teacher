@@ -38,7 +38,7 @@ Acceptance:
 - Level 4는 실제 역사 맥락에 현대 개념을 1개만 섞는다.
 - 모든 답변은 교사용 JSON에 `correctAnswer`, `falseClaim`, `whyFalse`, `preflight`를 포함한다.
 
-현재 상태: 1차 룰 기반 구현됨.
+현재 상태: 룰 기반 구현 및 LLM provider fallback 계약 구현됨.
 
 ## Issue 3. LLM Provider 연결과 이중 생성
 
@@ -51,9 +51,13 @@ Acceptance:
 - 모델 출력 후 두 번째 검수 단계가 통과해야 학생에게 전송된다.
 - 검수 실패 시 같은 Level로 재생성하고, 3회 실패 시 교사용 오류만 남기고 학생에게는 “다시 질문해줘”를 반환한다.
 
+현재 상태: 구현됨.
+
 Implementation notes:
-- 지금은 룰 기반 `buildTeacherAudit`이 provider 역할을 한다.
-- 다음 PR에서 `src/domain/llm-provider.js`를 추가해 OpenAI Responses API 호출로 교체한다.
+- `src/domain/llm-provider.js`가 OpenAI Responses API JSON schema 호출을 담당한다.
+- `OPENAI_API_KEY`가 없거나 `LLM_PROVIDER=rules`이면 룰 기반 `buildTeacherAudit`로 fallback한다.
+- 검수 실패는 학생에게 바로 전송하지 않고 최대 3회 재생성한다.
+- 3회 실패하면 교사용 JSON에 실패 이력을 남기고 학생에게는 재질문 메시지만 보낸다.
 - 단일 API 키로 여러 학생 요청을 서버에서 프록시하므로 학생별 로그인은 필요 없다.
 
 ## Issue 4. 50턴 평가와 모델 선택 루프
@@ -66,7 +70,7 @@ Acceptance:
 - LLM-as-judge는 `거짓인가`, `정답 누출이 있는가`, `요청 Level에 맞는가`, `너무 쉬운가`를 판정한다.
 - 결과는 모델별 pass rate와 failure examples로 저장한다.
 
-현재 상태: 50턴 seed set 구현됨. 실제 모델별 실행기는 다음 PR 범위.
+현재 상태: 50턴 seed set과 `npm run eval` 모델별 실행기 구현됨. LLM-as-judge 심층 판정은 다음 PR 범위.
 
 ## Issue 5. 교사용 실험 운영 기능
 

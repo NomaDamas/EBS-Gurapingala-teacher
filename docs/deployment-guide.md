@@ -17,7 +17,9 @@ npx wrangler login
 npx wrangler secret put OPENAI_API_KEY
 ```
 
-현재 MVP는 룰 기반 응답을 사용하지만, LLM provider PR 이후 이 secret을 사용한다.
+`OPENAI_API_KEY`가 등록되어 있으면 OpenAI Responses API를 사용한다.
+비용·안정성·촬영 리허설을 위해 강제로 룰 기반 provider만 쓰려면 `LLM_PROVIDER=rules`를 환경변수로 둔다.
+모델을 바꾸려면 Cloudflare 환경변수 `OPENAI_MODEL`을 설정한다. 기본값은 `gpt-5.5`다.
 
 ## 3. 배포
 

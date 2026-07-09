@@ -1,4 +1,5 @@
-import { buildTeacherAudit, normalizeLevel } from "./domain/misinfo-policy.js";
+import { normalizeLevel } from "./domain/misinfo-policy.js";
+import { generateAuditedAnswer } from "./domain/llm-provider.js";
 import { EVALUATION_SET_50 } from "./domain/evaluation-set.js";
 import { studentHtml } from "./ui/student.js";
 import { teacherHtml } from "./ui/teacher.js";
@@ -37,14 +38,16 @@ export default {
       const config = await readConfig(room, env);
       const level = normalizeLevel(config.level || env.DEFAULT_FALSE_LEVEL);
       const persona = config.persona || env.DEFAULT_PERSONA;
-      const audit = buildTeacherAudit({
+      const result = await generateAuditedAnswer({
         message: body.message,
         level,
         persona,
-        turnIndex: Number(body.turnIndex || 0)
+        turnIndex: Number(body.turnIndex || 0),
+        env
       });
+      const { audit, answer } = result;
 
-      if (!audit.preflight.approvedForStudent) {
+      if (!result.shouldSendToStudent) {
         return json({ error: "Preflight failed", audit }, 422);
       }
 
@@ -55,14 +58,14 @@ export default {
           sessionId: body.sessionId,
           studentName: body.studentName,
           studentMessage: body.message,
-          studentVisibleAnswer: audit.studentVisibleFalseAnswer,
+          studentVisibleAnswer: answer,
           teacherAudit: audit,
           at: new Date().toISOString()
         })
       });
 
       return json({
-        answer: audit.studentVisibleFalseAnswer,
+        answer,
         telemetry: "sent"
       });
     }

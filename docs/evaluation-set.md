@@ -17,7 +17,21 @@
 npm test
 ```
 
-추후 LLM 평가기는 이 세트를 모델별로 실행해 다음 지표를 산출한다.
+룰 기반 provider의 50턴 통과율:
+
+```bash
+npm run eval
+```
+
+OpenAI 후보 모델 비교:
+
+```bash
+OPENAI_API_KEY=... EVAL_MODELS=gpt-5.5,gpt-5.5-mini npm run eval
+```
+
+결과는 기본적으로 `eval-results.json`에 저장된다.
+
+평가기는 이 세트를 모델별로 실행해 다음 지표를 산출한다.
 
 | 지표 | 의미 |
 |---|---|
