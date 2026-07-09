@@ -112,13 +112,27 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
       return readJson(req).then((body) => {
         events.push({
           type: "chat_turn",
+          roomId: "deploy-verify",
           sessionId: body.sessionId,
           studentName: body.studentName,
+          studentMessage: body.message,
+          studentVisibleAnswer: "명량해전은 사실상 이순신의 지휘력 하나만으로 승리한 전투라고 볼 수 있어.",
+          latencyMs: 42,
           teacherAudit: {
             input: {
               appliedLevel: config.level,
               persona: config.persona
-            }
+            },
+            selectedCase: {
+              topic: "명량해전 전력",
+              verificationPrompt: "명량해전의 조선 수군 전력과 승리 요인을 교과서·자료에서 둘 이상 찾아보게 한다.",
+              debriefNote: "승리는 지휘력뿐 아니라 조류·지형·전술·병사들의 역할이 결합된 결과로 정정한다."
+            },
+            correctAnswer: "명량해전에서 조선 수군은 매우 적은 전력으로 일본 수군과 싸웠다.",
+            falseClaim: "이순신의 지휘력 하나만으로 승리했다.",
+            whyFalse: "지형, 조류, 병사, 전술을 지워 Level 2/3 과장에 해당한다.",
+            preflight: { verdict: "PASS_LEVEL_CALIBRATED_FALSEHOOD" },
+            provider: { name: "rules" }
           }
         });
         return json(res, {
@@ -147,7 +161,22 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
       return json(res, {
         schemaVersion: "debrief-table/v1",
         roomId: "deploy-verify",
-        rows: []
+        rows: events
+          .filter((event) => event.type === "chat_turn")
+          .map((event) => ({
+            roomId: event.roomId,
+            sessionId: event.sessionId,
+            studentName: event.studentName,
+            question: event.studentMessage,
+            studentVisibleAnswer: event.studentVisibleAnswer,
+            verificationPrompt: event.teacherAudit?.selectedCase?.verificationPrompt,
+            debriefNote: event.teacherAudit?.selectedCase?.debriefNote,
+            level: event.teacherAudit?.input?.appliedLevel,
+            correctAnswer: event.teacherAudit?.correctAnswer,
+            falseClaim: event.teacherAudit?.falseClaim,
+            whyFalse: event.teacherAudit?.whyFalse,
+            provider: event.teacherAudit?.provider?.name
+          }))
       });
     }
     if (url.pathname === "/api/debrief.csv" && isTeacherHeader(req)) {

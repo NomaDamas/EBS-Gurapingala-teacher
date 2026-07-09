@@ -203,10 +203,21 @@ const checks = [
     if (!teacherToken) return true;
     const res = await fetchTeacherUrl("/api/debrief");
     const body = await res.json();
+    const row = body.rows?.find((item) => item.sessionId === verifySessionId);
     return res.status === 200 &&
       body.schemaVersion === "debrief-table/v1" &&
       body.roomId === verifyRoomId &&
-      Array.isArray(body.rows);
+      Array.isArray(body.rows) &&
+      row?.studentName === "배포검증" &&
+      row?.question?.includes("명량해전") &&
+      row?.studentVisibleAnswer &&
+      row?.correctAnswer &&
+      row?.falseClaim &&
+      row?.whyFalse &&
+      row?.verificationPrompt &&
+      row?.debriefNote &&
+      row?.level === 3 &&
+      row?.provider;
   }],
   ["debrief csv filename is room aware", async () => {
     if (!teacherToken) return true;
