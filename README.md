@@ -27,6 +27,13 @@ npm run dev
 npm run eval
 ```
 
+출력 예시:
+
+```text
+rules: 100.0% pass (50/50)
+  falsehood=100.0% levelFit=100.0% truthLeak=0.0% subtlety=0.84
+```
+
 OpenAI 모델별 50턴 평가:
 
 ```bash

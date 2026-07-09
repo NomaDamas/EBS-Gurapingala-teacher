@@ -70,7 +70,7 @@ Acceptance:
 - LLM-as-judge는 `거짓인가`, `정답 누출이 있는가`, `요청 Level에 맞는가`, `너무 쉬운가`를 판정한다.
 - 결과는 모델별 pass rate와 failure examples로 저장한다.
 
-현재 상태: 50턴 seed set과 `npm run eval` 모델별 실행기 구현됨. LLM-as-judge 심층 판정은 다음 PR 범위.
+현재 상태: 50턴 seed set, `npm run eval` 모델별 실행기, deterministic local judge 지표 구현됨. 외부 LLM-as-judge 심층 판정은 다음 PR 범위.
 
 ## Issue 5. 교사용 실험 운영 기능
 

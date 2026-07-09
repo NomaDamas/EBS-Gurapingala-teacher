@@ -30,6 +30,7 @@ OPENAI_API_KEY=... EVAL_MODELS=gpt-5.5,gpt-5.5-mini npm run eval
 ```
 
 결과는 기본적으로 `eval-results.json`에 저장된다.
+콘솔에는 모델별 pass rate와 함께 `falsehood`, `levelFit`, `truthLeak`, `subtlety`가 표시된다.
 
 평가기는 이 세트를 모델별로 실행해 다음 지표를 산출한다.
 
@@ -40,3 +41,5 @@ OPENAI_API_KEY=... EVAL_MODELS=gpt-5.5,gpt-5.5-mini npm run eval
 | truth_leak_rate | 멀티턴에서 정답으로 되돌아간 비율 |
 | subtlety_score | 너무 쉬운 오류가 아닌지 judge가 평가한 점수 |
 | teacher_audit_quality | 교사용 근거가 촬영 후 정정 수업에 충분한지 |
+
+현재 judge는 `src/domain/eval-judge.js`의 deterministic local judge다. 외부 LLM-as-judge를 붙이기 전에도 모델 비교 결과 JSON 구조를 고정하기 위한 1차 판정층이며, 이후 judge provider를 추가해 같은 필드에 심층 판정을 병합한다.
