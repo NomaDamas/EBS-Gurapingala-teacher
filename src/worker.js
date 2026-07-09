@@ -489,6 +489,7 @@ function validateStudentPayload(body, { requireMessage }) {
 
 function sanitizeText(value, maxLength) {
   return String(value || "")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, maxLength);

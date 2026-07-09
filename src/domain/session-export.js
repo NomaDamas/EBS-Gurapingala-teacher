@@ -131,5 +131,6 @@ function normalizeEvents(events) {
 
 function csvEscape(value) {
   const text = value == null ? "" : String(value);
-  return `"${text.replaceAll('"', '""')}"`;
+  const formulaSafe = /^\s*[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${formulaSafe.replaceAll('"', '""')}"`;
 }
