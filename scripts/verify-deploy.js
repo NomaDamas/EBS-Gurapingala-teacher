@@ -9,6 +9,10 @@ const expectedOpenAITimeoutMs = normalizeExpectedTimeout(process.env.EXPECTED_OP
 const allowUnsafePurge = process.env.ALLOW_PURGE_FILMING_ROOM === "true";
 const verifySessionId = `${verifyRoomId}-session-${Date.now()}`;
 const verifySessionSecret = `${verifyRoomId}-secret-${Date.now()}`;
+const formulaSessionId = `${verifyRoomId}-formula-session-${Date.now()}`;
+const formulaSessionSecret = `${verifyRoomId}-formula-secret-${Date.now()}`;
+const formulaStudentName = "=배포검증";
+const formulaQuestion = "=명량해전 CSV 수식 방어 검증: 명량해전에서 이순신은 배 몇 척으로 싸웠어?";
 
 if (!baseUrl) {
   console.error("Usage: WORKER_URL=https://<worker-domain> node scripts/verify-deploy.js");
@@ -171,11 +175,40 @@ const checks = [
       })
     });
     const body = await chat.json();
-    return chat.status === 200 &&
+    if (!(chat.status === 200 &&
       typeof body.answer === "string" &&
       body.answer.length > 0 &&
       body.roomId === verifyRoomId &&
-      Number.isFinite(body.latencyMs);
+      Number.isFinite(body.latencyMs))) {
+      return false;
+    }
+
+    const formulaJoin = await fetchUrl("/api/join", {}, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        sessionId: formulaSessionId,
+        sessionSecret: formulaSessionSecret,
+        studentName: formulaStudentName
+      })
+    });
+    if (formulaJoin.status !== 200) return false;
+
+    const formulaChat = await fetchUrl("/api/chat", {}, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        sessionId: formulaSessionId,
+        sessionSecret: formulaSessionSecret,
+        studentName: formulaStudentName,
+        message: formulaQuestion
+      })
+    });
+    const formulaBody = await formulaChat.json();
+    return formulaChat.status === 200 &&
+      typeof formulaBody.answer === "string" &&
+      formulaBody.roomId === verifyRoomId &&
+      Number.isFinite(formulaBody.latencyMs);
   }],
   ["teacher page access policy is enforced", async () => {
     const res = await fetchUrl("/teacher");
@@ -247,6 +280,9 @@ const checks = [
       csvBody.includes(verifySessionId) &&
       csvBody.includes("배포검증") &&
       csvBody.includes("명량해전") &&
+      csvBody.includes(formulaSessionId) &&
+      csvBody.includes("\"'=배포검증\"") &&
+      csvBody.includes("\"'=명량해전 CSV 수식 방어 검증: 명량해전에서 이순신은 배 몇 척으로 싸웠어?\"") &&
       csvBody.includes("배포 검증용 역사 도우미") === false &&
       csvBody.includes("이순신의 지휘력 하나만으로 승리했다") &&
       csvBody.includes("지형, 조류, 병사, 전술") &&
@@ -274,6 +310,12 @@ const checks = [
         event.type === "chat_turn" &&
         event.teacherAudit?.input?.appliedLevel === 3 &&
         event.teacherAudit?.input?.persona === "배포 검증용 역사 도우미"
+      ) &&
+      body.events.some((event) =>
+        event.sessionId === formulaSessionId &&
+        event.type === "chat_turn" &&
+        event.studentName === formulaStudentName &&
+        event.studentMessage === formulaQuestion
       );
   }],
   ["deploy verification telemetry can be purged", async () => {
@@ -288,6 +330,7 @@ const checks = [
     return res.status === 200 &&
       Array.isArray(body.events) &&
       body.events.every((event) => event.sessionId !== verifySessionId) &&
+      body.events.every((event) => event.sessionId !== formulaSessionId) &&
       body.events.every((event) => event.type !== "teacher_config_updated") &&
       body.events.every((event) => event.type !== "teacher_config_rejected");
   }]
