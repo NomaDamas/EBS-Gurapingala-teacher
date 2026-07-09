@@ -161,6 +161,39 @@ const checks = [
       csvBody.includes("debriefNote") &&
       csvDisposition.includes("default-classroom-debrief-table.csv");
   }],
+  ["teacher config API controls generated audit level", async () => {
+    const teacherHeaders = { "x-teacher-token": "teacher-secret" };
+    const update = await appFetch("https://example.com/api/config", {
+      method: "POST",
+      headers: teacherHeaders,
+      body: JSON.stringify({
+        level: 4,
+        persona: "검증용 페르소나"
+      })
+    });
+    const updated = await update.json();
+    const read = await appFetch("https://example.com/api/config", { headers: teacherHeaders });
+    const configBody = await read.json();
+    const chat = await appFetch("https://example.com/api/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: "config-s1",
+        studentName: "지우",
+        message: "거북선은 어떤 배였어?"
+      })
+    });
+    const exportRes = await appFetch("https://example.com/api/export", { headers: teacherHeaders });
+    const exportBody = await exportRes.json();
+    const turn = exportBody.events.find((event) => event.sessionId === "config-s1" && event.type === "chat_turn");
+    return update.status === 200 &&
+      read.status === 200 &&
+      updated.level === 4 &&
+      configBody.level === 4 &&
+      configBody.persona === "검증용 페르소나" &&
+      chat.status === 200 &&
+      turn?.teacherAudit?.input?.appliedLevel === 4 &&
+      turn?.teacherAudit?.input?.persona === "검증용 페르소나";
+  }],
   ["room query isolates classroom events", async () => {
     await appFetch("https://example.com/api/join?room=room-a", {
       method: "POST",
@@ -232,6 +265,10 @@ async function appFetch(url, init = {}) {
 async function roomFetch(roomName, input, init = {}) {
   const events = eventsFor(roomName);
   const url = new URL(String(input));
+  if (url.pathname === "/config" && init.method === "POST") {
+    Object.assign(config, JSON.parse(init.body), { updatedAt: new Date().toISOString() });
+    return json(config);
+  }
   if (url.pathname === "/config") return json(config);
   if (url.pathname === "/events") return json(events);
   if (url.pathname === "/event" && init.method === "POST") {

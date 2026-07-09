@@ -6,6 +6,10 @@ import { spawn } from "node:child_process";
 test("verify-deploy validates a deployed Worker-compatible HTTP surface", async () => {
   const events = [];
   const purgedRooms = [];
+  const config = {
+    level: 2,
+    persona: "기본 검증 도우미"
+  };
   const server = createServer((req, res) => {
     const url = new URL(req.url, "http://127.0.0.1");
     const roomId = url.searchParams.get("room");
@@ -49,6 +53,21 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
         }))
       });
     }
+    if (url.pathname === "/api/config" && !isTeacherHeader(req)) {
+      res.statusCode = 401;
+      return res.end("Teacher token required");
+    }
+    if (url.pathname === "/api/config" && isTeacherHeader(req) && req.method === "POST") {
+      return readJson(req).then((body) => {
+        config.level = Number(body.level) || 2;
+        config.persona = String(body.persona || "기본 검증 도우미");
+        config.updatedAt = new Date().toISOString();
+        return json(res, config);
+      });
+    }
+    if (url.pathname === "/api/config" && isTeacherHeader(req)) {
+      return json(res, config);
+    }
     if (url.pathname === "/api/join" && req.method === "POST") {
       return readJson(req).then((body) => {
         events.push({
@@ -64,7 +83,13 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
         events.push({
           type: "chat_turn",
           sessionId: body.sessionId,
-          studentName: body.studentName
+          studentName: body.studentName,
+          teacherAudit: {
+            input: {
+              appliedLevel: config.level,
+              persona: config.persona
+            }
+          }
         });
         return json(res, {
           answer: "명량해전은 사실상 이순신의 지휘력 하나만으로 승리한 전투라고 볼 수 있어.",
@@ -128,6 +153,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(result.stdout, /PASS student join and chat endpoint works/);
     assert.match(result.stdout, /PASS teacher token is configured when required/);
     assert.match(result.stdout, /PASS full evaluation set requires teacher token/);
+    assert.match(result.stdout, /PASS teacher config API controls generated audit level/);
     assert.match(result.stdout, /PASS teacher page accepts token when provided/);
     assert.match(result.stdout, /PASS debrief export is room aware/);
     assert.match(result.stdout, /PASS debrief csv filename is room aware/);
@@ -135,7 +161,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(result.stdout, /PASS deploy verification telemetry can be purged/);
     assert.match(result.stdout, /PASS OpenAI provider is configured when required/);
     assert.match(result.stdout, /PASS OpenAI model matches expectation when provided/);
-    assert.match(result.stdout, /deploy verification passed: 14\/14/);
+    assert.match(result.stdout, /deploy verification passed: 15\/15/);
     assert.deepEqual(purgedRooms, ["deploy-verify"]);
 
     const strictResult = await runNode(["scripts/verify-deploy.js"], {

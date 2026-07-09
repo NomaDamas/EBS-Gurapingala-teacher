@@ -96,6 +96,25 @@ const checks = [
       body.items.length === 50 &&
       Boolean(body.items[0].audit?.correctAnswer);
   }],
+  ["teacher config API controls generated audit level", async () => {
+    if (!teacherToken) return true;
+    const update = await fetchTeacherUrl("/api/config", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        level: 3,
+        persona: "배포 검증용 역사 도우미"
+      })
+    });
+    const updated = await update.json();
+    const read = await fetchTeacherUrl("/api/config");
+    const config = await read.json();
+    return update.status === 200 &&
+      read.status === 200 &&
+      updated.level === 3 &&
+      config.level === 3 &&
+      config.persona === "배포 검증용 역사 도우미";
+  }],
   ["student join and chat endpoint works", async () => {
     const join = await fetchUrl("/api/join", {}, {
       method: "POST",
@@ -155,7 +174,12 @@ const checks = [
     const body = await res.json();
     return res.status === 200 &&
       Array.isArray(body.events) &&
-      body.events.some((event) => event.sessionId === verifySessionId && event.type === "chat_turn");
+      body.events.some((event) =>
+        event.sessionId === verifySessionId &&
+        event.type === "chat_turn" &&
+        event.teacherAudit?.input?.appliedLevel === 3 &&
+        event.teacherAudit?.input?.persona === "배포 검증용 역사 도우미"
+      );
   }],
   ["deploy verification telemetry can be purged", async () => {
     if (!teacherToken) return true;

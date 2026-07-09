@@ -9,7 +9,10 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(worker, /const config = await this\.state\.storage\.get\("config"\) \|\| null/);
   assert.match(worker, /type: "teacher_config_updated"/);
   assert.match(worker, /const updatedAt = new Date\(\)\.toISOString\(\)/);
-  assert.match(worker, /config:\s*\{\s*level: nextLevel,\s*persona: nextPersona,\s*updatedAt/s);
+  assert.match(worker, /async updateConfig\(data\)/);
+  assert.match(worker, /await this\.updateConfig\(data\)/);
+  assert.match(worker, /url\.pathname === "\/config" && request\.method === "POST"[\s\S]*this\.updateConfig\(await request\.json\(\)\)/);
+  assert.match(worker, /const config = \{\s*level: nextLevel,\s*persona: nextPersona,\s*updatedAt\s*\}/s);
 
   assert.equal(teacher.includes('updateSocketStatus("online");\n        sendTeacherConfig();'), false);
   assert.match(teacher, /if \(event\.config\) applyTeacherConfig\(event\.config\)/);
