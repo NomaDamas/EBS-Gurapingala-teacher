@@ -32,7 +32,9 @@ const checks = [
     const body = await res.text();
     return res.status === 200 &&
       body.includes("실시간 교실 관찰") &&
-      body.includes("실시간 연결 재시도");
+      body.includes("실시간 연결 재시도") &&
+      body.includes("학생 URL 복사") &&
+      body.includes("교사용 URL 복사");
   }],
   ["evaluation set exposes 50 turns", async () => {
     const res = await appFetch("https://example.com/api/evaluation-set");

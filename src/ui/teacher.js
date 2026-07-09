@@ -135,6 +135,8 @@ export const teacherHtml = `<!doctype html>
         </div>
         <div class="actions">
           <button id="reconnectSocket">실시간 연결 재시도</button>
+          <button id="copyStudentUrl">학생 URL 복사</button>
+          <button id="copyTeacherUrl">교사용 URL 복사</button>
         </div>
         <label style="margin-top:10px">페르소나 시스템 프롬프트
           <textarea id="persona">이순신 장군처럼 말하되, 학생에게 친절한 역사 수업 도우미처럼 답한다.</textarea>
@@ -165,12 +167,19 @@ export const teacherHtml = `<!doctype html>
     const downloadDebriefCsvEl = document.querySelector("#downloadDebriefCsv");
     const purgeEventsEl = document.querySelector("#purgeEvents");
     const reconnectSocketEl = document.querySelector("#reconnectSocket");
+    const copyStudentUrlEl = document.querySelector("#copyStudentUrl");
+    const copyTeacherUrlEl = document.querySelector("#copyTeacherUrl");
     const sessions = new Map();
     const params = new URLSearchParams(location.search);
     const teacherToken = params.get("token") || localStorage.getItem("teacher-token") || "";
     const roomId = normalizeRoomId(params.get("room") || "default-classroom");
     roomStatusEl.textContent = "room: " + roomId;
-    if (params.get("token")) localStorage.setItem("teacher-token", params.get("token"));
+    if (params.get("token")) {
+      localStorage.setItem("teacher-token", params.get("token"));
+      params.delete("token");
+      const cleanQuery = params.toString();
+      history.replaceState(null, "", location.pathname + (cleanQuery ? "?" + cleanQuery : ""));
+    }
     let selected = null;
     let socket = null;
     let reconnectTimer = null;
@@ -357,6 +366,22 @@ export const teacherHtml = `<!doctype html>
       return path + "?room=" + encodeURIComponent(roomId);
     }
 
+    function buildRoomUrl(path, includeToken = false) {
+      const url = new URL(path, location.origin);
+      url.searchParams.set("room", roomId);
+      if (includeToken && teacherToken) url.searchParams.set("token", teacherToken);
+      return url.toString();
+    }
+
+    async function copyText(value, label) {
+      try {
+        await navigator.clipboard.writeText(value);
+        updateSocketStatus(label + " copied");
+      } catch {
+        prompt(label + " URL", value);
+      }
+    }
+
     function normalizeRoomId(value) {
       return String(value || "default-classroom")
         .toLowerCase()
@@ -370,6 +395,8 @@ export const teacherHtml = `<!doctype html>
     levelEl.addEventListener("change", sendTeacherConfig);
     personaEl.addEventListener("change", sendTeacherConfig);
     reconnectSocketEl.addEventListener("click", () => connect(true));
+    copyStudentUrlEl.addEventListener("click", () => copyText(buildRoomUrl("/"), "student url"));
+    copyTeacherUrlEl.addEventListener("click", () => copyText(buildRoomUrl("/teacher", true), "teacher url"));
     downloadExportEl.addEventListener("click", () => downloadJson("/api/export", "classroom-export.json"));
     downloadDebriefEl.addEventListener("click", () => downloadJson("/api/debrief", "debrief-table.json"));
     downloadDebriefCsvEl.addEventListener("click", () => downloadText("/api/debrief.csv", "debrief-table.csv", "text/csv"));
