@@ -24,7 +24,7 @@ export function isTeacherAuthorized(request, env) {
   const supplied =
     request.headers.get("x-teacher-token") ||
     decodeTeacherWebSocketProtocol(request.headers.get("sec-websocket-protocol")) ||
-    url.searchParams.get("token");
+    (url.pathname === "/teacher" ? url.searchParams.get("token") : "");
   return supplied === token;
 }
 

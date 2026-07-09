@@ -13,7 +13,7 @@ test("isTeacherAuthorized는 TEACHER_TOKEN이 없으면 통과시킨다", () => 
   assert.equal(isTeacherAuthorized(request, {}), true);
 });
 
-test("isTeacherAuthorized는 query token과 header token을 허용한다", () => {
+test("isTeacherAuthorized는 teacher page query token, API header, WebSocket protocol token을 허용한다", () => {
   const queryRequest = new Request("https://example.com/teacher?token=secret");
   const headerRequest = new Request("https://example.com/api/export", {
     headers: { "x-teacher-token": "secret" }
@@ -25,6 +25,16 @@ test("isTeacherAuthorized는 query token과 header token을 허용한다", () =>
   assert.equal(isTeacherAuthorized(queryRequest, { TEACHER_TOKEN: "secret" }), true);
   assert.equal(isTeacherAuthorized(headerRequest, { TEACHER_TOKEN: "secret" }), true);
   assert.equal(isTeacherAuthorized(websocketRequest, { TEACHER_TOKEN: "secret" }), true);
+});
+
+test("isTeacherAuthorized는 teacher API query token을 거부한다", () => {
+  const exportRequest = new Request("https://example.com/api/export?token=secret");
+  const fullEvaluationRequest = new Request("https://example.com/api/evaluation-set/full?token=secret");
+  const websocketRequest = new Request("https://example.com/ws/teacher?token=secret");
+
+  assert.equal(isTeacherAuthorized(exportRequest, { TEACHER_TOKEN: "secret" }), false);
+  assert.equal(isTeacherAuthorized(fullEvaluationRequest, { TEACHER_TOKEN: "secret" }), false);
+  assert.equal(isTeacherAuthorized(websocketRequest, { TEACHER_TOKEN: "secret" }), false);
 });
 
 test("isTeacherAuthorized는 잘못된 token을 거부한다", () => {

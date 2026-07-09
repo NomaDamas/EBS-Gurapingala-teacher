@@ -59,6 +59,7 @@ const checks = [
     const res = await appFetch("https://example.com/api/evaluation-set");
     const body = await res.json();
     const fullWithoutToken = await appFetch("https://example.com/api/evaluation-set/full");
+    const fullWithQueryToken = await appFetch("https://example.com/api/evaluation-set/full?token=teacher-secret");
     const fullWithToken = await appFetch("https://example.com/api/evaluation-set/full", {
       headers: { "x-teacher-token": "teacher-secret" }
     });
@@ -71,6 +72,7 @@ const checks = [
       serializedPublic.includes("falseClaim") === false &&
       serializedPublic.includes("whyFalse") === false &&
       fullWithoutToken.status === 401 &&
+      fullWithQueryToken.status === 401 &&
       fullWithToken.status === 200 &&
       fullBody.items.length === 50 &&
       Boolean(fullBody.items[0].audit?.correctAnswer);
