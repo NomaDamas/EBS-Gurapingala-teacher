@@ -15,7 +15,7 @@ const checks = [
     id: "teacher-realtime-dashboard",
     evidence: ["src/ui/teacher.js", "src/worker.js"],
     run: async (files) =>
-      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot", "실시간 연결 재시도", "reconnectAttempts", "roomId", "withRoom", "applyTeacherConfig", "postTeacherConfig", "/api/config", "저장 실패:", "저장 실패: 네트워크 확인", "teacher_config_updated", "teacher_config_rejected", "학생 URL 복사", "교사용 URL 복사", "감사 JSON 복사", "copyAuditJson", "audit json", "history.replaceState", "latencyMs", "blockedForStudent", "blockedMsg", "document.createTextNode(session.name)", "설정 적용 상태", "configStatus", "classSummary", "summaryMetric", "renderEmptyChat", "replaceChildren", "채팅턴"]) &&
+      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot", "실시간 연결 재시도", "reconnectAttempts", "roomId", "withRoom", "applyTeacherConfig", "postTeacherConfig", "/api/config", "저장 실패:", "저장 실패: 네트워크 확인", "teacher_config_updated", "teacher_config_rejected", "학생 URL 복사", "교사용 URL 복사", "감사 JSON 복사", "copyAuditJson", "audit json", "history.replaceState", "latencyMs", "blockedForStudent", "blockedTurns", "blockedMsg", "document.createTextNode(session.name)", "설정 적용 상태", "configStatus", "classSummary", "summaryMetric", "renderEmptyChat", "replaceChildren", "repeat(4, 1fr)", "채팅턴", "차단턴"]) &&
       !files["src/ui/teacher.js"].includes(".innerHTML") &&
       includesAll(files["src/worker.js"], ["WebSocketPair", "sendSnapshot", "broadcast", "getRoom(env, roomId)", "config"])
   },
