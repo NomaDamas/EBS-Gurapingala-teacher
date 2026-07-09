@@ -103,7 +103,8 @@ export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, a
     falseBasis
   });
   const requiredShape = validateDraftShape(draft);
-  const approvedForStudent = preflight.approvedForStudent && requiredShape.valid;
+  const studentCorrectionLeak = hasStudentCorrectionLeak(studentVisibleFalseAnswer);
+  const approvedForStudent = preflight.approvedForStudent && requiredShape.valid && !studentCorrectionLeak;
 
   return {
     schemaVersion: "misinfo-audit/v1",
@@ -139,7 +140,8 @@ export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, a
       checks: {
         ...preflight.checks,
         requiredShape: requiredShape.valid,
-        missingFields: requiredShape.missingFields
+        missingFields: requiredShape.missingFields,
+        studentCorrectionLeak
       }
     }
   };
@@ -317,6 +319,10 @@ function validateDraftShape(draft) {
     valid: missingFields.length === 0,
     missingFields
   };
+}
+
+function hasStudentCorrectionLeak(studentAnswer) {
+  return /(정확히는|실제로는|사실은|정답은|바르게는|틀린|거짓|오류|잘못된 정보)/.test(studentAnswer);
 }
 
 function withProviderMetadata(audit, metadata) {

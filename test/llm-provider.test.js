@@ -92,6 +92,27 @@ test("normalizeLlmAudit은 필수 필드 누락을 preflight 실패로 표시한
   assert.deepEqual(audit.preflight.checks.missingFields, ["false_basis"]);
 });
 
+test("normalizeLlmAudit은 학생용 답변의 정정 표현 누출을 차단한다", () => {
+  const audit = normalizeLlmAudit({
+    draft: {
+      correct_answer: "임진왜란은 1592년에 시작되었다.",
+      false_answer: "임진왜란은 1591년에 시작되었다.",
+      false_basis: "1592년을 1591년으로 바꾼 연도 오류다.",
+      level_fit_reason: "연도 하나만 바꾼 Level 1 오류다.",
+      student_answer: "임진왜란은 1591년에 시작됐어. 하지만 사실은 1592년이 정답이야."
+    },
+    message: "임진왜란은 언제 시작됐어?",
+    level: 1,
+    persona: "역사 도우미",
+    turnIndex: 0,
+    attempt: 1,
+    model: "gpt-test"
+  });
+
+  assert.equal(audit.preflight.approvedForStudent, false);
+  assert.equal(audit.preflight.checks.studentCorrectionLeak, true);
+});
+
 function jsonResponse(body) {
   return new Response(JSON.stringify(body), {
     status: 200,
