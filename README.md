@@ -70,6 +70,12 @@ WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> VERIFY_ROOM=deploy-veri
 
 `verify:deploy`는 검증용 telemetry 정리를 위해 `/api/purge`를 호출하므로 실제 촬영방 `room`을 넘기지 않는다. 기본 검증 room은 `deploy-verify`다.
 
+촬영방 설정 검증:
+
+```bash
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> CLASSROOM_ROOM=2026-07-13-3-5 EXPECTED_FALSE_LEVEL=2 EXPECTED_PERSONA="이순신 장군처럼 친절하게 설명한다." REQUIRE_OPENAI=true CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts/2026-07-13-3-5-config.json npm run rehearsal:config
+```
+
 머지/릴리즈 직전 최종 감사:
 
 ```bash

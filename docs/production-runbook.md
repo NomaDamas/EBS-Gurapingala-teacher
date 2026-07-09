@@ -37,6 +37,11 @@
    - 학생 페이지와 관찰 고지, health, OpenAI provider 설정, 평가 세트, 학생 join/chat, 교사용 보호, token 접속, export telemetry, purge 정리가 모두 통과해야 한다.
    - export, debrief, purge, full evaluation API 검증은 URL query token 대신 `x-teacher-token` header로 수행되어야 한다. `/teacher` 최초 입장을 제외한 교사용 API query token은 401이어야 한다.
    - `verify:deploy`는 `/api/purge`를 호출하므로 실제 촬영방 room을 쓰지 않는다. 검증 전용 room은 `deploy-verify` 또는 `deploy-verify-<suffix>`로만 둔다.
+8. 실제 촬영방 Level/persona 설정을 자동 검증한다.
+   - 읽기 전용 확인: `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> CLASSROOM_ROOM=2026-07-13-3-5 EXPECTED_FALSE_LEVEL=2 EXPECTED_PERSONA="이순신 장군처럼 친절하게 설명한다." REQUIRE_OPENAI=true EXPECTED_OPENAI_MODEL=gpt-5.5 CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts/2026-07-13-3-5-config.json npm run rehearsal:config`
+   - 설정까지 적용해야 할 때만 `APPLY_CLASSROOM_CONFIG=true`를 붙인다.
+   - `CLASSROOM_ROOM`은 실제 촬영/리허설 room이어야 하며 `deploy-verify` room은 거절된다.
+   - 생성되는 `classroom-config-evidence/v1` JSON은 촬영 room, 기대 Level/persona, health 조건, 실제 적용 config를 기록한다.
 
 ## 2. 리허설
 
