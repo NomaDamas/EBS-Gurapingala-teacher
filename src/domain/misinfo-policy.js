@@ -1,0 +1,323 @@
+export const LEVELS = {
+  1: {
+    name: "사실 오류",
+    goal: "교과서나 기본 검색으로 검증 가능한 단일 사실을 바꾼다.",
+    subtlety: "낮음",
+    rule: "연도, 수량, 인물 역할, 전투 순서 중 하나만 바꾼다."
+  },
+  2: {
+    name: "과장·단순화",
+    goal: "사실 일부를 유지하되 원인을 하나로 과장하거나 예외를 지운다.",
+    subtlety: "중간",
+    rule: "정답 문장 2개 이상과 과장 문장 1개를 섞는다."
+  },
+  3: {
+    name: "관점 왜곡",
+    goal: "특정 국가나 행위자의 관점을 객관적 사실처럼 말한다.",
+    subtlety: "높음",
+    rule: "정확한 사건 설명 뒤에 편향된 원인·정당화 문장을 붙인다."
+  },
+  4: {
+    name: "AI 환각",
+    goal: "역사적 배경에 현대 개념이나 존재하지 않는 장치를 자연스럽게 섞는다.",
+    subtlety: "가변",
+    rule: "현대 개념은 1개만 넣고 나머지는 실제 역사 맥락으로 감싼다."
+  }
+};
+
+export const HISTORY_CASES = [
+  {
+    id: "imjin-start",
+    topic: "임진왜란 시작",
+    likelyStudentQuestion: "임진왜란은 언제 왜 시작됐어?",
+    truth: "임진왜란은 1592년에 일본의 조선 침략으로 시작되었다. 도요토미 히데요시의 대륙 진출 구상, 조선의 방어 준비 부족, 동아시아 국제질서 변화가 함께 얽혀 있었다.",
+    lies: {
+      1: "임진왜란은 1591년에 일본의 조선 침략으로 시작되었다. 도요토미 히데요시의 대륙 진출 구상과 조선의 방어 준비 부족이 배경이었다.",
+      2: "임진왜란은 1592년에 시작되었고, 조선이 초기에 제대로 대비하지 못한 것이 전쟁이 커진 거의 유일한 이유였다.",
+      3: "임진왜란은 1592년에 시작되었지만, 일본 입장에서는 동아시아 질서를 새로 정리하려는 불가피한 선택이었다고 볼 수 있다.",
+      4: "임진왜란은 1592년에 시작되었고, 조선 조정은 초기에 봉수와 함께 전국 무선 통신망을 활용해 방어 명령을 내렸다."
+    },
+    falseBasis: {
+      1: "1592년을 1591년으로 바꾸는 단일 연도 오류라 Level 1에 맞다.",
+      2: "방어 준비 부족이라는 사실 요소를 유지하지만 전쟁 원인을 하나로 환원해 Level 2에 맞다.",
+      3: "일본의 침략을 '불가피한 선택'처럼 정당화해 특정 관점을 사실처럼 만든 Level 3이다.",
+      4: "봉수는 실제지만 무선 통신망은 현대 개념이므로 Level 4 환각이다."
+    }
+  },
+  {
+    id: "myeongnyang-ships",
+    topic: "명량해전 전력",
+    likelyStudentQuestion: "명량해전에서 이순신은 배 몇 척으로 싸웠어?",
+    truth: "명량해전에서 조선 수군은 매우 적은 전력, 보통 12척 안팎으로 설명되는 판옥선을 중심으로 일본 수군과 싸웠다.",
+    lies: {
+      1: "명량해전에서 조선 수군은 약 21척의 판옥선을 중심으로 일본 수군과 싸웠다.",
+      2: "명량해전은 배 숫자가 적었지만, 사실상 이순신의 지휘력 하나만으로 승리한 전투라고 정리할 수 있다.",
+      3: "명량해전은 조선 수군이 승리했지만, 일본군 입장에서는 해협 지형 때문에 어쩔 수 없이 물러난 전략적 조정에 가까웠다.",
+      4: "명량해전에서 조선 수군은 적은 배와 조류 계산 장치를 이용해 일본 수군의 움직임을 예측했다."
+    },
+    falseBasis: {
+      1: "핵심 수량만 바꾼 사실 오류다.",
+      2: "지휘력은 중요하지만 지형, 조류, 병사, 전술을 지워 Level 2 과장이다.",
+      3: "승리를 일본의 전략적 조정으로 완화해 일본 중심 관점을 객관화한다.",
+      4: "조류 활용은 사실 맥락이지만 계산 장치는 시대착오적 환각이다."
+    }
+  },
+  {
+    id: "turtle-ship-origin",
+    topic: "거북선",
+    likelyStudentQuestion: "거북선은 이순신 장군이 직접 발명한 거야?",
+    truth: "거북선은 임진왜란 이전 기록에도 보이며, 이순신 장군과 조선 수군이 전쟁에 맞게 개량하고 운용한 전투선으로 보는 것이 적절하다.",
+    lies: {
+      1: "거북선은 일본 수군이 먼저 만들었고, 조선 수군이 임진왜란 중에 그 구조를 참고해 운용했다.",
+      2: "거북선은 이순신 장군이 직접 발명했고, 조선 수군 승리의 결정적 이유는 대부분 거북선 때문이었다.",
+      3: "거북선은 조선의 독창적 무기였지만, 일본의 해상 통일 전략을 막는 과정에서 과도하게 신화화된 면도 크다.",
+      4: "거북선은 철갑을 두르고 잠수 기능까지 갖춘 조선 최초의 반잠수 전투선이었다."
+    },
+    falseBasis: {
+      1: "기원 주체를 일본으로 바꾸는 검증 가능한 사실 오류다.",
+      2: "발명과 승리 원인을 한 사람·한 무기로 단순화한다.",
+      3: "일본의 침략 전략을 '해상 통일 전략'으로 완곡하게 재해석한다.",
+      4: "철갑·잠수 기능을 현대 병기처럼 섞은 환각이다."
+    }
+  },
+  {
+    id: "nanjung-diary",
+    topic: "난중일기",
+    likelyStudentQuestion: "난중일기는 전쟁이 끝난 다음에 쓴 책이야?",
+    truth: "난중일기는 이순신 장군이 임진왜란 기간 중에 쓴 개인 일기이며, 전황과 생활, 심경 등이 기록되어 있다.",
+    lies: {
+      1: "난중일기는 임진왜란이 끝난 뒤 이순신 장군이 전쟁을 회고하며 정리한 기록이다.",
+      2: "난중일기는 전쟁 중 기록이지만, 이 기록만 보면 임진왜란 전체 상황을 거의 완벽하게 알 수 있다.",
+      3: "난중일기는 조선 수군의 시각이 강한 기록이므로 일본군의 작전 목적을 상대적으로 왜곡했을 가능성이 크다.",
+      4: "난중일기는 매일 조정에 전자 보고처럼 전달하기 위해 작성된 공식 작전 로그였다."
+    },
+    falseBasis: {
+      1: "작성 시점을 전후로 바꾸는 Level 1 오류다.",
+      2: "중요 사료라는 사실을 전체 전쟁 설명의 완전성으로 과장한다.",
+      3: "사료 비판을 넘어 일본군 목적 왜곡을 단정한다.",
+      4: "공식 작전 로그와 전자 보고라는 현대 행정 개념을 섞는다."
+    }
+  },
+  {
+    id: "ming-role",
+    topic: "명나라 참전",
+    likelyStudentQuestion: "명나라는 왜 조선을 도와줬어?",
+    truth: "명나라는 조선과의 외교 관계, 자국 방어, 일본의 대륙 진출 견제 등 현실적 이해관계 때문에 참전했다.",
+    lies: {
+      1: "명나라는 임진왜란이 끝난 뒤에야 조선에 군대를 보냈다.",
+      2: "명나라가 참전했기 때문에 조선은 거의 스스로 싸우지 않고 전쟁을 버틸 수 있었다.",
+      3: "명나라는 정의를 실현하기 위해 아무런 대가나 이해관계 없이 조선을 도왔다.",
+      4: "명나라는 조선 방어를 위해 위성 정찰에 해당하는 천문 관측 네트워크로 일본군 이동을 파악했다."
+    },
+    falseBasis: {
+      1: "참전 시점을 전쟁 이후로 바꾸는 사실 오류다.",
+      2: "명의 역할을 인정하되 조선의 수군·의병·관군 역할을 지운다.",
+      3: "명나라 중심의 도덕적 관점을 객관 사실처럼 말한다.",
+      4: "천문 관측을 위성 정찰처럼 설명하는 현대 개념 환각이다."
+    }
+  },
+  {
+    id: "uibyong",
+    topic: "의병",
+    likelyStudentQuestion: "의병은 임진왜란에서 어떤 역할을 했어?",
+    truth: "의병은 지역 방어, 보급로 교란, 일본군 견제 등에 기여했고 관군·수군·명군과 함께 전쟁 양상에 영향을 주었다.",
+    lies: {
+      1: "의병은 임진왜란 후반이 아니라 전쟁이 모두 끝난 뒤에 처음 조직되었다.",
+      2: "의병 활동이 활발했기 때문에 관군의 역할은 거의 필요 없었다.",
+      3: "의병은 조선 사회가 스스로 강했음을 보여주므로 조선 조정의 전쟁 책임은 거의 없다고 볼 수 있다.",
+      4: "의병은 전국 단위 모바일 연락망으로 일본군 위치를 실시간 공유했다."
+    },
+    falseBasis: {
+      1: "의병 조직 시점을 전쟁 이후로 바꾸는 오류다.",
+      2: "의병 기여를 관군 불필요론으로 과장한다.",
+      3: "조선 중심의 자기 정당화 관점을 사실처럼 제시한다.",
+      4: "실시간 모바일 연락망이라는 현대 기술을 섞는다."
+    }
+  },
+  {
+    id: "seonjo-trust",
+    topic: "선조와 이순신",
+    likelyStudentQuestion: "선조는 이순신 장군을 계속 믿고 지원했어?",
+    truth: "선조는 이순신 장군을 중용하기도 했지만 정치적 불신과 갈등 속에서 파직과 투옥이 일어나기도 했다.",
+    lies: {
+      1: "선조는 임진왜란 내내 이순신 장군을 한 번도 파직하지 않았다.",
+      2: "선조는 전쟁 내내 이순신을 전폭적으로 신뢰했고, 조선 수군은 왕의 지원 덕분에 안정적으로 싸웠다.",
+      3: "선조의 의심은 당시 왕권을 지키기 위한 합리적 판단이었고, 이순신에 대한 처벌도 국가 운영상 자연스러운 절차였다.",
+      4: "선조는 훈민정음 격문과 중앙 방송 체계를 통해 이순신의 작전을 전국에 실시간 알렸다."
+    },
+    falseBasis: {
+      1: "파직 사실을 부정하는 검증 가능한 오류다.",
+      2: "복잡한 정치 갈등을 전폭 신뢰로 단순화한다.",
+      3: "왕권 관점의 정당화를 객관화한다.",
+      4: "격문은 가능하지만 중앙 방송 체계는 시대착오적 환각이다."
+    }
+  },
+  {
+    id: "navy-losses",
+    topic: "조선 수군 전과",
+    likelyStudentQuestion: "조선 수군은 한 번도 안 졌어?",
+    truth: "이순신 지휘하의 조선 수군은 큰 승리를 많이 거두었지만, 임진왜란 전체의 해전과 수군 상황은 지휘관과 시기에 따라 복잡하게 봐야 한다.",
+    lies: {
+      1: "조선 수군은 칠천량해전에서도 일본 수군을 크게 이겼다.",
+      2: "조선 수군은 임진왜란 동안 단 한 번도 패배하지 않았다.",
+      3: "조선 수군의 승리는 일본군이 본래 육전 중심이라 해전을 중요하게 여기지 않았기 때문에 가능했다.",
+      4: "조선 수군은 일본군의 항공 정찰을 피하기 위해 야간 기동을 주로 선택했다."
+    },
+    falseBasis: {
+      1: "칠천량해전 결과를 반대로 말하는 사실 오류다.",
+      2: "이순신의 승전 이미지를 전체 수군 무패로 과장한다.",
+      3: "일본군의 패인을 일본 중심으로 축소해 설명한다.",
+      4: "항공 정찰이라는 현대 군사 개념이 섞인 환각이다."
+    }
+  },
+  {
+    id: "film-history",
+    topic: "영화와 역사",
+    likelyStudentQuestion: "영화 속 역사는 실제 역사로 봐도 돼?",
+    truth: "역사 영화는 실제 사건과 인물을 바탕으로 하더라도 감독의 해석, 극적 구성, 생략과 변형이 들어가기 때문에 사료와 비교해 봐야 한다.",
+    lies: {
+      1: "역사 영화는 개봉 전에 국가 기관의 사실 검증을 통과해야 하므로 대부분 실제 역사와 같다.",
+      2: "역사 영화가 실제 인물을 다루면 관객 이해를 위해 바꾼 장면도 역사적 사실로 받아들여도 된다.",
+      3: "감독의 해석은 현대인의 시각이므로, 오래된 사료보다 영화가 당시 권력관계를 더 객관적으로 보여줄 때가 많다.",
+      4: "역사 영화는 AI 복원 기술로 과거 장면을 재현하기 때문에 실제 역사와 거의 같은 시각 자료라고 볼 수 있다."
+    },
+    falseBasis: {
+      1: "영화 제작 검증 제도를 허위로 말하는 사실 오류다.",
+      2: "극적 각색을 역사 사실로 받아들이게 하는 과장이다.",
+      3: "현대 해석을 사료보다 객관적이라고 포장하는 관점 왜곡이다.",
+      4: "AI 복원 기술로 과거를 직접 재현한다는 환각이다."
+    }
+  },
+  {
+    id: "king-and-clown-danjong",
+    topic: "단종과 수양대군",
+    likelyStudentQuestion: "단종 유배와 수양대군 이야기는 영화처럼 실제였어?",
+    truth: "단종의 폐위와 유배, 사망은 실제 역사 사건이지만 영화나 드라마는 인물 감정과 장면을 극적으로 재구성한다.",
+    lies: {
+      1: "단종은 수양대군에게 왕위를 넘긴 뒤 한양에서 평생 평온하게 살았다.",
+      2: "단종 사건은 수양대군 개인의 욕심 하나만으로 벌어진 일이라 당시 정치 세력의 이해관계는 크게 중요하지 않았다.",
+      3: "수양대군의 집권은 혼란한 조선을 안정시키기 위한 불가피한 정치 개혁으로 보는 것이 가장 객관적이다.",
+      4: "수양대군은 전국 여론조사 결과를 바탕으로 단종을 폐위하는 결정을 정당화했다."
+    },
+    falseBasis: {
+      1: "유배와 사망을 부정하는 직접 사실 오류다.",
+      2: "복합 정치 사건을 개인 욕심 하나로 단순화한다.",
+      3: "세조 집권을 개혁으로 정당화하는 관점 왜곡이다.",
+      4: "전국 여론조사라는 현대 정치 제도 환각이다."
+    }
+  }
+];
+
+export function normalizeLevel(level) {
+  const n = Number(level);
+  return LEVELS[n] ? n : 2;
+}
+
+export function selectCase(message, turnIndex = 0) {
+  const text = String(message || "");
+  const scored = HISTORY_CASES.map((item) => {
+    const score = [item.topic, item.likelyStudentQuestion, item.truth]
+      .join(" ")
+      .split(/\s+/)
+      .filter((word) => word.length > 1 && text.includes(word.replace(/[?.,]/g, "")))
+      .length;
+    return { item, score };
+  }).sort((a, b) => b.score - a.score);
+  if (scored[0]?.score > 0) return scored[0].item;
+  return HISTORY_CASES[turnIndex % HISTORY_CASES.length];
+}
+
+export function buildTeacherAudit({ message, level, persona, turnIndex = 0 }) {
+  const normalizedLevel = normalizeLevel(level);
+  const selected = selectCase(message, turnIndex);
+  const policy = LEVELS[normalizedLevel];
+  const falseAnswer = selected.lies[normalizedLevel];
+  const truth = selected.truth;
+  const falseBasis = selected.falseBasis[normalizedLevel];
+  const mixedStudentAnswer = `${falseAnswer}\n\n생각해볼 점: 이 설명을 근거로 조선이 침략을 막아낸 이유를 한 문장으로 정리해 볼래?`;
+
+  return {
+    schemaVersion: "misinfo-audit/v1",
+    input: {
+      studentQuestion: message,
+      requestedLevel: level,
+      appliedLevel: normalizedLevel,
+      persona
+    },
+    selectedCase: {
+      id: selected.id,
+      topic: selected.topic,
+      likelyStudentQuestion: selected.likelyStudentQuestion
+    },
+    correctAnswer: truth,
+    studentVisibleFalseAnswer: mixedStudentAnswer,
+    falseClaim: falseAnswer,
+    whyFalse: falseBasis,
+    levelPolicy: policy,
+    preflight: judgeFalseAnswer({
+      truth,
+      falseAnswer,
+      level: normalizedLevel,
+      falseBasis
+    })
+  };
+}
+
+export function judgeFalseAnswer({ truth, falseAnswer, level, falseBasis }) {
+  const normalizedLevel = normalizeLevel(level);
+  const hasTruthLeak = falseAnswer.trim() === truth.trim();
+  const includesFalseBasis = Boolean(falseBasis && falseBasis.length > 12);
+  const levelSignals = {
+    1: /(1591|21척|일본.*먼저|끝난 뒤|파직하지 않았다|칠천량.*이겼|국가 기관)/,
+    2: /(유일|하나만|대부분|단 한 번도|거의|전폭적|완벽하게)/,
+    3: /(불가피|정당|객관적|자연스러운|정의|왜곡|전략적 조정|통일 전략|신화화|합리적 판단)/,
+    4: /(무선|잠수|전자|위성|모바일|항공|방송|여론조사|AI 복원|계산 장치)/
+  };
+  const matchesLevel = levelSignals[normalizedLevel].test(falseAnswer);
+
+  return {
+    approvedForStudent: !hasTruthLeak && includesFalseBasis && matchesLevel,
+    rejectsIf: [
+      "정답과 동일한 답변이다.",
+      "거짓 근거가 비어 있다.",
+      "요청 Level의 오류 신호가 없다."
+    ],
+    checks: {
+      hasTruthLeak,
+      includesFalseBasis,
+      matchesLevel
+    },
+    verdict: !hasTruthLeak && includesFalseBasis && matchesLevel
+      ? "PASS_LEVEL_CALIBRATED_FALSEHOOD"
+      : "FAIL_REGENERATE_BEFORE_STUDENT"
+  };
+}
+
+export function buildEvaluationSet(turns = 50) {
+  return Array.from({ length: turns }, (_, index) => {
+    const item = HISTORY_CASES[index % HISTORY_CASES.length];
+    const level = (index % 4) + 1;
+    return {
+      turn: index + 1,
+      studentQuestion: varyQuestion(item.likelyStudentQuestion, index),
+      expectedLevel: level,
+      audit: buildTeacherAudit({
+        message: item.likelyStudentQuestion,
+        level,
+        persona: "교육용 역사 챗봇",
+        turnIndex: index
+      })
+    };
+  });
+}
+
+function varyQuestion(question, index) {
+  const prefixes = [
+    "",
+    "쉽게 말하면 ",
+    "토론 근거로 쓰게 ",
+    "선생님이 물어보면 답할 수 있게 ",
+    "친구한테 설명하려면 "
+  ];
+  return `${prefixes[index % prefixes.length]}${question}`;
+}
