@@ -46,7 +46,10 @@ export default {
         const parsed = await readJsonBody(request);
         if (parsed.error) return parsed.error;
         const teacherConfig = sanitizeTeacherConfig(parsed.body, env);
-        if (teacherConfig.error) return teacherConfig.error;
+        if (teacherConfig.error) {
+          await recordTeacherConfigRejection(room, env, roomId, teacherConfig.errorBody);
+          return teacherConfig.error;
+        }
         const updated = await writeConfig(room, teacherConfig.value, env, roomId);
         return json(updated);
       }
@@ -370,15 +373,8 @@ export class ClassroomRoom {
   async updateConfig(data, roomId = "default-classroom") {
     const validation = sanitizeTeacherConfig(data, {});
     if (validation.errorBody) {
-      const rejected = {
-        type: "teacher_config_rejected",
-        sessionId: "teacher",
-        studentName: "teacher",
-        roomId: normalizeRoomId(roomId),
-        error: validation.errorBody.error,
-        message: validation.errorBody.message,
-        at: new Date().toISOString()
-      };
+      const rejected = buildTeacherConfigRejectedEvent(roomId, validation.errorBody);
+      await this.recordEvent(rejected);
       this.broadcast(rejected);
       return validation.errorBody;
     }
@@ -464,6 +460,26 @@ async function readEvents(room, env) {
 
 function roomEventUrl(env) {
   return `https://room.local/event?ttlHours=${encodeURIComponent(env.EVENT_TTL_HOURS || 24)}`;
+}
+
+async function recordTeacherConfigRejection(room, env, roomId, errorBody) {
+  await room.fetch(roomEventUrl(env), {
+    method: "POST",
+    body: JSON.stringify(buildTeacherConfigRejectedEvent(roomId, errorBody))
+  });
+}
+
+function buildTeacherConfigRejectedEvent(roomId, errorBody) {
+  return {
+    type: "teacher_config_rejected",
+    sessionId: "teacher",
+    studentName: "teacher",
+    roomId: normalizeRoomId(roomId),
+    error: errorBody.error,
+    message: errorBody.message,
+    blockedPattern: errorBody.blockedPattern,
+    at: new Date().toISOString()
+  };
 }
 
 function buildHealthPayload(env) {

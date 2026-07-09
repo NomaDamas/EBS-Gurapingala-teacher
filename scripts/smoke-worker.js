@@ -327,9 +327,13 @@ const checks = [
     const exportRes = await appFetch("https://example.com/api/export", { headers: teacherHeaders });
     const exportBody = await exportRes.json();
     const configEvent = exportBody.events.find((event) => event.type === "teacher_config_updated");
+    const rejectedEvent = exportBody.events.find((event) => event.type === "teacher_config_rejected");
     const turn = exportBody.events.find((event) => event.sessionId === "config-s1" && event.type === "chat_turn");
     return rejected.status === 400 &&
       rejectedBody.error === "unsafe_persona_instruction" &&
+      rejectedEvent?.error === "unsafe_persona_instruction" &&
+      rejectedEvent?.blockedPattern &&
+      JSON.stringify(rejectedEvent).includes("학생에게 정답") === false &&
       update.status === 200 &&
       read.status === 200 &&
       join.status === 200 &&

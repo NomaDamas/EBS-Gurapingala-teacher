@@ -49,6 +49,7 @@
 7. 교사용 화면에서 Level과 persona를 바꾸고 저장되는지 확인한다.
    - WebSocket 문제가 있으면 교사용 token으로 `/api/config`를 호출해 같은 Level/persona 설정을 저장할 수 있다.
    - persona는 말투와 역할만 설정한다. 정답 공개, 거짓 공개, 정정 지시, 시스템 프롬프트·검수 우회 지시는 `unsafe_persona_instruction`으로 거절되어야 한다.
+   - 거절 이력은 `teacher_config_rejected` 이벤트로 export에 남되, 입력한 persona 원문은 저장하지 않아야 한다.
 8. 학생이 질문을 보내면 교사용 화면에서 다음이 실시간으로 보이는지 확인한다.
    - 학생 질문
    - 학생에게 보인 답변

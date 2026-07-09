@@ -13,6 +13,9 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(worker, /sanitizeTeacherConfig\(data, \{\}\)/);
   assert.match(worker, /type: "teacher_config_rejected"/);
   assert.match(worker, /unsafe_persona_instruction/);
+  assert.match(worker, /recordTeacherConfigRejection/);
+  assert.match(worker, /buildTeacherConfigRejectedEvent/);
+  assert.match(worker, /blockedPattern/);
   assert.match(worker, /findUnsafePersonaInstruction/);
   assert.match(worker, /await this\.updateConfig\(data, normalizeRoomId\(url\.searchParams\.get\("room"\)\)\)/);
   assert.match(worker, /url\.pathname === "\/config" && request\.method === "POST"[\s\S]*this\.updateConfig\(await request\.json\(\), normalizeRoomId\(url\.searchParams\.get\("room"\)\)\)/);

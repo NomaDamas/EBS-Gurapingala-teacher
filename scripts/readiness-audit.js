@@ -92,7 +92,7 @@ const checks = [
     evidence: ["src/domain/security.js", "src/worker.js", "src/ui/teacher.js", "docs/production-runbook.md"],
     run: async (files) =>
       includesAll(files["src/domain/security.js"], ["isTeacherAuthorized", "rateLimitDecision", "encodeTeacherWebSocketProtocol", "decodeTeacherWebSocketProtocol", "url.pathname === \"/teacher\"", "sec-websocket-protocol"]) &&
-      includesAll(files["src/worker.js"], ["isTeacherAuthorized", "/api/config", "/api/purge", "rate-limit", "validatePurgeConfirmation", "x-purge-room", "purge_room_confirmation_required", "selectWebSocketProtocol", "sec-websocket-protocol", "sanitizeTeacherConfig", "unsafe_persona_instruction", "teacher_config_rejected"]) &&
+      includesAll(files["src/worker.js"], ["isTeacherAuthorized", "/api/config", "/api/purge", "rate-limit", "validatePurgeConfirmation", "x-purge-room", "purge_room_confirmation_required", "selectWebSocketProtocol", "sec-websocket-protocol", "sanitizeTeacherConfig", "unsafe_persona_instruction", "teacher_config_rejected", "recordTeacherConfigRejection", "buildTeacherConfigRejectedEvent"]) &&
       includesAll(files["src/ui/teacher.js"], ["x-teacher-token", "x-purge-room", "삭제할 room 이름을 정확히 입력하세요", "촬영 로그 삭제", "encodeTeacherWebSocketProtocol(teacherToken)", "new WebSocket", "protocols"]) &&
       !files["src/ui/teacher.js"].includes('query.set("token", teacherToken)') &&
       includesAll(files["docs/production-runbook.md"], ["삭제할 room 이름을 정확히 다시 입력", "API query token은 401"])
