@@ -1,6 +1,6 @@
 import { normalizeLevel } from "./domain/misinfo-policy.js";
 import { generateAuditedAnswer } from "./domain/llm-provider.js";
-import { EVALUATION_SET_50 } from "./domain/evaluation-set.js";
+import { EVALUATION_SET_50, PUBLIC_EVALUATION_SET_50 } from "./domain/evaluation-set.js";
 import { buildDebriefCsv, buildDebriefRows, buildExportPayload } from "./domain/session-export.js";
 import { buildSessionContext } from "./domain/session-context.js";
 import { isTeacherAuthorized, rateLimitDecision, unauthorized } from "./domain/security.js";
@@ -23,6 +23,10 @@ export default {
       return html(teacherHtml);
     }
     if (url.pathname === "/api/evaluation-set") {
+      return json({ schemaVersion: "evaluation-set-public/v1", items: PUBLIC_EVALUATION_SET_50 });
+    }
+    if (url.pathname === "/api/evaluation-set/full") {
+      if (!isTeacherAuthorized(request, env)) return unauthorized();
       return json({ items: EVALUATION_SET_50 });
     }
     if (url.pathname === "/api/health") {
@@ -343,6 +347,7 @@ function buildHealthPayload(env) {
       student: "/",
       teacher: "/teacher",
       evaluationSet: "/api/evaluation-set",
+      fullEvaluationSet: "/api/evaluation-set/full",
       exportJson: "/api/export",
       debriefJson: "/api/debrief",
       debriefCsv: "/api/debrief.csv",

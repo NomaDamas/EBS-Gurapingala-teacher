@@ -17,6 +17,7 @@
 | 멀티턴에서 LLM이 정답으로 되돌아가는 문제를 차단 | 서버 이벤트 로그 기반 `recentContext`, 3회 재생성, fail-closed | `session-context` test, `llm-provider` test |
 | 답변 전 2차 검수로 Level별 거짓말 척도 확인 | `normalizeLlmAudit`, `judgeFalseAnswer`, `preflight` | `preflight-and-regeneration` readiness |
 | 50턴 학생 질문 평가 세트와 모델 선택 루프 제공 | `src/domain/evaluation-set.js`, `scripts/run-eval.js`, `src/domain/eval-judge.js` | `npm run eval`, `llm-as-judge-model-selection` readiness |
+| 공개 평가 endpoint가 정답·거짓 근거를 누출하지 않음 | `/api/evaluation-set` public projection, `/api/evaluation-set/full` teacher token 보호 | `evaluation set exposes 50 turns` smoke, `verify-deploy` |
 | 한 개의 API key/OAuth 계정으로 여러 학생 요청 처리 | 서버-side `OPENAI_API_KEY`, 학생 브라우저 key 미노출 | `single-api-key-server-side` readiness, `/api/health` secret 미노출 test |
 | Cloudflare Workers 배포 가능 | `wrangler.toml`, `.github/workflows/deploy.yml`, `docs/deployment-guide.md` | `npm run deploy`, `npm run verify:deploy` |
 | 촬영방별 telemetry/export/purge 분리 | `room` query, Durable Object room isolation, `x-purge-room` confirmation | `room query isolates classroom events`, `purge clears events` smoke |

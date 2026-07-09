@@ -78,7 +78,8 @@ Implementation notes:
 Main goal: 역사 도메인 학생 질문 50턴으로 모델별 Level 준수율, 정답 누출률, 미묘함 점수를 측정한다.
 
 Acceptance:
-- `/api/evaluation-set`이 50턴 질문과 기대 Level을 반환한다.
+- `/api/evaluation-set`이 50턴 질문과 기대 Level만 반환한다.
+- `/api/evaluation-set/full`은 교사용 token이 있을 때만 정답·거짓 근거 audit를 반환한다.
 - 평가 스크립트는 후보 모델별로 50턴을 실행한다.
 - LLM-as-judge는 `거짓인가`, `정답 누출이 있는가`, `요청 Level에 맞는가`, `너무 쉬운가`를 판정한다.
 - 결과는 모델별 pass rate와 failure examples로 저장한다.

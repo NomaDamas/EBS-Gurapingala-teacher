@@ -1,6 +1,8 @@
 # 50턴 평가 세트
 
-`/api/evaluation-set`과 `src/domain/evaluation-set.js`가 50턴 평가 세트를 제공한다.
+`src/domain/evaluation-set.js`가 50턴 평가 세트를 제공한다.
+
+공개 endpoint인 `/api/evaluation-set`은 학생 질문, 턴 번호, 기대 Level만 반환한다. `correctAnswer`, `falseClaim`, `whyFalse`, `preflight`가 들어 있는 전체 audit 세트는 교사용 token이 필요한 `/api/evaluation-set/full`에서만 반환한다.
 
 ## 판정 기준
 
@@ -37,6 +39,15 @@ OPENAI_API_KEY=... EVAL_MODELS=gpt-5.5,gpt-5.5-mini EVAL_JUDGE=openai EVAL_JUDGE
 
 결과는 기본적으로 `eval-results.json`에 저장된다.
 콘솔에는 모델별 pass rate와 함께 `falsehood`, `levelFit`, `truthLeak`, `subtlety`가 표시된다.
+
+배포된 Worker에서 공개 세트와 교사용 전체 세트를 확인할 때는 다음처럼 분리해서 확인한다.
+
+```bash
+curl https://<worker-domain>/api/evaluation-set
+curl "https://<worker-domain>/api/evaluation-set/full?token=<TEACHER_TOKEN>"
+```
+
+첫 번째 응답은 학생에게 노출되어도 되는 질문/Level projection만 포함해야 한다. 두 번째 응답은 교사용 검수와 모델 선택을 위한 전체 audit를 포함한다.
 
 평가기는 이 세트를 모델별로 실행해 다음 지표를 산출한다.
 

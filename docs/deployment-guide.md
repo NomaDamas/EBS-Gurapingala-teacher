@@ -110,7 +110,8 @@ GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 - 학생용: `https://<worker-domain>/`
 - 배포 health: `https://<worker-domain>/api/health`
 - 교사용: `https://<worker-domain>/teacher`
-- 평가 세트: `https://<worker-domain>/api/evaluation-set`
+- 공개 평가 세트: `https://<worker-domain>/api/evaluation-set`
+- 교사용 전체 평가 세트: `https://<worker-domain>/api/evaluation-set/full`
 - 전체 로그 export: `https://<worker-domain>/api/export`
 - 정정 수업 오류표: `https://<worker-domain>/api/debrief`
 - 정정 수업 오류표 CSV: `https://<worker-domain>/api/debrief.csv`

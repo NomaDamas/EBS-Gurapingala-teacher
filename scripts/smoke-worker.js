@@ -42,7 +42,20 @@ const checks = [
   ["evaluation set exposes 50 turns", async () => {
     const res = await appFetch("https://example.com/api/evaluation-set");
     const body = await res.json();
-    return res.status === 200 && body.items.length === 50;
+    const fullWithoutToken = await appFetch("https://example.com/api/evaluation-set/full");
+    const fullWithToken = await appFetch("https://example.com/api/evaluation-set/full?token=teacher-secret");
+    const fullBody = await fullWithToken.json();
+    const serializedPublic = JSON.stringify(body);
+    return res.status === 200 &&
+      body.schemaVersion === "evaluation-set-public/v1" &&
+      body.items.length === 50 &&
+      serializedPublic.includes("correctAnswer") === false &&
+      serializedPublic.includes("falseClaim") === false &&
+      serializedPublic.includes("whyFalse") === false &&
+      fullWithoutToken.status === 401 &&
+      fullWithToken.status === 200 &&
+      fullBody.items.length === 50 &&
+      Boolean(fullBody.items[0].audit?.correctAnswer);
   }],
   ["health endpoint reports safe runtime config", async () => {
     const res = await appFetch("https://example.com/api/health");

@@ -53,7 +53,25 @@ const checks = [
   ["evaluation set exposes 50 turns", async () => {
     const res = await fetchUrl("/api/evaluation-set");
     const body = await res.json();
-    return res.status === 200 && Array.isArray(body.items) && body.items.length === 50;
+    const serialized = JSON.stringify(body);
+    return res.status === 200 &&
+      body.schemaVersion === "evaluation-set-public/v1" &&
+      Array.isArray(body.items) &&
+      body.items.length === 50 &&
+      serialized.includes("correctAnswer") === false &&
+      serialized.includes("falseClaim") === false &&
+      serialized.includes("whyFalse") === false;
+  }],
+  ["full evaluation set requires teacher token", async () => {
+    const noToken = await fetchUrl("/api/evaluation-set/full");
+    if (!teacherToken) return noToken.status === 200 || noToken.status === 401;
+    const withToken = await fetchUrl("/api/evaluation-set/full", { token: teacherToken });
+    const body = await withToken.json();
+    return noToken.status === 401 &&
+      withToken.status === 200 &&
+      Array.isArray(body.items) &&
+      body.items.length === 50 &&
+      Boolean(body.items[0].audit?.correctAnswer);
   }],
   ["student join and chat endpoint works", async () => {
     const join = await fetchUrl("/api/join", {}, {

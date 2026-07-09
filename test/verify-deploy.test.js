@@ -27,7 +27,26 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
       });
     }
     if (url.pathname === "/api/evaluation-set") {
-      return json(res, { items: Array.from({ length: 50 }, (_, index) => ({ turn: index + 1 })) });
+      return json(res, {
+        schemaVersion: "evaluation-set-public/v1",
+        items: Array.from({ length: 50 }, (_, index) => ({
+          turn: index + 1,
+          studentQuestion: `질문 ${index + 1}`,
+          expectedLevel: (index % 4) + 1
+        }))
+      });
+    }
+    if (url.pathname === "/api/evaluation-set/full" && !url.searchParams.has("token")) {
+      res.statusCode = 401;
+      return res.end("Teacher token required");
+    }
+    if (url.pathname === "/api/evaluation-set/full" && url.searchParams.get("token") === "teacher-secret") {
+      return json(res, {
+        items: Array.from({ length: 50 }, (_, index) => ({
+          turn: index + 1,
+          audit: { correctAnswer: `정답 ${index + 1}` }
+        }))
+      });
     }
     if (url.pathname === "/api/join" && req.method === "POST") {
       return readJson(req).then((body) => {
@@ -106,13 +125,14 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.equal(result.code, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /PASS student page loads/);
     assert.match(result.stdout, /PASS student join and chat endpoint works/);
+    assert.match(result.stdout, /PASS full evaluation set requires teacher token/);
     assert.match(result.stdout, /PASS teacher page accepts token when provided/);
     assert.match(result.stdout, /PASS debrief export is room aware/);
     assert.match(result.stdout, /PASS debrief csv filename is room aware/);
     assert.match(result.stdout, /PASS deploy verification telemetry is exportable/);
     assert.match(result.stdout, /PASS deploy verification telemetry can be purged/);
     assert.match(result.stdout, /PASS OpenAI provider is configured when required/);
-    assert.match(result.stdout, /deploy verification passed: 11\/11/);
+    assert.match(result.stdout, /deploy verification passed: 12\/12/);
     assert.deepEqual(purgedRooms, ["deploy-verify"]);
 
     const strictResult = await runNode(["scripts/verify-deploy.js"], {

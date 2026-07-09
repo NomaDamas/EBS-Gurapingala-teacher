@@ -39,8 +39,14 @@ const checks = [
   },
   {
     id: "fifty-turn-evaluation-set",
-    evidence: ["src/domain/evaluation-set.js", "scripts/run-eval.js"],
-    run: async () => EVALUATION_SET_50.length === 50 && buildEvaluationSet(50).every((item) => item.audit.preflight.approvedForStudent)
+    evidence: ["src/domain/evaluation-set.js", "src/worker.js", "scripts/run-eval.js", "scripts/smoke-worker.js", "docs/evaluation-set.md"],
+    run: async (files) =>
+      EVALUATION_SET_50.length === 50 &&
+      buildEvaluationSet(50).every((item) => item.audit.preflight.approvedForStudent) &&
+      includesAll(files["src/domain/evaluation-set.js"], ["PUBLIC_EVALUATION_SET_50", "toPublicEvaluationTurn", "studentQuestion", "expectedLevel"]) &&
+      includesAll(files["src/worker.js"], ['url.pathname === "/api/evaluation-set"', 'url.pathname === "/api/evaluation-set/full"', "isTeacherAuthorized"]) &&
+      includesAll(files["scripts/smoke-worker.js"], ["evaluation-set-public/v1", "correctAnswer", "falseClaim", "whyFalse", "/api/evaluation-set/full"]) &&
+      includesAll(files["docs/evaluation-set.md"], ["/api/evaluation-set/full", "correctAnswer", "falseClaim", "whyFalse"])
   },
   {
     id: "llm-as-judge-model-selection",
@@ -65,7 +71,7 @@ const checks = [
       includesAll(files["src/worker.js"], ["export class ClassroomRoom", "/api/health", "buildHealthPayload", "defaultRoomId"]) &&
       includesAll(files["docs/deployment-guide.md"], ["npm run deploy", "Deploy", "CLOUDFLARE_API_TOKEN", "npm run verify:deploy", "REQUIRE_OPENAI=true", "촬영방 분리", "VERIFY_ROOM=deploy-verify", "실제 촬영방 금지"]) &&
       includesAll(files["scripts/smoke-worker.js"], ["worker smoke passed", "/api/chat", "/api/export", "/api/health", "room query isolates classroom events"]) &&
-      includesAll(files["scripts/verify-deploy.js"], ["deploy verification passed", "/api/evaluation-set", "/api/join", "/api/chat", "/api/export", "/api/purge", "/teacher", "teacher page access policy is enforced", "WORKER_ROOM", "VERIFY_ROOM", "deploy-verify", "ALLOW_PURGE_FILMING_ROOM", "REQUIRE_OPENAI", "x-purge-room"]) &&
+      includesAll(files["scripts/verify-deploy.js"], ["deploy verification passed", "/api/evaluation-set", "/api/evaluation-set/full", "/api/join", "/api/chat", "/api/export", "/api/purge", "/teacher", "teacher page access policy is enforced", "WORKER_ROOM", "VERIFY_ROOM", "deploy-verify", "ALLOW_PURGE_FILMING_ROOM", "REQUIRE_OPENAI", "x-purge-room"]) &&
       includesAll(files[".github/workflows/deploy.yml"], ["workflow_dispatch", "npx wrangler deploy", "scripts/verify-deploy.js", "WORKER_HEALTH_URL", "VERIFY_ROOM", "deploy-verify", "REQUIRE_OPENAI", "true"]) &&
       includesAll(files["package.json"], ["verify:deploy"])
   },
@@ -112,7 +118,7 @@ const checks = [
     id: "launch-audit-documented",
     evidence: ["docs/launch-audit.md", "README.md", "docs/implementation-plan.md"],
     run: async (files) =>
-      includesAll(files["docs/launch-audit.md"], ["학생은 로그인 없이 URL과 이름만으로 입장", "교사는 학생 카드별 online/offline과 채팅 진행 상태를 실시간 관찰", "학생 화면에는 Level에 맞춘 거짓 답변만 표시", "진실과 거짓이 섞이고 너무 쉬운 거짓으로만 흐르지 않음", "배포 검증이 실제 촬영방 로그를 삭제하지 않음", "GitHub Deploy workflow", "GPT-5.5 xhigh 또는 동등한 외부 코드 리뷰 승인", "REQUIRE_OPENAI=true", "VERIFY_ROOM=deploy-verify", "x-purge-room"]) &&
+      includesAll(files["docs/launch-audit.md"], ["학생은 로그인 없이 URL과 이름만으로 입장", "교사는 학생 카드별 online/offline과 채팅 진행 상태를 실시간 관찰", "학생 화면에는 Level에 맞춘 거짓 답변만 표시", "공개 평가 endpoint가 정답·거짓 근거를 누출하지 않음", "진실과 거짓이 섞이고 너무 쉬운 거짓으로만 흐르지 않음", "배포 검증이 실제 촬영방 로그를 삭제하지 않음", "GitHub Deploy workflow", "GPT-5.5 xhigh 또는 동등한 외부 코드 리뷰 승인", "REQUIRE_OPENAI=true", "VERIFY_ROOM=deploy-verify", "x-purge-room"]) &&
       includesAll(files["README.md"], ["프로덕션 런치 감사 매트릭스"]) &&
       includesAll(files["docs/implementation-plan.md"], ["Launch audit", "docs/launch-audit.md"])
   }
