@@ -134,6 +134,8 @@ Acceptance:
 
 Main goal: 사용자의 원래 철학과 구현 결과 사이의 gap을 마지막에 점검하고 프로덕션 레벨로 메운다.
 
+Launch audit: [프로덕션 런치 감사 매트릭스](launch-audit.md) (`docs/launch-audit.md`)
+
 Checklist:
 - “중학생은 멍청이가 아니다”라는 전제에 맞게 너무 쉬운 오류를 줄였는가?
 - 정답과 거짓이 섞여 실제 AI 답변처럼 보이는가?

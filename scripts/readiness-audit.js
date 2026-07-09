@@ -106,6 +106,14 @@ const checks = [
       includesAll(files["docs/design.md"], ["vercel/chatbot", "mckaywrigley/chatbot-ui", "ChatGPTNextWeb/NextChat", "10k+ stars", "학생 no-login", "교사용 감사 JSON", "촬영방 `room`과 배포 검증용 `deploy-verify` room은 분리"]) &&
       includesAll(files["README.md"], ["촬영용 채팅 UI 설계 근거"]) &&
       includesAll(files["docs/implementation-plan.md"], ["Design decision record", "docs/design.md"])
+  },
+  {
+    id: "launch-audit-documented",
+    evidence: ["docs/launch-audit.md", "README.md", "docs/implementation-plan.md"],
+    run: async (files) =>
+      includesAll(files["docs/launch-audit.md"], ["학생은 로그인 없이 URL과 이름만으로 입장", "교사는 학생 카드별 online/offline과 채팅 진행 상태를 실시간 관찰", "학생 화면에는 Level에 맞춘 거짓 답변만 표시", "진실과 거짓이 섞이고 너무 쉬운 거짓으로만 흐르지 않음", "배포 검증이 실제 촬영방 로그를 삭제하지 않음", "GPT-5.5 xhigh 또는 동등한 외부 코드 리뷰 승인", "REQUIRE_OPENAI=true", "VERIFY_ROOM=deploy-verify"]) &&
+      includesAll(files["README.md"], ["프로덕션 런치 감사 매트릭스"]) &&
+      includesAll(files["docs/implementation-plan.md"], ["Launch audit", "docs/launch-audit.md"])
   }
 ];
 

@@ -108,3 +108,4 @@ npx wrangler deploy
 - [50턴 평가 세트](docs/evaluation-set.md)
 - [배포 가이드](docs/deployment-guide.md)
 - [촬영 운영 런북](docs/production-runbook.md)
+- [프로덕션 런치 감사 매트릭스](docs/launch-audit.md)
