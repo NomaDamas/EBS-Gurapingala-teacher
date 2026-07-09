@@ -190,6 +190,7 @@ export class ClassroomRoom {
       if (upgradeHeader !== "websocket") {
         return text("Expected websocket", 426);
       }
+      const protocol = selectWebSocketProtocol(request);
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
       server.accept();
@@ -203,7 +204,11 @@ export class ClassroomRoom {
       });
       server.addEventListener("close", () => this.sessions.delete(server));
       server.addEventListener("error", () => this.sessions.delete(server));
-      return new Response(null, { status: 101, webSocket: client });
+      return new Response(null, {
+        status: 101,
+        webSocket: client,
+        headers: protocol ? { "sec-websocket-protocol": protocol } : {}
+      });
     }
     if (url.pathname === "/event" && request.method === "POST") {
       const event = await request.json();
@@ -519,4 +524,11 @@ function safeJson(value) {
   } catch {
     return null;
   }
+}
+
+function selectWebSocketProtocol(request) {
+  return String(request.headers.get("sec-websocket-protocol") || "")
+    .split(",")
+    .map((item) => item.trim())
+    .find((item) => item.startsWith("teacher-token.")) || "";
 }

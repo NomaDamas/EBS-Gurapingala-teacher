@@ -35,7 +35,8 @@ npx wrangler secret put TEACHER_TOKEN
 https://<worker-domain>/teacher?token=<TEACHER_TOKEN>
 ```
 
-대시보드는 token을 브라우저 localStorage에 저장해 WebSocket, export, debrief, purge 요청에 `x-teacher-token`으로 전달한다. `/api/purge`는 추가로 현재 room과 일치하는 `x-purge-room` 헤더가 있어야 동작한다.
+대시보드는 token을 브라우저 localStorage에 저장해 export, debrief, purge 요청에 `x-teacher-token`으로 전달한다. `/api/purge`는 추가로 현재 room과 일치하는 `x-purge-room` 헤더가 있어야 동작한다.
+브라우저 WebSocket은 custom header를 보낼 수 없으므로 교사용 실시간 연결은 token을 URL query에 다시 붙이지 않고 `Sec-WebSocket-Protocol` subprotocol로 전달한다. 따라서 최초 `/teacher?token=...` 접속 후 주소창과 WebSocket URL에는 token이 남지 않아야 한다.
 
 ## 3-1. 촬영방 분리
 

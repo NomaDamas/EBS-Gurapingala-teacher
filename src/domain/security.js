@@ -21,8 +21,32 @@ export function isTeacherAuthorized(request, env) {
   const token = env.TEACHER_TOKEN;
   if (!token) return true;
   const url = new URL(request.url);
-  const supplied = request.headers.get("x-teacher-token") || url.searchParams.get("token");
+  const supplied =
+    request.headers.get("x-teacher-token") ||
+    decodeTeacherWebSocketProtocol(request.headers.get("sec-websocket-protocol")) ||
+    url.searchParams.get("token");
   return supplied === token;
+}
+
+export function encodeTeacherWebSocketProtocol(token) {
+  if (!token) return "";
+  const encoded = btoa(String(token)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return `teacher-token.${encoded}`;
+}
+
+export function decodeTeacherWebSocketProtocol(value) {
+  const selected = String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .find((item) => item.startsWith("teacher-token."));
+  if (!selected) return "";
+  const encoded = selected.slice("teacher-token.".length).replace(/-/g, "+").replace(/_/g, "/");
+  const padded = encoded + "=".repeat((4 - encoded.length % 4) % 4);
+  try {
+    return atob(padded);
+  } catch {
+    return "";
+  }
 }
 
 export function unauthorized() {

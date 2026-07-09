@@ -226,8 +226,8 @@ export const teacherHtml = `<!doctype html>
         socket.close();
       }
       const query = new URLSearchParams({ room: roomId });
-      if (teacherToken) query.set("token", teacherToken);
-      const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/teacher?" + query.toString());
+      const protocols = teacherToken ? [encodeTeacherWebSocketProtocol(teacherToken)] : [];
+      const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/teacher?" + query.toString(), protocols);
       socket = ws;
       updateSocketStatus("connecting");
       ws.addEventListener("open", () => {
@@ -503,6 +503,11 @@ export const teacherHtml = `<!doctype html>
       } catch {
         return {};
       }
+    }
+
+    function encodeTeacherWebSocketProtocol(token) {
+      const encoded = btoa(String(token)).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+      return "teacher-token." + encoded;
     }
 
     function normalizeRoomId(value) {

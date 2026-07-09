@@ -44,6 +44,16 @@ const checks = [
       body.includes("blockedForStudent") &&
       body.includes("x-purge-room");
   }],
+  ["teacher websocket accepts subprotocol token without query token", async () => {
+    const withoutToken = await appFetch("https://example.com/ws/teacher?room=default-classroom");
+    const withProtocolToken = await appFetch("https://example.com/ws/teacher?room=default-classroom", {
+      headers: {
+        "sec-websocket-protocol": encodeTeacherWebSocketProtocol("teacher-secret")
+      }
+    });
+    return withoutToken.status === 401 &&
+      withProtocolToken.status === 426;
+  }],
   ["evaluation set exposes 50 turns", async () => {
     const res = await appFetch("https://example.com/api/evaluation-set");
     const body = await res.json();
@@ -284,9 +294,17 @@ async function appFetch(url, init = {}) {
 
 async function roomFetch(roomName, input, init = {}) {
   const events = eventsFor(roomName);
-  const url = new URL(String(input));
-  if (url.pathname === "/config" && init.method === "POST") {
-    Object.assign(config, JSON.parse(init.body), { updatedAt: new Date().toISOString() });
+  const request = input instanceof Request ? input : null;
+  const url = new URL(request ? request.url : String(input));
+  const method = request?.method || init.method || "GET";
+  const headers = request?.headers || new Headers(init.headers || {});
+  const bodyText = request ? await request.text() : init.body;
+  if (url.pathname === "/ws/teacher") {
+    if (headers.get("upgrade") !== "websocket") return new Response("Expected websocket", { status: 426 });
+    return new Response("mock websocket accepted");
+  }
+  if (url.pathname === "/config" && method === "POST") {
+    Object.assign(config, JSON.parse(bodyText), { updatedAt: new Date().toISOString() });
     events.push({
       type: "teacher_config_updated",
       sessionId: "teacher",
@@ -300,12 +318,12 @@ async function roomFetch(roomName, input, init = {}) {
   }
   if (url.pathname === "/config") return json(config);
   if (url.pathname === "/events") return json(events);
-  if (url.pathname === "/event" && init.method === "POST") {
-    events.push(JSON.parse(init.body));
+  if (url.pathname === "/event" && method === "POST") {
+    events.push(JSON.parse(bodyText));
     return new Response("ok");
   }
-  if (url.pathname === "/rate-limit" && init.method === "POST") {
-    const body = JSON.parse(init.body);
+  if (url.pathname === "/rate-limit" && method === "POST") {
+    const body = JSON.parse(bodyText);
     const key = `${roomName}:${body.sessionId}`;
     const count = rateLimitCalls.get(key) || 0;
     rateLimitCalls.set(key, count + 1);
@@ -314,7 +332,7 @@ async function roomFetch(roomName, input, init = {}) {
       retryAfterMs: count < Number(body.limit || 1) ? 0 : 60000
     });
   }
-  if (url.pathname === "/purge" && init.method === "POST") {
+  if (url.pathname === "/purge" && method === "POST") {
     events.length = 0;
     for (const key of rateLimitCalls.keys()) {
       if (key.startsWith(`${roomName}:`)) rateLimitCalls.delete(key);
@@ -333,4 +351,9 @@ function json(value) {
   return new Response(JSON.stringify(value), {
     headers: { "content-type": "application/json" }
   });
+}
+
+function encodeTeacherWebSocketProtocol(token) {
+  const encoded = btoa(String(token)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return `teacher-token.${encoded}`;
 }

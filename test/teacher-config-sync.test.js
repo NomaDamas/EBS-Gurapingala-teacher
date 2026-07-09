@@ -32,6 +32,9 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /function renderClassSummary/);
   assert.match(teacher, /current\.chatTurns = \(current\.chatTurns \|\| 0\) \+ 1/);
   assert.match(teacher, /history\.replaceState/);
+  assert.match(teacher, /encodeTeacherWebSocketProtocol\(teacherToken\)/);
+  assert.match(teacher, /new WebSocket\([^,]+, protocols\)/);
+  assert.doesNotMatch(teacher, /query\.set\("token", teacherToken\)/);
   assert.match(teacher, /function buildRoomUrl\(path, includeToken = false\)/);
   assert.match(teacher, /function exportFilename\(kind, extension\)/);
   assert.match(teacher, /roomId \+ "-" \+ kind/);

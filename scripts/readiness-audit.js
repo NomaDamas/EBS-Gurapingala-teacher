@@ -72,7 +72,7 @@ const checks = [
       includesAll(files["wrangler.toml"], ["durable_objects.bindings", "ClassroomRoom", "CHAT_RATE_LIMIT_PER_MINUTE", "EVENT_TTL_HOURS"]) &&
       includesAll(files["src/worker.js"], ["export class ClassroomRoom", "/api/health", "/api/config", "writeConfig", "teacher_config_updated", "recordEvent(event)", "buildHealthPayload", "openaiModel", "defaultRoomId", "SECURITY_HEADERS", "function text", "text/plain; charset=utf-8"]) &&
       includesAll(files["src/domain/security.js"], ["cache-control", "no-store", "x-content-type-options", "referrer-policy", "content-security-policy", "frame-ancestors 'none'", "permissions-policy"]) &&
-      includesAll(files["docs/deployment-guide.md"], ["npm run deploy", "Deploy", "CLOUDFLARE_API_TOKEN", "npm run verify:deploy", "Node.js 22", "npm ci", "EXPECTED_OPENAI_MODEL", "REQUIRE_OPENAI=true", "REQUIRE_TEACHER_TOKEN=true", "Level/persona 설정 API", "production `Deploy` workflow에서는 필수", "x-teacher-token", "촬영방 분리", "VERIFY_ROOM=deploy-verify", "실제 촬영방 금지", "cache-control: no-store", "content-security-policy", "permissions-policy"]) &&
+      includesAll(files["docs/deployment-guide.md"], ["npm run deploy", "Deploy", "CLOUDFLARE_API_TOKEN", "npm run verify:deploy", "Node.js 22", "npm ci", "EXPECTED_OPENAI_MODEL", "REQUIRE_OPENAI=true", "REQUIRE_TEACHER_TOKEN=true", "Level/persona 설정 API", "production `Deploy` workflow에서는 필수", "x-teacher-token", "Sec-WebSocket-Protocol", "WebSocket URL에는 token이 남지 않아야", "촬영방 분리", "VERIFY_ROOM=deploy-verify", "실제 촬영방 금지", "cache-control: no-store", "content-security-policy", "permissions-policy"]) &&
       includesAll(files["scripts/smoke-worker.js"], ["worker smoke passed", "/api/chat", "/api/export", "/api/health", "/api/config", "error responses include security headers", "teacher config API controls generated audit level", "teacher_config_updated", "room query isolates classroom events", "x-content-type-options", "referrer-policy", "content-security-policy", "permissions-policy"]) &&
       includesAll(files["scripts/verify-deploy.js"], ["deploy verification passed", "/api/evaluation-set", "/api/evaluation-set/full", "/api/config", "/api/join", "/api/chat", "/api/export", "/api/purge", "/teacher", "교사용 대시보드에 기록됩니다", "이름 외 개인정보는 입력하지 마세요", "teacher page access policy is enforced", "teacher token is configured when required", "teacher config API controls generated audit level", "teacher_config_updated", "OpenAI model matches expectation when provided", "EXPECTED_OPENAI_MODEL", "WORKER_ROOM", "VERIFY_ROOM", "deploy-verify", "ALLOW_PURGE_FILMING_ROOM", "REQUIRE_OPENAI", "REQUIRE_TEACHER_TOKEN", "x-teacher-token", "x-purge-room"]) &&
       includesAll(files[".github/workflows/ci.yml"], ["node-version: \"22\"", "cache: \"npm\"", "npm ci", "node scripts/readiness-audit.js"]) &&
@@ -84,9 +84,10 @@ const checks = [
     id: "teacher-access-and-abuse-controls",
     evidence: ["src/domain/security.js", "src/worker.js", "src/ui/teacher.js", "docs/production-runbook.md"],
     run: async (files) =>
-      includesAll(files["src/domain/security.js"], ["isTeacherAuthorized", "rateLimitDecision"]) &&
-      includesAll(files["src/worker.js"], ["isTeacherAuthorized", "/api/config", "/api/purge", "rate-limit", "validatePurgeConfirmation", "x-purge-room", "purge_room_confirmation_required"]) &&
-      includesAll(files["src/ui/teacher.js"], ["x-teacher-token", "x-purge-room", "삭제할 room 이름을 정확히 입력하세요", "촬영 로그 삭제"]) &&
+      includesAll(files["src/domain/security.js"], ["isTeacherAuthorized", "rateLimitDecision", "encodeTeacherWebSocketProtocol", "decodeTeacherWebSocketProtocol", "sec-websocket-protocol"]) &&
+      includesAll(files["src/worker.js"], ["isTeacherAuthorized", "/api/config", "/api/purge", "rate-limit", "validatePurgeConfirmation", "x-purge-room", "purge_room_confirmation_required", "selectWebSocketProtocol", "sec-websocket-protocol"]) &&
+      includesAll(files["src/ui/teacher.js"], ["x-teacher-token", "x-purge-room", "삭제할 room 이름을 정확히 입력하세요", "촬영 로그 삭제", "encodeTeacherWebSocketProtocol(teacherToken)", "new WebSocket", "protocols"]) &&
+      !files["src/ui/teacher.js"].includes('query.set("token", teacherToken)') &&
       includesAll(files["docs/production-runbook.md"], ["삭제할 room 이름을 정확히 다시 입력"])
   },
   {
