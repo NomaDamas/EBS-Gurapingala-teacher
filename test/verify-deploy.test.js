@@ -21,7 +21,9 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
       res.statusCode = 400;
       return res.end("missing room");
     }
-    if (url.pathname === "/") return html(res, "질문의 온도");
+    if (url.pathname === "/") {
+      return html(res, "질문의 온도 교사용 대시보드에 기록됩니다 이름 외 개인정보는 입력하지 마세요");
+    }
     if (url.pathname === "/api/health") {
       return json(res, {
         ok: true,

@@ -37,7 +37,10 @@ const checks = [
   ["student page loads", async () => {
     const res = await fetchUrl("/");
     const body = await res.text();
-    return res.status === 200 && body.includes("질문의 온도");
+    return res.status === 200 &&
+      body.includes("질문의 온도") &&
+      body.includes("교사용 대시보드에 기록됩니다") &&
+      body.includes("이름 외 개인정보는 입력하지 마세요");
   }],
   ["health endpoint is safe and ready", async () => {
     const res = await fetchUrl("/api/health");
