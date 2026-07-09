@@ -4,6 +4,19 @@
 
 지금 목표는 “AI가 거짓을 말하게 만드는 앱”이 아니라, 방송 실험 맥락에서 교사가 통제한 오류 조건을 학생에게 노출하고 교사는 정답·거짓·근거·검수 결과를 실시간으로 보는 관찰 도구를 만드는 것이다.
 
+## GitHub Issue Tracking
+
+| 단계 | GitHub Issue | PR 상태 | Main goal |
+|---|---|---|---|
+| Issue 1 | [#2](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/2) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | Worker MVP와 실시간 교사용 대시보드 |
+| Issue 2 | [#3](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/3) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | Level별 미묘한 역사 오류 정책 |
+| Issue 3 | [#4](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/4) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 정답·거짓 이중 생성 LLM provider |
+| Issue 4 | [#5](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/5) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 50턴 평가와 모델 선택 루프 |
+| Issue 5 | [#6](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/6) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 운영 telemetry와 정정 수업 export |
+| Issue 6 | [#7](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/7) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 교사용 보호, rate limit, 데이터 삭제 |
+| Issue 7 | [#8](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/8) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 촬영용 UI와 검증된 chat UX 참고 |
+| Issue 8 | [#9](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/9) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 원래 실험 철학 대비 gap closing |
+
 ## 제품 경계
 
 | 영역 | 학생용 | 교사용 |
