@@ -219,11 +219,38 @@ const checks = [
       row?.level === 3 &&
       row?.provider;
   }],
-  ["debrief csv filename is room aware", async () => {
+  ["debrief csv export is room aware and complete", async () => {
     if (!teacherToken) return true;
     const res = await fetchTeacherUrl("/api/debrief.csv");
     const disposition = res.headers.get("content-disposition") || "";
-    return res.status === 200 && disposition.includes(`${verifyRoomId}-debrief-table.csv`);
+    const csvBody = await res.text();
+    const requiredHeaders = [
+      "roomId",
+      "sessionId",
+      "studentName",
+      "question",
+      "studentVisibleAnswer",
+      "verificationPrompt",
+      "debriefNote",
+      "level",
+      "correctAnswer",
+      "falseClaim",
+      "whyFalse",
+      "preflightVerdict",
+      "provider"
+    ];
+    const headerLine = csvBody.split(/\r?\n/, 1)[0] || "";
+    return res.status === 200 &&
+      disposition.includes(`${verifyRoomId}-debrief-table.csv`) &&
+      requiredHeaders.every((header) => headerLine.includes(header)) &&
+      csvBody.includes(verifyRoomId) &&
+      csvBody.includes(verifySessionId) &&
+      csvBody.includes("배포검증") &&
+      csvBody.includes("명량해전") &&
+      csvBody.includes("배포 검증용 역사 도우미") === false &&
+      csvBody.includes("이순신의 지휘력 하나만으로 승리했다") &&
+      csvBody.includes("지형, 조류, 병사, 전술") &&
+      csvBody.includes("PASS_LEVEL_CALIBRATED_FALSEHOOD");
   }],
   ["deploy verification telemetry is exportable", async () => {
     if (!teacherToken) return true;

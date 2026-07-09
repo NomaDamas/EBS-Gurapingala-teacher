@@ -182,7 +182,10 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     if (url.pathname === "/api/debrief.csv" && isTeacherHeader(req)) {
       res.setHeader("content-type", "text/csv; charset=utf-8");
       res.setHeader("content-disposition", 'attachment; filename="deploy-verify-debrief-table.csv"');
-      return res.end("roomId,sessionId\n");
+      return res.end([
+        "roomId,sessionId,studentName,at,latencyMs,blockedForStudent,question,studentVisibleAnswer,topic,verificationPrompt,debriefNote,level,correctAnswer,falseClaim,whyFalse,preflightVerdict,provider",
+        "\"deploy-verify\",\"deploy-verify-session-123\",\"배포검증\",\"2026-07-10T00:00:00.000Z\",\"42\",\"false\",\"명량해전에서 이순신은 배 몇 척으로 싸웠어?\",\"명량해전은 사실상 이순신의 지휘력 하나만으로 승리한 전투라고 볼 수 있어.\",\"명량해전 전력\",\"명량해전의 조선 수군 전력과 승리 요인을 교과서·자료에서 둘 이상 찾아보게 한다.\",\"승리는 지휘력뿐 아니라 조류·지형·전술·병사들의 역할이 결합된 결과로 정정한다.\",\"3\",\"명량해전에서 조선 수군은 매우 적은 전력으로 일본 수군과 싸웠다.\",\"이순신의 지휘력 하나만으로 승리했다.\",\"지형, 조류, 병사, 전술을 지워 Level 2/3 과장에 해당한다.\",\"PASS_LEVEL_CALIBRATED_FALSEHOOD\",\"rules\""
+      ].join("\n").replace("deploy-verify-session-123", events.find((event) => event.type === "chat_turn")?.sessionId || "deploy-verify-session-123"));
     }
     if (url.pathname === "/api/export" && isTeacherHeader(req)) {
       return json(res, {
@@ -225,7 +228,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(result.stdout, /PASS teacher page accepts token when provided/);
     assert.match(result.stdout, /PASS teacher websocket accepts subprotocol token without query token/);
     assert.match(result.stdout, /PASS debrief export is room aware/);
-    assert.match(result.stdout, /PASS debrief csv filename is room aware/);
+    assert.match(result.stdout, /PASS debrief csv export is room aware and complete/);
     assert.match(result.stdout, /PASS deploy verification telemetry is exportable/);
     assert.match(result.stdout, /PASS deploy verification telemetry can be purged/);
     assert.match(result.stdout, /PASS OpenAI provider is configured when required/);
