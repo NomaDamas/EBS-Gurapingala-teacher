@@ -249,7 +249,9 @@ const checks = [
     const body = await res.json();
     return res.status === 200 &&
       Array.isArray(body.events) &&
-      body.events.every((event) => event.sessionId !== verifySessionId);
+      body.events.every((event) => event.sessionId !== verifySessionId) &&
+      body.events.every((event) => event.type !== "teacher_config_updated") &&
+      body.events.every((event) => event.type !== "teacher_config_rejected");
   }]
 ];
 
