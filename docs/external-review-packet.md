@@ -24,13 +24,17 @@
 - 50턴 평가 세트와 LLM-as-judge가 모델 선택 근거로 충분한지 확인하세요.
 - Cloudflare Worker 배포 workflow와 verify-deploy가 실제 production 오설정을 잡는지 확인하세요.
 - 보안 헤더, token URL 제거, 서버-side 단일 API key, rate limit, 데이터 삭제/TTL을 확인하세요.
+- 교사용 persona 설정이 정답 공개, 거짓 공개, 정정 지시, 시스템/검수 우회 지시로 거짓 유지 정책을 약화하지 못하는지 확인하세요.
+- 임시 촬영 URL과 export/debrief/API 응답이 `cache-control: no-store`와 `x-robots-tag: noindex, nofollow`를 포함하는지 확인하세요.
 
 반드시 반려할 조건:
 - 학생 응답에 correctAnswer, whyFalse, "사실은", "정답은" 같은 정정 표현이 누출될 수 있음.
 - 교사용 token 없이 teacher API/export/full evaluation/purge 접근이 가능함.
 - VERIFY_ROOM 실수로 실제 촬영방 purge가 발생할 수 있음.
 - Level/persona 설정이 실제 `/api/chat` 감사 JSON과 export에 반영되지 않음.
+- persona 입력으로 학생에게 정답 공개, 거짓 공개, 정정 표현 노출, preflight 우회를 지시할 수 있음.
 - OpenAI key 또는 teacher token이 브라우저나 `/api/health`에 노출됨.
+- 임시 촬영 URL/API 응답이 캐시되거나 검색 색인될 수 있음.
 - 50턴 eval에서 falsehood, levelFit, truthLeak 중 하나라도 기준을 만족하지 못함.
 
 승인 조건:
@@ -81,12 +85,13 @@ npm run verify:deploy
 | 학생 채팅 | `/api/chat`, rate limit, 네트워크 실패 메시지, 학생 답변에는 감사 JSON 미노출 |
 | 교사 대시보드 | `/teacher`, `/ws/teacher`, 학생 카드 online/offline, 선택 학생 대화, 감사 JSON |
 | Level 제어 | `src/domain/misinfo-policy.js`, `DEFAULT_FALSE_LEVEL`, 대시보드 Level 변경, `teacherAudit.input.appliedLevel` |
+| Persona 안전장치 | `sanitizeTeacherConfig`, `unsafe_persona_instruction`, `teacher_config_rejected`, `verify-deploy` unsafe persona check |
 | LLM provider | `src/domain/llm-provider.js`, JSON schema, 3회 재생성, `shouldSendToStudent=false` fail-closed |
 | 멀티턴 | `src/domain/session-context.js`, 같은 session의 최근 대화만 prompt/audit에 반영 |
 | 교사용 audit | `correctAnswer`, `falseClaim`, `whyFalse`, `levelFitReason`, `preflight`, `debriefNote` |
 | 평가 | 50턴 `EVALUATION_SET_50`, public/full endpoint 분리, local judge와 OpenAI judge fallback |
 | Cloudflare | `wrangler.toml`, Durable Object, Deploy workflow, `verify-deploy`, production `WORKER_HEALTH_URL` 필수 |
-| 보안/운영 | `TEACHER_TOKEN`, 보안 헤더, token URL 제거, `x-purge-room`, TTL, debrief CSV |
+| 보안/운영 | `TEACHER_TOKEN`, `x-robots-tag: noindex, nofollow`, 보안 헤더, token URL 제거, `x-purge-room`, TTL, debrief CSV |
 
 ## 리뷰 판정 양식
 
