@@ -53,6 +53,7 @@ WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=dep
 | 위험 | 대응 |
 |---|---|
 | 실제 LLM provider가 촬영 중 rules fallback으로 동작 | `REQUIRE_OPENAI=true npm run verify:deploy`와 `/api/health`의 `provider=openai` 확인 |
+| GitHub Deploy workflow가 로컬 검증과 다른 조건으로 배포 | workflow 기본 배포 후 검증은 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`로 실행 |
 | 학생이 AI 답변을 정답으로 오인한 채 촬영 종료 | `/api/debrief.csv` 기준 정정 수업을 촬영 직후 수행 |
 | 교사용 token URL 노출 | 대시보드가 token을 localStorage에 저장한 뒤 URL에서 제거, 필요 시 `TEACHER_TOKEN` 재발급 |
 | 실제 촬영방 로그를 검증 중 삭제 | 검증은 `VERIFY_ROOM=deploy-verify`만 사용, 촬영방 삭제는 export 확인 후 대시보드에서 room명을 다시 입력하고 `x-purge-room` 확인으로 수행 |

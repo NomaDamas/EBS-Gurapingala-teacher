@@ -54,3 +54,5 @@ jobs:
         env:
           WORKER_URL: ${{ vars.WORKER_HEALTH_URL }}
           TEACHER_TOKEN: ${{ secrets.TEACHER_TOKEN }}
+          VERIFY_ROOM: ${{ vars.VERIFY_ROOM || 'deploy-verify' }}
+          REQUIRE_OPENAI: ${{ vars.REQUIRE_OPENAI || 'true' }}

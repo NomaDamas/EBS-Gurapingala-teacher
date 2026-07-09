@@ -101,8 +101,9 @@ GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 |---|---|
 | `WORKER_HEALTH_URL` | 배포 후 `/api/health` 검증 URL |
 | `VERIFY_ROOM` | 배포 후 검증 전용 room. 기본값 `deploy-verify`; 실제 촬영방 금지 |
+| `REQUIRE_OPENAI` | 배포 후 OpenAI provider 강제 여부. workflow 기본값은 `true`; rehearsal에서 rules fallback을 의도할 때만 `false` |
 
-수동 배포 workflow도 `node --test`, `node scripts/run-eval.js`, `node scripts/readiness-audit.js`, `node scripts/smoke-worker.js`를 통과한 뒤 `npx wrangler deploy`를 실행한다. `WORKER_HEALTH_URL`이 설정되어 있으면 `scripts/verify-deploy.js`로 실제 배포 URL까지 확인한다. 값은 `https://<worker-domain>` 또는 `https://<worker-domain>/api/health` 어느 쪽이어도 된다.
+수동 배포 workflow도 `node --test`, `node scripts/run-eval.js`, `node scripts/readiness-audit.js`, `node scripts/smoke-worker.js`를 통과한 뒤 `npx wrangler deploy`를 실행한다. `WORKER_HEALTH_URL`이 설정되어 있으면 `scripts/verify-deploy.js`로 실제 배포 URL까지 확인한다. 값은 `https://<worker-domain>` 또는 `https://<worker-domain>/api/health` 어느 쪽이어도 된다. workflow는 기본적으로 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`로 검증한다.
 
 ## 5. URL
 
