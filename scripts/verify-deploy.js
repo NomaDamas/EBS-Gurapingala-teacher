@@ -175,6 +175,11 @@ const checks = [
     return res.status === 200 &&
       Array.isArray(body.events) &&
       body.events.some((event) =>
+        event.type === "teacher_config_updated" &&
+        event.level === 3 &&
+        event.persona === "배포 검증용 역사 도우미"
+      ) &&
+      body.events.some((event) =>
         event.sessionId === verifySessionId &&
         event.type === "chat_turn" &&
         event.teacherAudit?.input?.appliedLevel === 3 &&

@@ -184,6 +184,7 @@ const checks = [
     });
     const exportRes = await appFetch("https://example.com/api/export", { headers: teacherHeaders });
     const exportBody = await exportRes.json();
+    const configEvent = exportBody.events.find((event) => event.type === "teacher_config_updated");
     const turn = exportBody.events.find((event) => event.sessionId === "config-s1" && event.type === "chat_turn");
     return update.status === 200 &&
       read.status === 200 &&
@@ -191,6 +192,8 @@ const checks = [
       configBody.level === 4 &&
       configBody.persona === "검증용 페르소나" &&
       chat.status === 200 &&
+      configEvent?.level === 4 &&
+      configEvent?.persona === "검증용 페르소나" &&
       turn?.teacherAudit?.input?.appliedLevel === 4 &&
       turn?.teacherAudit?.input?.persona === "검증용 페르소나";
   }],
@@ -267,6 +270,15 @@ async function roomFetch(roomName, input, init = {}) {
   const url = new URL(String(input));
   if (url.pathname === "/config" && init.method === "POST") {
     Object.assign(config, JSON.parse(init.body), { updatedAt: new Date().toISOString() });
+    events.push({
+      type: "teacher_config_updated",
+      sessionId: "teacher",
+      studentName: "teacher",
+      level: config.level,
+      persona: config.persona,
+      config,
+      at: config.updatedAt
+    });
     return json(config);
   }
   if (url.pathname === "/config") return json(config);

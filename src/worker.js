@@ -49,7 +49,7 @@ export default {
       if (request.method === "POST") {
         const parsed = await readJsonBody(request);
         if (parsed.error) return parsed.error;
-        const updated = await writeConfig(room, parsed.body, env);
+        const updated = await writeConfig(room, parsed.body, env, roomId);
         return json(updated);
       }
       return json({ error: "method_not_allowed" }, 405);
@@ -203,7 +203,7 @@ export class ClassroomRoom {
       server.addEventListener("message", async (event) => {
         const data = safeJson(event.data);
         if (data?.type === "teacher_config") {
-          await this.updateConfig(data);
+          await this.updateConfig(data, normalizeRoomId(url.searchParams.get("room")));
         }
       });
       server.addEventListener("close", () => this.sessions.delete(server));
@@ -235,7 +235,7 @@ export class ClassroomRoom {
       return new Response("ok");
     }
     if (url.pathname === "/config" && request.method === "POST") {
-      return json(await this.updateConfig(await request.json()));
+      return json(await this.updateConfig(await request.json(), normalizeRoomId(url.searchParams.get("room"))));
     }
     if (url.pathname === "/config") {
       const config = await this.state.storage.get("config");
@@ -286,7 +286,7 @@ export class ClassroomRoom {
     };
   }
 
-  async updateConfig(data) {
+  async updateConfig(data, roomId = "default-classroom") {
     const nextLevel = normalizeLevel(data.level);
     const nextPersona = sanitizeText(data.persona || "교육용 역사 챗봇", 240);
     const updatedAt = new Date().toISOString();
@@ -296,15 +296,18 @@ export class ClassroomRoom {
       updatedAt
     };
     await this.state.storage.put("config", config);
-    this.broadcast({
+    const event = {
       type: "teacher_config_updated",
       sessionId: "teacher",
       studentName: "teacher",
+      roomId: normalizeRoomId(roomId),
       level: nextLevel,
       persona: nextPersona,
       config,
       at: updatedAt
-    });
+    };
+    await this.recordEvent(event);
+    this.broadcast(event);
     return config;
   }
 
@@ -348,8 +351,8 @@ async function readConfig(room, env) {
   };
 }
 
-async function writeConfig(room, body, env) {
-  const res = await room.fetch("https://room.local/config", {
+async function writeConfig(room, body, env, roomId) {
+  const res = await room.fetch(`https://room.local/config?room=${encodeURIComponent(roomId)}`, {
     method: "POST",
     body: JSON.stringify({
       level: body?.level || env.DEFAULT_FALSE_LEVEL,

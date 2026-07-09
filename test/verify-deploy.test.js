@@ -62,6 +62,16 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
         config.level = Number(body.level) || 2;
         config.persona = String(body.persona || "기본 검증 도우미");
         config.updatedAt = new Date().toISOString();
+        events.push({
+          type: "teacher_config_updated",
+          sessionId: "teacher",
+          studentName: "teacher",
+          roomId: "deploy-verify",
+          level: config.level,
+          persona: config.persona,
+          config: { ...config },
+          at: config.updatedAt
+        });
         return json(res, config);
       });
     }
