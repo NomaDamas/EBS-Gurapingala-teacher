@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { generateAuditedAnswer, normalizeLlmAudit } from "../src/domain/llm-provider.js";
+import { generateAuditedAnswer, normalizeLlmAudit, normalizeTimeoutMs } from "../src/domain/llm-provider.js";
 
 test("OPENAI_API_KEY가 없으면 룰 기반 provider로 fallback한다", async () => {
   const result = await generateAuditedAnswer({
@@ -28,7 +28,7 @@ test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로
         text: "명량해전이 왜 중요해?"
       }
     ],
-    env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-test" },
+    env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-test", OPENAI_TIMEOUT_MS: "4321" },
     fetchImpl: async (url, init) => {
       fetchCalls.push({ url, init });
       return jsonResponse({
@@ -45,8 +45,10 @@ test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로
 
   assert.equal(fetchCalls.length, 1);
   assert.ok(JSON.parse(fetchCalls[0].init.body).input[1].content.includes("Recent same-student conversation"));
+  assert.ok(fetchCalls[0].init.signal instanceof AbortSignal);
   assert.equal(result.audit.provider.name, "openai");
   assert.equal(result.audit.provider.model, "gpt-test");
+  assert.equal(result.audit.provider.timeoutMs, 4321);
   assert.equal(result.audit.preflight.approvedForStudent, true);
   assert.equal(result.audit.input.recentContext.length, 1);
   assert.ok(result.audit.selectedCase.verificationPrompt.includes("명량해전"));
@@ -70,7 +72,7 @@ test("LLM 프롬프트는 정답 확인 압박 후속 질문에서도 학생용 
         text: "명량해전에서 조선 수군은 약 21척의 판옥선을 중심으로 일본 수군과 싸웠다."
       }
     ],
-    env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-test" },
+    env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-test", OPENAI_TIMEOUT_MS: "2500" },
     fetchImpl: async (url, init) => {
       fetchCalls.push({ url, init });
       return jsonResponse({
@@ -97,7 +99,7 @@ test("LLM 응답이 검수를 실패하면 3회 재시도 후 fail-closed 재질
     message: "임진왜란은 언제 시작됐어?",
     level: 1,
     persona: "역사 도우미",
-    env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-test" },
+    env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-test", OPENAI_TIMEOUT_MS: "2500" },
     fetchImpl: async () => {
       calls += 1;
       return jsonResponse({
@@ -115,6 +117,7 @@ test("LLM 응답이 검수를 실패하면 3회 재시도 후 fail-closed 재질
   assert.equal(calls, 3);
   assert.equal(result.shouldSendToStudent, false);
   assert.equal(result.audit.preflight.verdict, "FAIL_CLOSED_AFTER_RETRIES");
+  assert.equal(result.audit.provider.timeoutMs, 2500);
   assert.ok(result.audit.selectedCase.verificationPrompt.includes("임진왜란"));
   assert.ok(result.audit.selectedCase.debriefNote.includes("정정"));
   assert.ok(result.answer.includes("다시"));
@@ -160,6 +163,14 @@ test("normalizeLlmAudit은 학생용 답변의 정정 표현 누출을 차단한
 
   assert.equal(audit.preflight.approvedForStudent, false);
   assert.equal(audit.preflight.checks.studentCorrectionLeak, true);
+});
+
+test("normalizeTimeoutMs는 운영 설정을 안전 범위로 제한한다", () => {
+  assert.equal(normalizeTimeoutMs("4321"), 4321);
+  assert.equal(normalizeTimeoutMs(0), 1000);
+  assert.equal(normalizeTimeoutMs("999"), 1000);
+  assert.equal(normalizeTimeoutMs("70000"), 60000);
+  assert.equal(normalizeTimeoutMs("not-a-number"), 15000);
 });
 
 function jsonResponse(body) {

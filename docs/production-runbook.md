@@ -27,10 +27,11 @@
    - `teacherProtected`가 `true`인지 확인한다.
    - `openaiConfigured`가 의도한 값인지 확인한다.
    - `openaiModel`이 촬영에 사용할 모델과 일치하는지 확인한다.
+   - `openaiTimeoutMs`가 촬영에 사용할 timeout과 일치하는지 확인한다.
    - `chatRateLimitPerMinute`, `eventTtlHours`가 촬영 규모에 맞는지 확인한다.
    - 응답 헤더의 `cache-control: no-store`, `x-content-type-options: nosniff`, `referrer-policy: no-referrer`, `content-security-policy`, `permissions-policy`를 확인한다.
 7. 배포 URL 전체 검증을 실행한다.
-   - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXPECTED_OPENAI_MODEL=gpt-5.5 npm run verify:deploy`
+   - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run verify:deploy`
    - 학생 페이지와 관찰 고지, health, OpenAI provider 설정, 평가 세트, 학생 join/chat, 교사용 보호, token 접속, export telemetry, purge 정리가 모두 통과해야 한다.
    - export, debrief, purge, full evaluation API 검증은 URL query token 대신 `x-teacher-token` header로 수행되어야 한다.
    - `verify:deploy`는 `/api/purge`를 호출하므로 실제 촬영방 room을 쓰지 않는다. 검증 전용 room은 `deploy-verify` 또는 `deploy-verify-<suffix>`로만 둔다.
@@ -103,6 +104,7 @@
 | 교사용 화면이 열리지 않음 | URL token이 맞는지 확인하고, `TEACHER_TOKEN` secret을 재설정한다. |
 | 교사용 실시간 연결이 끊김 | 연결 상태 입력칸의 retry/last 값을 확인하고 `실시간 연결 재시도` 버튼을 누른다. |
 | 학생 답변이 계속 재질문 메시지로 닫힘 | 교사용 JSON의 실패 이력을 보고 Level 또는 persona를 낮춘다. |
+| OpenAI 요청 지연으로 학생 응답이 늦음 | `/api/health.openaiTimeoutMs`와 교사용 audit의 `provider.timeoutMs`를 확인하고, 촬영 규모에 맞게 `OPENAI_TIMEOUT_MS`를 낮춘 뒤 재배포한다. |
 | 학생 카드가 offline으로 보임 | 학생 기기의 네트워크와 `/api/heartbeat` 요청을 확인한다. |
 | export가 비어 있음 | 학생이 실제로 질문을 보냈는지, 교사용 token이 맞는지 확인한다. |
 | 학생 질문이 전송되지 않음 | 이름은 40자 이내, 질문은 600자 이내인지 확인한다. 잘못된 요청은 400 JSON 오류로 반환된다. |

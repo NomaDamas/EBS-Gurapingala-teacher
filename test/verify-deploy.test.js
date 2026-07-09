@@ -29,6 +29,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
         ok: true,
         provider: "rules",
         openaiModel: "gpt-5.5",
+        openaiTimeoutMs: 15000,
         openaiConfigured: false,
         teacherProtected: true
       });
@@ -182,7 +183,8 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(result.stdout, /PASS deploy verification telemetry can be purged/);
     assert.match(result.stdout, /PASS OpenAI provider is configured when required/);
     assert.match(result.stdout, /PASS OpenAI model matches expectation when provided/);
-    assert.match(result.stdout, /deploy verification passed: 16\/16/);
+    assert.match(result.stdout, /PASS OpenAI timeout matches expectation when provided/);
+    assert.match(result.stdout, /deploy verification passed: 17\/17/);
     assert.deepEqual(purgedRooms, ["deploy-verify"]);
 
     const strictResult = await runNode(["scripts/verify-deploy.js"], {
@@ -206,6 +208,16 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(modelMismatchResult.stdout, /FAIL OpenAI model matches expectation when provided/);
     assert.deepEqual(purgedRooms, ["deploy-verify", "deploy-verify", "deploy-verify"]);
 
+    const timeoutMismatchResult = await runNode(["scripts/verify-deploy.js"], {
+      WORKER_URL: workerUrl,
+      TEACHER_TOKEN: "teacher-secret",
+      EXPECTED_OPENAI_TIMEOUT_MS: "20000"
+    });
+
+    assert.notEqual(timeoutMismatchResult.code, 0);
+    assert.match(timeoutMismatchResult.stdout, /FAIL OpenAI timeout matches expectation when provided/);
+    assert.deepEqual(purgedRooms, ["deploy-verify", "deploy-verify", "deploy-verify", "deploy-verify"]);
+
     const missingTeacherTokenResult = await runNode(["scripts/verify-deploy.js"], {
       WORKER_URL: workerUrl,
       REQUIRE_TEACHER_TOKEN: "true"
@@ -213,7 +225,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
 
     assert.notEqual(missingTeacherTokenResult.code, 0);
     assert.match(missingTeacherTokenResult.stderr, /TEACHER_TOKEN is required/);
-    assert.deepEqual(purgedRooms, ["deploy-verify", "deploy-verify", "deploy-verify"]);
+    assert.deepEqual(purgedRooms, ["deploy-verify", "deploy-verify", "deploy-verify", "deploy-verify"]);
 
     const unsafeResult = await runNode(["scripts/verify-deploy.js"], {
       WORKER_URL: workerUrl,
@@ -223,7 +235,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
 
     assert.notEqual(unsafeResult.code, 0);
     assert.match(unsafeResult.stderr, /VERIFY_ROOM must start with deploy-verify/);
-    assert.deepEqual(purgedRooms, ["deploy-verify", "deploy-verify", "deploy-verify"]);
+    assert.deepEqual(purgedRooms, ["deploy-verify", "deploy-verify", "deploy-verify", "deploy-verify"]);
   } finally {
     await close(server);
   }

@@ -1,5 +1,5 @@
 import { normalizeLevel } from "./domain/misinfo-policy.js";
-import { DEFAULT_OPENAI_MODEL, generateAuditedAnswer } from "./domain/llm-provider.js";
+import { DEFAULT_OPENAI_MODEL, generateAuditedAnswer, normalizeTimeoutMs } from "./domain/llm-provider.js";
 import { EVALUATION_SET_50, PUBLIC_EVALUATION_SET_50 } from "./domain/evaluation-set.js";
 import { buildDebriefCsv, buildDebriefRows, buildExportPayload } from "./domain/session-export.js";
 import { buildSessionContext } from "./domain/session-context.js";
@@ -461,6 +461,7 @@ function buildHealthPayload(env) {
     defaultFalseLevel: Number(env.DEFAULT_FALSE_LEVEL || 2),
     chatRateLimitPerMinute: Number(env.CHAT_RATE_LIMIT_PER_MINUTE || 12),
     eventTtlHours: Number(env.EVENT_TTL_HOURS || 24),
+    openaiTimeoutMs: normalizeTimeoutMs(env.OPENAI_TIMEOUT_MS),
     defaultRoomId: normalizeRoomId(env.DEFAULT_ROOM_ID),
     endpoints: {
       student: "/",

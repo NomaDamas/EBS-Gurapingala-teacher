@@ -5,6 +5,7 @@ const verifyRoomId = normalizeRoomId(process.env.VERIFY_ROOM || "deploy-verify")
 const requireOpenAI = process.env.REQUIRE_OPENAI === "true";
 const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN === "true";
 const expectedOpenAIModel = process.env.EXPECTED_OPENAI_MODEL || "";
+const expectedOpenAITimeoutMs = normalizeExpectedTimeout(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "");
 const allowUnsafePurge = process.env.ALLOW_PURGE_FILMING_ROOM === "true";
 const verifySessionId = `${verifyRoomId}-session-${Date.now()}`;
 const verifySessionSecret = `${verifyRoomId}-secret-${Date.now()}`;
@@ -50,6 +51,9 @@ const checks = [
       body.ok === true &&
       typeof body.openaiConfigured === "boolean" &&
       typeof body.openaiModel === "string" &&
+      Number.isFinite(body.openaiTimeoutMs) &&
+      body.openaiTimeoutMs >= 1000 &&
+      body.openaiTimeoutMs <= 60000 &&
       typeof body.teacherProtected === "boolean" &&
       res.headers.get("cache-control") === "no-store" &&
       res.headers.get("content-security-policy")?.includes("frame-ancestors 'none'") &&
@@ -71,6 +75,13 @@ const checks = [
     const body = await res.json();
     return res.status === 200 &&
       body.openaiModel === expectedOpenAIModel;
+  }],
+  ["OpenAI timeout matches expectation when provided", async () => {
+    if (!expectedOpenAITimeoutMs) return true;
+    const res = await fetchUrl("/api/health");
+    const body = await res.json();
+    return res.status === 200 &&
+      body.openaiTimeoutMs === expectedOpenAITimeoutMs;
   }],
   ["teacher token is configured when required", async () => {
     if (!requireTeacherToken) return true;
@@ -272,6 +283,16 @@ function normalizeBaseUrl(value) {
   url.search = "";
   url.hash = "";
   return url.toString();
+}
+
+function normalizeExpectedTimeout(value) {
+  if (!value) return 0;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 1000 || n > 60000) {
+    console.error("EXPECTED_OPENAI_TIMEOUT_MS must be between 1000 and 60000.");
+    process.exit(1);
+  }
+  return Math.round(n);
 }
 
 function normalizeRoomId(value) {

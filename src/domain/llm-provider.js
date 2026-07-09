@@ -8,6 +8,7 @@ import {
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 export const DEFAULT_OPENAI_MODEL = "gpt-5.5";
+export const DEFAULT_OPENAI_TIMEOUT_MS = 15000;
 const MAX_ATTEMPTS = 3;
 const RETRY_STUDENT_MESSAGE = "답변을 다시 점검해야 해. 질문을 한 번만 더 다르게 물어봐 줄래?";
 
@@ -42,6 +43,7 @@ export async function generateAuditedAnswer({
     };
   }
 
+  const openaiTimeoutMs = normalizeTimeoutMs(env.OPENAI_TIMEOUT_MS);
   const failures = [];
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     try {
@@ -54,6 +56,7 @@ export async function generateAuditedAnswer({
         turnIndex,
         recentMessages,
         previousFailures: failures,
+        timeoutMs: openaiTimeoutMs,
         fetchImpl
       });
       const audit = normalizeLlmAudit({
@@ -64,7 +67,8 @@ export async function generateAuditedAnswer({
         turnIndex,
         recentMessages,
         attempt,
-        model: env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL
+        model: env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
+        timeoutMs: openaiTimeoutMs
       });
       if (audit.preflight.approvedForStudent) {
         return {
@@ -95,11 +99,12 @@ export async function generateAuditedAnswer({
     turnIndex,
     recentMessages,
     model: env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
+    timeoutMs: openaiTimeoutMs,
     failures
   });
 }
 
-export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, recentMessages = [], attempt, model }) {
+export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, recentMessages = [], attempt, model, timeoutMs = DEFAULT_OPENAI_TIMEOUT_MS }) {
   const contextText = [message, ...recentMessages.map((item) => item.text)].join(" ");
   const selected = selectCase(contextText, turnIndex);
   const correctAnswer = cleanString(draft.correct_answer);
@@ -144,6 +149,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, r
       name: "openai",
       model,
       attempt,
+      timeoutMs,
       source: "responses-api-json-schema"
     },
     preflight: {
@@ -162,7 +168,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, r
   };
 }
 
-function buildFailedAudit({ message, level, persona, turnIndex, recentMessages = [], model, failures }) {
+function buildFailedAudit({ message, level, persona, turnIndex, recentMessages = [], model, timeoutMs = DEFAULT_OPENAI_TIMEOUT_MS, failures }) {
   const contextText = [message, ...recentMessages.map((item) => item.text)].join(" ");
   const selected = selectCase(contextText, turnIndex);
   return {
@@ -192,6 +198,7 @@ function buildFailedAudit({ message, level, persona, turnIndex, recentMessages =
         name: "openai",
         model,
         attempts: MAX_ATTEMPTS,
+        timeoutMs,
         source: "responses-api-json-schema"
       },
       preflight: {
@@ -208,37 +215,45 @@ function buildFailedAudit({ message, level, persona, turnIndex, recentMessages =
   };
 }
 
-async function callOpenAI({ apiKey, model, message, level, persona, turnIndex, recentMessages, previousFailures, fetchImpl }) {
+async function callOpenAI({ apiKey, model, message, level, persona, turnIndex, recentMessages, previousFailures, timeoutMs, fetchImpl }) {
   const contextText = [message, ...recentMessages.map((item) => item.text)].join(" ");
   const selected = selectCase(contextText, turnIndex);
-  const response = await fetchImpl(OPENAI_RESPONSES_URL, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${apiKey}`,
-      "content-type": "application/json"
-    },
-    body: JSON.stringify({
-      model,
-      input: [
-        {
-          role: "system",
-          content: buildSystemPrompt({ level, persona })
-        },
-        {
-          role: "user",
-          content: buildUserPrompt({ message, level, selected, recentMessages, previousFailures })
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(`OpenAI request timed out after ${timeoutMs}ms`), timeoutMs);
+  let response;
+  try {
+    response = await fetchImpl(OPENAI_RESPONSES_URL, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json"
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model,
+        input: [
+          {
+            role: "system",
+            content: buildSystemPrompt({ level, persona })
+          },
+          {
+            role: "user",
+            content: buildUserPrompt({ message, level, selected, recentMessages, previousFailures })
+          }
+        ],
+        text: {
+          format: {
+            type: "json_schema",
+            name: "misinfo_audit",
+            strict: true,
+            schema: auditSchema()
+          }
         }
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "misinfo_audit",
-          strict: true,
-          schema: auditSchema()
-        }
-      }
-    })
-  });
+      })
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     throw new Error(`OpenAI request failed: ${response.status} ${await response.text()}`);
@@ -361,4 +376,10 @@ function withProviderMetadata(audit, metadata) {
 
 function cleanString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+export function normalizeTimeoutMs(value) {
+  const n = value === undefined || value === null || value === "" ? DEFAULT_OPENAI_TIMEOUT_MS : Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_OPENAI_TIMEOUT_MS;
+  return Math.min(60000, Math.max(1000, Math.round(n)));
 }
