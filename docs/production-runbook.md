@@ -18,7 +18,7 @@
    - `npm run smoke`
 5. GitHub Actions `Deploy` workflow를 사용할 경우 environment를 선택하고 실행한다.
    - `CLOUDFLARE_API_TOKEN`과 `CLOUDFLARE_ACCOUNT_ID`가 설정되어 있어야 한다.
-   - `WORKER_HEALTH_URL`이 설정되어 있으면 workflow가 실제 배포 URL을 자동 확인한다.
+   - production environment에는 `WORKER_HEALTH_URL`이 반드시 설정되어 있어야 한다. 비어 있으면 workflow가 배포 전에 실패한다.
    - workflow의 배포 후 검증은 기본 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`로 실행된다.
 6. 배포 후 `/api/health`를 확인한다.
    - `ok`가 `true`인지 확인한다.

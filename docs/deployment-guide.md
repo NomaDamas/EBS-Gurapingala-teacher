@@ -97,16 +97,21 @@ GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 | `OPENAI_API_KEY` | 서버-side OpenAI API key |
 | `TEACHER_TOKEN` | 교사용 대시보드/API 보호 token |
 
+필수 repository/environment variable:
+
+| 이름 | 용도 |
+|---|---|
+| `WORKER_HEALTH_URL` | production 배포 후 실제 Worker 검증 URL. production `Deploy` workflow에서는 필수 |
+
 선택 repository/environment variable:
 
 | 이름 | 용도 |
 |---|---|
-| `WORKER_HEALTH_URL` | 배포 후 `/api/health` 검증 URL |
 | `VERIFY_ROOM` | 배포 후 검증 전용 room. 기본값 `deploy-verify`; 실제 촬영방 금지 |
 | `REQUIRE_OPENAI` | 배포 후 OpenAI provider 강제 여부. workflow 기본값은 `true`; rehearsal에서 rules fallback을 의도할 때만 `false` |
 | `REQUIRE_TEACHER_TOKEN` | 배포 후 교사용 token 보호 강제 여부. workflow 기본값은 `true`; 로컬 공개 리허설에서만 `false` |
 
-수동 배포 workflow도 `node --test`, `node scripts/run-eval.js`, `node scripts/readiness-audit.js`, `node scripts/smoke-worker.js`를 통과한 뒤 `npx wrangler deploy`를 실행한다. `WORKER_HEALTH_URL`이 설정되어 있으면 `scripts/verify-deploy.js`로 실제 배포 URL까지 확인한다. 값은 `https://<worker-domain>` 또는 `https://<worker-domain>/api/health` 어느 쪽이어도 된다. workflow는 기본적으로 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`로 검증한다.
+수동 배포 workflow도 `node --test`, `node scripts/run-eval.js`, `node scripts/readiness-audit.js`, `node scripts/smoke-worker.js`를 통과한 뒤 `npx wrangler deploy`를 실행한다. production environment에서는 `WORKER_HEALTH_URL`이 비어 있으면 배포 전에 실패한다. 값은 `https://<worker-domain>` 또는 `https://<worker-domain>/api/health` 어느 쪽이어도 된다. workflow는 기본적으로 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`로 실제 배포 URL을 검증한다.
 
 ## 5. URL
 
