@@ -64,7 +64,10 @@ const checks = [
       body.ok === true &&
       body.provider === "rules" &&
       body.teacherProtected === true &&
-      body.endpoints.debriefCsv === "/api/debrief.csv";
+      body.endpoints.debriefCsv === "/api/debrief.csv" &&
+      res.headers.get("cache-control") === "no-store" &&
+      res.headers.get("x-content-type-options") === "nosniff" &&
+      res.headers.get("referrer-policy") === "no-referrer";
   }],
   ["invalid student JSON returns 400", async () => {
     const res = await appFetch("https://example.com/api/join", {

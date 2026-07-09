@@ -7,7 +7,15 @@ import { isTeacherAuthorized, rateLimitDecision, unauthorized } from "./domain/s
 import { studentHtml } from "./ui/student.js";
 import { teacherHtml } from "./ui/teacher.js";
 
-const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
+const SECURITY_HEADERS = {
+  "cache-control": "no-store",
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "no-referrer"
+};
+const JSON_HEADERS = {
+  ...SECURITY_HEADERS,
+  "content-type": "application/json; charset=utf-8"
+};
 const FAIL_CLOSED_STUDENT_MESSAGE = "답변을 다시 점검해야 해. 질문을 한 번만 더 다르게 물어봐 줄래?";
 
 export default {
@@ -368,7 +376,10 @@ async function checkRateLimit(room, sessionId, env) {
 
 function html(body) {
   return new Response(body, {
-    headers: { "content-type": "text/html; charset=utf-8" }
+    headers: {
+      ...SECURITY_HEADERS,
+      "content-type": "text/html; charset=utf-8"
+    }
   });
 }
 
@@ -382,6 +393,7 @@ function json(body, status = 200) {
 function csv(body, filename) {
   return new Response(body, {
     headers: {
+      ...SECURITY_HEADERS,
       "content-type": "text/csv; charset=utf-8",
       "content-disposition": `attachment; filename="${filename}"`
     }

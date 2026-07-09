@@ -27,4 +27,7 @@ test("/api/health returns safe deployment metadata without secrets", async () =>
   assert.equal(JSON.stringify(body).includes("secret-teacher-token"), false);
   assert.equal(body.endpoints.fullEvaluationSet, "/api/evaluation-set/full");
   assert.equal(body.endpoints.debriefCsv, "/api/debrief.csv");
+  assert.equal(res.headers.get("cache-control"), "no-store");
+  assert.equal(res.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(res.headers.get("referrer-policy"), "no-referrer");
 });
