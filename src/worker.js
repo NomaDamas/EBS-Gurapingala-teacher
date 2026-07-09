@@ -551,31 +551,45 @@ function text(body, status = 200) {
 async function readJsonBody(request) {
   const contentLength = Number(request.headers.get("content-length") || 0);
   if (contentLength > MAX_JSON_BODY_BYTES) {
-    return {
-      error: json({
-        error: "payload_too_large",
-        message: "요청 본문이 너무 큽니다.",
-        maxBytes: MAX_JSON_BODY_BYTES
-      }, 413)
-    };
+    return { error: payloadTooLargeError() };
   }
   try {
-    const raw = await request.text();
-    if (new TextEncoder().encode(raw).length > MAX_JSON_BODY_BYTES) {
-      return {
-        error: json({
-          error: "payload_too_large",
-          message: "요청 본문이 너무 큽니다.",
-          maxBytes: MAX_JSON_BODY_BYTES
-        }, 413)
-      };
-    }
+    const raw = await readBoundedText(request, MAX_JSON_BODY_BYTES);
+    if (raw.tooLarge) return { error: payloadTooLargeError() };
     return { body: JSON.parse(raw) };
   } catch {
     return {
       error: validationError("invalid_json", "요청 본문은 JSON이어야 합니다.")
     };
   }
+}
+
+async function readBoundedText(request, maxBytes) {
+  if (!request.body?.getReader) return await request.text();
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let total = 0;
+  let raw = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      return { tooLarge: true };
+    }
+    raw += decoder.decode(value, { stream: true });
+  }
+  raw += decoder.decode();
+  return raw;
+}
+
+function payloadTooLargeError() {
+  return json({
+    error: "payload_too_large",
+    message: "요청 본문이 너무 큽니다.",
+    maxBytes: MAX_JSON_BODY_BYTES
+  }, 413);
 }
 
 function validateStudentPayload(body, { requireMessage }) {

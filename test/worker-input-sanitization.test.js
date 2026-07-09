@@ -68,6 +68,37 @@ test("student inputs are normalized before telemetry is stored", async () => {
   assert.equal(storedEvents[1].studentMessage, "명량해전에서 몇 척으로 싸웠어?");
 });
 
+test("student JSON body limit applies while streaming without content-length", async () => {
+  const env = {
+    ROOM: {
+      idFromName: (name) => name,
+      get: () => ({
+        fetch: async () => {
+          throw new Error("oversized body should fail before Durable Object access");
+        }
+      })
+    }
+  };
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('{"sessionId":"s","sessionSecret":"secret","studentName":"민준","message":"'));
+      controller.enqueue(new TextEncoder().encode("가".repeat(9000)));
+      controller.enqueue(new TextEncoder().encode('"}'));
+      controller.close();
+    }
+  });
+
+  const res = await worker.fetch(new Request("https://example.com/api/chat", {
+    method: "POST",
+    body,
+    duplex: "half"
+  }), env);
+  const payload = await res.json();
+
+  assert.equal(res.status, 413);
+  assert.equal(payload.error, "payload_too_large");
+});
+
 function jsonResponse(body) {
   return new Response(JSON.stringify(body), {
     headers: { "content-type": "application/json" }

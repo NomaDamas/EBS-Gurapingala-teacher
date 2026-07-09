@@ -9,7 +9,7 @@ const checks = [
     evidence: ["src/ui/student.js", "src/worker.js"],
     run: async (files) =>
       includesAll(files["src/ui/student.js"], ["이름을 입력하세요", "교사용 대시보드에 기록됩니다", "이름 외 개인정보는 입력하지 마세요", "/api/join", "/api/chat", "roomId", "withRoom", "heartbeatTimer", "sessionSecret", "if (!res.ok)", "입장 실패", "네트워크 문제로 답변을 받지 못했어"]) &&
-      includesAll(files["src/worker.js"], ['url.pathname === "/"', 'url.pathname === "/api/join"', "normalizeRoomId", "MAX_JSON_BODY_BYTES", "payload_too_large", "registerStudentSession", "validateStudentSession", "session_conflict", "session_verification_failed"])
+      includesAll(files["src/worker.js"], ['url.pathname === "/"', 'url.pathname === "/api/join"', "normalizeRoomId", "MAX_JSON_BODY_BYTES", "readBoundedText", "payload_too_large", "registerStudentSession", "validateStudentSession", "session_conflict", "session_verification_failed"])
   },
   {
     id: "teacher-realtime-dashboard",
