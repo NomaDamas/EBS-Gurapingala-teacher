@@ -87,6 +87,14 @@ const checks = [
     evidence: ["docs/implementation-plan.md"],
     run: async (files) =>
       includesAll(files["docs/implementation-plan.md"], ["Gap Closing", "중학생은 멍청이가 아니다", "정답과 거짓이 섞여", "정정"])
+  },
+  {
+    id: "production-runbook-documented",
+    evidence: ["docs/production-runbook.md", "README.md", "docs/deployment-guide.md"],
+    run: async (files) =>
+      includesAll(files["docs/production-runbook.md"], ["촬영 전날", "리허설", "촬영 중", "촬영 직후", "데이터 삭제", "/api/health", "/api/debrief.csv"]) &&
+      includesAll(files["README.md"], ["촬영 운영 런북"]) &&
+      includesAll(files["docs/deployment-guide.md"], ["production-runbook.md"])
   }
 ];
 

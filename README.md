@@ -86,3 +86,4 @@ npx wrangler deploy
 - [실험 정책](docs/experiment-policy.md)
 - [50턴 평가 세트](docs/evaluation-set.md)
 - [배포 가이드](docs/deployment-guide.md)
+- [촬영 운영 런북](docs/production-runbook.md)
