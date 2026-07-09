@@ -131,7 +131,7 @@ const checks = [
   },
   {
     id: "launch-audit-documented",
-    evidence: ["docs/launch-audit.md", "docs/external-review-packet.md", "README.md", "docs/implementation-plan.md", "docs/deployment-guide.md", "scripts/release-audit.js", "package.json"],
+    evidence: ["docs/launch-audit.md", "docs/external-review-packet.md", "README.md", "docs/implementation-plan.md", "docs/deployment-guide.md", "scripts/release-audit.js", "package.json", ".github/pull_request_template.md"],
     run: async (files) =>
       includesAll(files["docs/launch-audit.md"], ["학생은 로그인 없이 URL과 이름만으로 입장", "교사는 학생 카드별 online/offline과 채팅 진행 상태를 실시간 관찰", "교사 Level/persona 설정이 실제 학생 답변 생성과 export 타임라인에 반영", "persona가 정답 공개", "unsafe_persona_instruction", "teacher_config_rejected", "production 배포는 교사용 token 보호를 강제", "CI와 Deploy가 같은 고정 의존성 그래프를 사용", "production 배포는 실제 Worker URL 검증을 생략하지 않음", "배포 전 환경 누락을 사전에 차단", "npm run preflight:deploy", "촬영 기대 모델이 아닌 다른 OpenAI 모델로 배포", "OpenAI 요청 지연", "openaiTimeoutMs", "Cloudflare 계정이 여러 개", "CLOUDFLARE_ACCOUNT_ID", "민감 응답이 브라우저/프록시에 캐시되지 않고", "x-robots-tag: noindex, nofollow", "학생 화면에는 Level에 맞춘 거짓 답변만 표시", "preflight 실패 audit가 학생 응답으로 누출되지 않음", "공개 평가 endpoint가 정답·거짓 근거를 누출하지 않음", "진실과 거짓이 섞이고 너무 쉬운 거짓으로만 흐르지 않음", "배포 검증이 실제 촬영방 로그를 삭제하지 않음", "GitHub Deploy workflow", "GPT-5.5 xhigh 또는 동등한 외부 코드 리뷰 승인", "external-review-packet.md", "REQUIRE_OPENAI=true", "REQUIRE_TEACHER_TOKEN=true", "VERIFY_ROOM=deploy-verify", "x-purge-room", "npm run release:audit", "EXTERNAL_REVIEW_DECISION=APPROVE", "VERIFY_DEPLOY_STATUS=pass", "PR_HEAD_SHA"]) &&
       includesAll(files["docs/external-review-packet.md"], ["GPT-5.5 xhigh", "중학생은 멍청이가 아니므로", "학생 화면에는 Level에 맞춘 거짓 답변만", "교사 화면과 export에는 정답, 거짓, 왜 거짓인지", "반드시 반려할 조건", "correctAnswer", "VERIFY_ROOM", "EXPECTED_OPENAI_TIMEOUT_MS", "unsafe_persona_instruction", "teacher_config_rejected", "x-robots-tag: noindex, nofollow", "Review decision: APPROVE | REQUEST_CHANGES", "npm run preflight:deploy", "npm run verify:deploy", "npm run release:audit"]) &&
@@ -139,6 +139,7 @@ const checks = [
       includesAll(files["docs/deployment-guide.md"], ["npm run release:audit", "EXTERNAL_REVIEW_DECISION=APPROVE", "VERIFY_DEPLOY_STATUS=pass", "EXPECTED_PR_HEAD_SHA"]) &&
       includesAll(files["scripts/release-audit.js"], ["EXTERNAL_REVIEW_DECISION=APPROVE", "VERIFY_DEPLOY_STATUS=pass", "EXPECTED_PR_HEAD_SHA", "REQUIRE_OPENAI=true", "REQUIRE_TEACHER_TOKEN=true", "release audit failed"]) &&
       includesAll(files["package.json"], ["release:audit"]) &&
+      includesAll(files[".github/pull_request_template.md"], ["Main Goal", "Required Evidence", "Release Gates", "Safety Review", "GPT-5.5 xhigh", "npm run verify:deploy", "REQUIRE_OPENAI=true", "REQUIRE_TEACHER_TOKEN=true", "npm run release:audit", "Do not merge", "correctAnswer", "whyFalse", "VERIFY_ROOM", "Debrief JSON/CSV"]) &&
       includesAll(files["docs/implementation-plan.md"], ["Launch audit", "docs/launch-audit.md", "Review packet", "docs/external-review-packet.md"])
   }
 ];
