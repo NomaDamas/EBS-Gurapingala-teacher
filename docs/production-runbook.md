@@ -12,6 +12,8 @@
    - `OPENAI_API_KEY`: 서버에서만 사용하는 단일 OpenAI API 키다.
    - `TEACHER_TOKEN`: 교사용 대시보드와 export API 보호용 token이다.
 4. 배포 전 로컬 게이트를 실행한다.
+   - Node.js 22 이상을 사용한다.
+   - `npm ci`
    - `npm test`
    - `npm run eval`
    - `npm run readiness`

@@ -26,6 +26,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: "npm"
 
       - name: Require production deploy verification URL
         if: ${{ inputs.environment == 'production' && vars.WORKER_HEALTH_URL == '' }}
@@ -33,8 +34,8 @@ jobs:
           echo "WORKER_HEALTH_URL is required for production deploy verification." >&2
           exit 1
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install locked dependencies
+        run: npm ci
 
       - name: Unit tests
         run: node --test

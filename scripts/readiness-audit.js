@@ -67,15 +67,17 @@ const checks = [
   },
   {
     id: "cloudflare-worker-deployment",
-    evidence: ["wrangler.toml", "src/worker.js", "docs/deployment-guide.md", "scripts/smoke-worker.js", "scripts/verify-deploy.js", ".github/workflows/deploy.yml", "package.json"],
+    evidence: ["wrangler.toml", "src/worker.js", "docs/deployment-guide.md", "scripts/smoke-worker.js", "scripts/verify-deploy.js", ".github/workflows/ci.yml", ".github/workflows/deploy.yml", "package.json", "package-lock.json"],
     run: async (files) =>
       includesAll(files["wrangler.toml"], ["durable_objects.bindings", "ClassroomRoom", "CHAT_RATE_LIMIT_PER_MINUTE", "EVENT_TTL_HOURS"]) &&
       includesAll(files["src/worker.js"], ["export class ClassroomRoom", "/api/health", "buildHealthPayload", "defaultRoomId", "SECURITY_HEADERS", "cache-control", "no-store", "x-content-type-options", "referrer-policy"]) &&
-      includesAll(files["docs/deployment-guide.md"], ["npm run deploy", "Deploy", "CLOUDFLARE_API_TOKEN", "npm run verify:deploy", "REQUIRE_OPENAI=true", "REQUIRE_TEACHER_TOKEN=true", "production `Deploy` workflow에서는 필수", "x-teacher-token", "촬영방 분리", "VERIFY_ROOM=deploy-verify", "실제 촬영방 금지", "cache-control: no-store"]) &&
+      includesAll(files["docs/deployment-guide.md"], ["npm run deploy", "Deploy", "CLOUDFLARE_API_TOKEN", "npm run verify:deploy", "Node.js 22", "npm ci", "REQUIRE_OPENAI=true", "REQUIRE_TEACHER_TOKEN=true", "production `Deploy` workflow에서는 필수", "x-teacher-token", "촬영방 분리", "VERIFY_ROOM=deploy-verify", "실제 촬영방 금지", "cache-control: no-store"]) &&
       includesAll(files["scripts/smoke-worker.js"], ["worker smoke passed", "/api/chat", "/api/export", "/api/health", "room query isolates classroom events", "x-content-type-options", "referrer-policy"]) &&
       includesAll(files["scripts/verify-deploy.js"], ["deploy verification passed", "/api/evaluation-set", "/api/evaluation-set/full", "/api/join", "/api/chat", "/api/export", "/api/purge", "/teacher", "teacher page access policy is enforced", "teacher token is configured when required", "WORKER_ROOM", "VERIFY_ROOM", "deploy-verify", "ALLOW_PURGE_FILMING_ROOM", "REQUIRE_OPENAI", "REQUIRE_TEACHER_TOKEN", "x-teacher-token", "x-purge-room"]) &&
-      includesAll(files[".github/workflows/deploy.yml"], ["workflow_dispatch", "Require production deploy verification URL", "WORKER_HEALTH_URL is required for production deploy verification", "inputs.environment == 'production'", "npx wrangler deploy", "scripts/verify-deploy.js", "WORKER_HEALTH_URL", "VERIFY_ROOM", "deploy-verify", "REQUIRE_OPENAI", "REQUIRE_TEACHER_TOKEN", "true"]) &&
-      includesAll(files["package.json"], ["verify:deploy"])
+      includesAll(files[".github/workflows/ci.yml"], ["node-version: \"22\"", "cache: \"npm\"", "npm ci", "node scripts/readiness-audit.js"]) &&
+      includesAll(files[".github/workflows/deploy.yml"], ["workflow_dispatch", "node-version: \"22\"", "cache: \"npm\"", "npm ci", "Require production deploy verification URL", "WORKER_HEALTH_URL is required for production deploy verification", "inputs.environment == 'production'", "npx wrangler deploy", "scripts/verify-deploy.js", "WORKER_HEALTH_URL", "VERIFY_ROOM", "deploy-verify", "REQUIRE_OPENAI", "REQUIRE_TEACHER_TOKEN", "true"]) &&
+      includesAll(files["package.json"], ["\"node\": \">=22.0.0\"", "verify:deploy"]) &&
+      includesAll(files["package-lock.json"], ["lockfileVersion", "\"node\": \">=22.0.0\"", "wrangler"])
   },
   {
     id: "teacher-access-and-abuse-controls",
@@ -104,7 +106,7 @@ const checks = [
     id: "production-runbook-documented",
     evidence: ["docs/production-runbook.md", "README.md", "docs/deployment-guide.md"],
     run: async (files) =>
-      includesAll(files["docs/production-runbook.md"], ["촬영 전날", "리허설", "촬영 중", "촬영 직후", "데이터 삭제", "/api/health", "/api/debrief.csv"]) &&
+      includesAll(files["docs/production-runbook.md"], ["촬영 전날", "리허설", "촬영 중", "촬영 직후", "데이터 삭제", "Node.js 22", "npm ci", "/api/health", "/api/debrief.csv"]) &&
       includesAll(files["README.md"], ["촬영 운영 런북"]) &&
       includesAll(files["docs/deployment-guide.md"], ["production-runbook.md"])
   },
@@ -120,7 +122,7 @@ const checks = [
     id: "launch-audit-documented",
     evidence: ["docs/launch-audit.md", "README.md", "docs/implementation-plan.md"],
     run: async (files) =>
-      includesAll(files["docs/launch-audit.md"], ["학생은 로그인 없이 URL과 이름만으로 입장", "교사는 학생 카드별 online/offline과 채팅 진행 상태를 실시간 관찰", "production 배포는 교사용 token 보호를 강제", "production 배포는 실제 Worker URL 검증을 생략하지 않음", "민감 응답이 브라우저/프록시에 캐시되지 않음", "학생 화면에는 Level에 맞춘 거짓 답변만 표시", "preflight 실패 audit가 학생 응답으로 누출되지 않음", "공개 평가 endpoint가 정답·거짓 근거를 누출하지 않음", "진실과 거짓이 섞이고 너무 쉬운 거짓으로만 흐르지 않음", "배포 검증이 실제 촬영방 로그를 삭제하지 않음", "GitHub Deploy workflow", "GPT-5.5 xhigh 또는 동등한 외부 코드 리뷰 승인", "REQUIRE_OPENAI=true", "REQUIRE_TEACHER_TOKEN=true", "VERIFY_ROOM=deploy-verify", "x-purge-room"]) &&
+      includesAll(files["docs/launch-audit.md"], ["학생은 로그인 없이 URL과 이름만으로 입장", "교사는 학생 카드별 online/offline과 채팅 진행 상태를 실시간 관찰", "production 배포는 교사용 token 보호를 강제", "CI와 Deploy가 같은 고정 의존성 그래프를 사용", "production 배포는 실제 Worker URL 검증을 생략하지 않음", "민감 응답이 브라우저/프록시에 캐시되지 않음", "학생 화면에는 Level에 맞춘 거짓 답변만 표시", "preflight 실패 audit가 학생 응답으로 누출되지 않음", "공개 평가 endpoint가 정답·거짓 근거를 누출하지 않음", "진실과 거짓이 섞이고 너무 쉬운 거짓으로만 흐르지 않음", "배포 검증이 실제 촬영방 로그를 삭제하지 않음", "GitHub Deploy workflow", "GPT-5.5 xhigh 또는 동등한 외부 코드 리뷰 승인", "REQUIRE_OPENAI=true", "REQUIRE_TEACHER_TOKEN=true", "VERIFY_ROOM=deploy-verify", "x-purge-room"]) &&
       includesAll(files["README.md"], ["프로덕션 런치 감사 매트릭스"]) &&
       includesAll(files["docs/implementation-plan.md"], ["Launch audit", "docs/launch-audit.md"])
   }

@@ -23,6 +23,7 @@
 | 공개 평가 endpoint가 정답·거짓 근거를 누출하지 않음 | `/api/evaluation-set` public projection, `/api/evaluation-set/full` teacher token 보호 | `evaluation set exposes 50 turns` smoke, `verify-deploy` |
 | 한 개의 API key/OAuth 계정으로 여러 학생 요청 처리 | 서버-side `OPENAI_API_KEY`, 학생 브라우저 key 미노출 | `single-api-key-server-side` readiness, `/api/health` secret 미노출 test |
 | Cloudflare Workers 배포 가능 | `wrangler.toml`, `.github/workflows/deploy.yml`, `docs/deployment-guide.md` | `npm run deploy`, `npm run verify:deploy` |
+| CI와 Deploy가 같은 고정 의존성 그래프를 사용 | `package-lock.json`, Node.js 22, `npm ci` | GitHub CI/Deploy workflow, readiness |
 | production 배포는 실제 Worker URL 검증을 생략하지 않음 | `WORKER_HEALTH_URL` production 필수, GitHub Deploy precheck | Deploy workflow, readiness |
 | 촬영방별 telemetry/export/purge 분리 | `room` query, Durable Object room isolation, `x-purge-room` confirmation | `room query isolates classroom events`, `purge clears events` smoke |
 | 배포 검증이 실제 촬영방 로그를 삭제하지 않음 | `VERIFY_ROOM=deploy-verify`, `ALLOW_PURGE_FILMING_ROOM` guard | `verify-deploy` test, `cloudflare-worker-deployment` readiness |
@@ -59,6 +60,7 @@ WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=dep
 |---|---|
 | 실제 LLM provider가 촬영 중 rules fallback으로 동작 | `REQUIRE_OPENAI=true npm run verify:deploy`와 `/api/health`의 `provider=openai` 확인 |
 | production Deploy workflow가 실제 URL 검증을 건너뜀 | production에서 `WORKER_HEALTH_URL`이 비어 있으면 배포 전에 실패 |
+| 촬영 당일 새 wrangler/의존성으로 동작이 달라짐 | Node.js 22와 `package-lock.json` 기반 `npm ci`로 CI/Deploy 의존성을 고정 |
 | GitHub Deploy workflow가 로컬 검증과 다른 조건으로 배포 | workflow 기본 배포 후 검증은 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`로 실행 |
 | 학생이 AI 답변을 정답으로 오인한 채 촬영 종료 | `/api/debrief.csv` 기준 정정 수업을 촬영 직후 수행 |
 | 교사용 token URL 노출 | 대시보드가 token을 localStorage에 저장한 뒤 URL에서 제거, 필요 시 `TEACHER_TOKEN` 재발급 |
