@@ -132,6 +132,9 @@ export const teacherHtml = `<!doctype html>
             <input id="socketStatus" value="connecting" readonly />
           </label>
         </div>
+        <div class="actions">
+          <button id="reconnectSocket">실시간 연결 재시도</button>
+        </div>
         <label style="margin-top:10px">페르소나 시스템 프롬프트
           <textarea id="persona">이순신 장군처럼 말하되, 학생에게 친절한 역사 수업 도우미처럼 답한다.</textarea>
         </label>
@@ -159,26 +162,76 @@ export const teacherHtml = `<!doctype html>
     const downloadDebriefEl = document.querySelector("#downloadDebrief");
     const downloadDebriefCsvEl = document.querySelector("#downloadDebriefCsv");
     const purgeEventsEl = document.querySelector("#purgeEvents");
+    const reconnectSocketEl = document.querySelector("#reconnectSocket");
     const sessions = new Map();
     const params = new URLSearchParams(location.search);
     const teacherToken = params.get("token") || localStorage.getItem("teacher-token") || "";
     if (params.get("token")) localStorage.setItem("teacher-token", params.get("token"));
     let selected = null;
+    let socket = null;
+    let reconnectTimer = null;
+    let reconnectAttempts = 0;
+    let lastTelemetryAt = null;
 
-    function connect() {
+    function connect(manual = false) {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        if (!manual) return;
+        socket.close();
+      }
       const tokenQuery = teacherToken ? "?token=" + encodeURIComponent(teacherToken) : "";
       const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/teacher" + tokenQuery);
+      socket = ws;
+      updateSocketStatus("connecting");
       ws.addEventListener("open", () => {
-        statusEl.value = "online";
-        ws.send(JSON.stringify({ type: "teacher_config", level: levelEl.value, persona: personaEl.value }));
+        if (socket !== ws) return;
+        reconnectAttempts = 0;
+        updateSocketStatus("online");
+        sendTeacherConfig();
       });
       ws.addEventListener("close", () => {
-        statusEl.value = "offline - reconnecting";
-        setTimeout(connect, 1200);
+        if (socket !== ws) return;
+        scheduleReconnect("offline");
       });
-      ws.addEventListener("message", (event) => handleTelemetry(JSON.parse(event.data)));
-      levelEl.addEventListener("change", () => ws.readyState === 1 && ws.send(JSON.stringify({ type: "teacher_config", level: levelEl.value, persona: personaEl.value })));
-      personaEl.addEventListener("change", () => ws.readyState === 1 && ws.send(JSON.stringify({ type: "teacher_config", level: levelEl.value, persona: personaEl.value })));
+      ws.addEventListener("error", () => {
+        if (socket !== ws) return;
+        updateSocketStatus("socket error");
+      });
+      ws.addEventListener("message", (event) => {
+        if (socket !== ws) return;
+        lastTelemetryAt = new Date();
+        updateSocketStatus("online");
+        const telemetry = parseTelemetry(event.data);
+        if (telemetry) handleTelemetry(telemetry);
+      });
+    }
+
+    function scheduleReconnect(reason) {
+      reconnectAttempts += 1;
+      const delay = Math.min(10000, 1000 * reconnectAttempts);
+      updateSocketStatus(reason + " - reconnect in " + Math.round(delay / 1000) + "s");
+      reconnectTimer = setTimeout(() => connect(false), delay);
+    }
+
+    function updateSocketStatus(state) {
+      const last = lastTelemetryAt ? " · last " + lastTelemetryAt.toLocaleTimeString() : "";
+      const attempts = reconnectAttempts ? " · retry " + reconnectAttempts : "";
+      statusEl.value = state + attempts + last;
+    }
+
+    function sendTeacherConfig() {
+      if (!socket || socket.readyState !== WebSocket.OPEN) return;
+      socket.send(JSON.stringify({ type: "teacher_config", level: levelEl.value, persona: personaEl.value }));
+    }
+
+    function parseTelemetry(value) {
+      try {
+        return JSON.parse(value);
+      } catch {
+        updateSocketStatus("ignored invalid telemetry");
+        return null;
+      }
     }
 
     function handleTelemetry(event) {
@@ -278,6 +331,9 @@ export const teacherHtml = `<!doctype html>
 
     connect();
     setInterval(renderStudents, 5000);
+    levelEl.addEventListener("change", sendTeacherConfig);
+    personaEl.addEventListener("change", sendTeacherConfig);
+    reconnectSocketEl.addEventListener("click", () => connect(true));
     downloadExportEl.addEventListener("click", () => downloadJson("/api/export", "classroom-export.json"));
     downloadDebriefEl.addEventListener("click", () => downloadJson("/api/debrief", "debrief-table.json"));
     downloadDebriefCsvEl.addEventListener("click", () => downloadText("/api/debrief.csv", "debrief-table.csv", "text/csv"));

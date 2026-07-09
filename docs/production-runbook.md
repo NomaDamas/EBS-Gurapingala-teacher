@@ -36,6 +36,7 @@
    - `whyFalse`
    - `preflight.verdict`
 6. 같은 학생 기기에서 “왜?”, “더 쉽게 말해줘” 같은 후속 질문을 보내고, 교사용 JSON의 `input.turnIndex`와 `input.recentContext`가 채워지는지 확인한다.
+7. 교사용 화면의 연결 상태가 `online`과 마지막 수신 시각을 표시하는지 확인하고, `실시간 연결 재시도` 버튼으로 WebSocket 재연결이 가능한지 확인한다.
 
 ## 3. 촬영 중
 
@@ -73,6 +74,7 @@
 | 상황 | 대응 |
 |---|---|
 | 교사용 화면이 열리지 않음 | URL token이 맞는지 확인하고, `TEACHER_TOKEN` secret을 재설정한다. |
+| 교사용 실시간 연결이 끊김 | 연결 상태 입력칸의 retry/last 값을 확인하고 `실시간 연결 재시도` 버튼을 누른다. |
 | 학생 답변이 계속 재질문 메시지로 닫힘 | 교사용 JSON의 실패 이력을 보고 Level 또는 persona를 낮춘다. |
 | 학생 카드가 offline으로 보임 | 학생 기기의 네트워크와 `/api/heartbeat` 요청을 확인한다. |
 | export가 비어 있음 | 학생이 실제로 질문을 보냈는지, 교사용 token이 맞는지 확인한다. |

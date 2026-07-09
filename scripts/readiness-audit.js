@@ -15,7 +15,7 @@ const checks = [
     id: "teacher-realtime-dashboard",
     evidence: ["src/ui/teacher.js", "src/worker.js"],
     run: async (files) =>
-      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot"]) &&
+      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot", "실시간 연결 재시도", "reconnectAttempts"]) &&
       includesAll(files["src/worker.js"], ["WebSocketPair", "sendSnapshot", "broadcast"])
   },
   {
