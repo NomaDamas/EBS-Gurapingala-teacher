@@ -76,7 +76,7 @@ test("LLM 응답이 검수를 실패하면 3회 재시도 후 fail-closed 재질
   });
 
   assert.equal(calls, 3);
-  assert.equal(result.shouldSendToStudent, true);
+  assert.equal(result.shouldSendToStudent, false);
   assert.equal(result.audit.preflight.verdict, "FAIL_CLOSED_AFTER_RETRIES");
   assert.ok(result.audit.selectedCase.verificationPrompt.includes("임진왜란"));
   assert.ok(result.audit.selectedCase.debriefNote.includes("정정"));

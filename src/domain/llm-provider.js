@@ -204,7 +204,7 @@ function buildFailedAudit({ message, level, persona, turnIndex, recentMessages =
       }
     },
     answer: RETRY_STUDENT_MESSAGE,
-    shouldSendToStudent: true
+    shouldSendToStudent: false
   };
 }
 
