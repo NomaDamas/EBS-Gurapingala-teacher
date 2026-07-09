@@ -137,6 +137,7 @@ export const studentHtml = `<!doctype html>
     const chat = document.querySelector("#chat");
     const form = document.querySelector("#form");
     const join = document.querySelector("#join");
+    const joinBtn = document.querySelector("#joinBtn");
     const status = document.querySelector("#status");
     const roomStatus = document.querySelector("#roomStatus");
     const nameInput = document.querySelector("#name");
@@ -147,6 +148,8 @@ export const studentHtml = `<!doctype html>
     roomStatus.textContent = "room: " + roomId;
     let sessionId = localStorage.getItem(sessionKey) || crypto.randomUUID();
     let studentName = localStorage.getItem("ebs-student-name") || "";
+    let heartbeatTimer = null;
+    let joining = false;
     localStorage.setItem(sessionKey, sessionId);
     nameInput.value = studentName;
 
@@ -159,20 +162,38 @@ export const studentHtml = `<!doctype html>
     }
 
     async function joinClass() {
-      studentName = nameInput.value.trim();
-      if (!studentName) return nameInput.focus();
-      localStorage.setItem("ebs-student-name", studentName);
-      await fetch(withRoom("/api/join"), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessionId, studentName })
-      });
-      sendHeartbeat();
-      setInterval(sendHeartbeat, 15000);
-      join.classList.add("hidden");
-      form.classList.remove("hidden");
-      status.textContent = studentName + " online";
-      addMessage("bot", "안녕. 임진왜란과 이순신 장군에 대해 궁금한 점을 물어봐.");
+      if (joining) return;
+      const nextStudentName = nameInput.value.trim();
+      if (!nextStudentName) return nameInput.focus();
+      joining = true;
+      joinBtn.disabled = true;
+      status.textContent = "입장 중";
+      try {
+        const res = await fetch(withRoom("/api/join"), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sessionId, studentName: nextStudentName })
+        });
+        const data = await readJsonSafely(res);
+        if (!res.ok) {
+          status.textContent = data.message || data.error || "입장 실패";
+          return;
+        }
+        studentName = nextStudentName;
+        localStorage.setItem("ebs-student-name", studentName);
+        sendHeartbeat();
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        heartbeatTimer = setInterval(sendHeartbeat, 15000);
+        join.classList.add("hidden");
+        form.classList.remove("hidden");
+        status.textContent = studentName + " online";
+        addMessage("bot", "안녕. 임진왜란과 이순신 장군에 대해 궁금한 점을 물어봐.");
+      } catch (error) {
+        status.textContent = "입장 실패: 네트워크를 확인해 주세요";
+      } finally {
+        joining = false;
+        joinBtn.disabled = false;
+      }
     }
 
     function sendHeartbeat() {
@@ -184,7 +205,7 @@ export const studentHtml = `<!doctype html>
       }).catch(() => {});
     }
 
-    document.querySelector("#joinBtn").addEventListener("click", joinClass);
+    joinBtn.addEventListener("click", joinClass);
     nameInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") joinClass();
     });
@@ -194,18 +215,30 @@ export const studentHtml = `<!doctype html>
       if (!message) return;
       messageInput.value = "";
       addMessage("me", message);
-      const res = await fetch(withRoom("/api/chat"), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessionId, studentName, message })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        addMessage("bot", data.message || "질문을 처리하지 못했어. 다시 입력해줘.");
-        return;
+      try {
+        const res = await fetch(withRoom("/api/chat"), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sessionId, studentName, message })
+        });
+        const data = await readJsonSafely(res);
+        if (!res.ok) {
+          addMessage("bot", data.message || data.error || "질문을 처리하지 못했어. 다시 입력해줘.");
+          return;
+        }
+        addMessage("bot", data.answer);
+      } catch (error) {
+        addMessage("bot", "네트워크 문제로 답변을 받지 못했어. 연결을 확인한 뒤 다시 물어봐.");
       }
-      addMessage("bot", data.answer);
     });
+
+    async function readJsonSafely(res) {
+      try {
+        return await res.json();
+      } catch (error) {
+        return {};
+      }
+    }
 
     function withRoom(path) {
       return path + "?room=" + encodeURIComponent(roomId);
