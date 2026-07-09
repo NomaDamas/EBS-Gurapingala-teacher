@@ -5,30 +5,33 @@
 1. GitHub PR 상태를 확인한다.
    - `Verify product gates`가 `SUCCESS`인지 확인한다.
    - GPT-5.5 xhigh 리뷰 승인 전에는 `main`에 머지하지 않는다.
-2. Cloudflare secret을 설정한다.
+2. 촬영일·학급별 `room` 값을 정한다.
+   - 예: `2026-07-13-3-5`, `2026-07-16-3-1`
+   - 학생 URL과 교사용 URL은 반드시 같은 `room` 값을 사용한다.
+3. Cloudflare secret을 설정한다.
    - `OPENAI_API_KEY`: 서버에서만 사용하는 단일 OpenAI API 키다.
    - `TEACHER_TOKEN`: 교사용 대시보드와 export API 보호용 token이다.
-3. 배포 전 로컬 게이트를 실행한다.
+4. 배포 전 로컬 게이트를 실행한다.
    - `npm test`
    - `npm run eval`
    - `npm run readiness`
    - `npm run smoke`
-4. GitHub Actions `Deploy` workflow를 사용할 경우 environment를 선택하고 실행한다.
+5. GitHub Actions `Deploy` workflow를 사용할 경우 environment를 선택하고 실행한다.
    - `CLOUDFLARE_API_TOKEN`과 `CLOUDFLARE_ACCOUNT_ID`가 설정되어 있어야 한다.
    - `WORKER_HEALTH_URL`이 설정되어 있으면 workflow가 `/api/health`를 자동 확인한다.
-5. 배포 후 `/api/health`를 확인한다.
+6. 배포 후 `/api/health`를 확인한다.
    - `ok`가 `true`인지 확인한다.
    - `teacherProtected`가 `true`인지 확인한다.
    - `openaiConfigured`가 의도한 값인지 확인한다.
    - `chatRateLimitPerMinute`, `eventTtlHours`가 촬영 규모에 맞는지 확인한다.
-6. 배포 URL 전체 검증을 실행한다.
-   - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> npm run verify:deploy`
+7. 배포 URL 전체 검증을 실행한다.
+   - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> WORKER_ROOM=<room> npm run verify:deploy`
    - 학생 페이지, health, 평가 세트, 교사용 보호, token 접속이 모두 통과해야 한다.
 
 ## 2. 리허설
 
-1. 교사는 `/teacher?token=<TEACHER_TOKEN>`으로 접속한다.
-2. 학생 역할 기기 2대 이상에서 `/`로 접속하고 이름만 입력해 입장한다.
+1. 교사는 `/teacher?room=<room>&token=<TEACHER_TOKEN>`으로 접속한다.
+2. 학생 역할 기기 2대 이상에서 `/?room=<room>`로 접속하고 이름만 입력해 입장한다.
 3. 교사용 화면에서 학생 카드가 online으로 보이는지 확인한다.
 4. 교사용 화면에서 Level과 persona를 바꾸고 저장되는지 확인한다.
 5. 학생이 질문을 보내면 교사용 화면에서 다음이 실시간으로 보이는지 확인한다.

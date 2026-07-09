@@ -8,15 +8,15 @@ const checks = [
     id: "student-entry-no-login",
     evidence: ["src/ui/student.js", "src/worker.js"],
     run: async (files) =>
-      includesAll(files["src/ui/student.js"], ["이름을 입력하세요", "/api/join", "/api/chat"]) &&
-      includesAll(files["src/worker.js"], ['url.pathname === "/"', 'url.pathname === "/api/join"'])
+      includesAll(files["src/ui/student.js"], ["이름을 입력하세요", "/api/join", "/api/chat", "roomId", "withRoom"]) &&
+      includesAll(files["src/worker.js"], ['url.pathname === "/"', 'url.pathname === "/api/join"', "normalizeRoomId"])
   },
   {
     id: "teacher-realtime-dashboard",
     evidence: ["src/ui/teacher.js", "src/worker.js"],
     run: async (files) =>
-      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot", "실시간 연결 재시도", "reconnectAttempts"]) &&
-      includesAll(files["src/worker.js"], ["WebSocketPair", "sendSnapshot", "broadcast"])
+      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot", "실시간 연결 재시도", "reconnectAttempts", "roomId", "withRoom"]) &&
+      includesAll(files["src/worker.js"], ["WebSocketPair", "sendSnapshot", "broadcast", "getRoom(env, roomId)"])
   },
   {
     id: "level-controlled-falsehood-policy",
@@ -62,10 +62,10 @@ const checks = [
     evidence: ["wrangler.toml", "src/worker.js", "docs/deployment-guide.md", "scripts/smoke-worker.js", "scripts/verify-deploy.js", ".github/workflows/deploy.yml", "package.json"],
     run: async (files) =>
       includesAll(files["wrangler.toml"], ["durable_objects.bindings", "ClassroomRoom", "CHAT_RATE_LIMIT_PER_MINUTE", "EVENT_TTL_HOURS"]) &&
-      includesAll(files["src/worker.js"], ["export class ClassroomRoom", "/api/health", "buildHealthPayload"]) &&
-      includesAll(files["docs/deployment-guide.md"], ["npm run deploy", "Deploy", "CLOUDFLARE_API_TOKEN", "npm run verify:deploy"]) &&
-      includesAll(files["scripts/smoke-worker.js"], ["worker smoke passed", "/api/chat", "/api/export", "/api/health"]) &&
-      includesAll(files["scripts/verify-deploy.js"], ["deploy verification passed", "/api/evaluation-set", "/teacher", "teacher page access policy is enforced"]) &&
+      includesAll(files["src/worker.js"], ["export class ClassroomRoom", "/api/health", "buildHealthPayload", "defaultRoomId"]) &&
+      includesAll(files["docs/deployment-guide.md"], ["npm run deploy", "Deploy", "CLOUDFLARE_API_TOKEN", "npm run verify:deploy", "촬영방 분리"]) &&
+      includesAll(files["scripts/smoke-worker.js"], ["worker smoke passed", "/api/chat", "/api/export", "/api/health", "room query isolates classroom events"]) &&
+      includesAll(files["scripts/verify-deploy.js"], ["deploy verification passed", "/api/evaluation-set", "/teacher", "teacher page access policy is enforced", "WORKER_ROOM"]) &&
       includesAll(files[".github/workflows/deploy.yml"], ["workflow_dispatch", "npx wrangler deploy", "scripts/verify-deploy.js", "WORKER_HEALTH_URL"]) &&
       includesAll(files["package.json"], ["verify:deploy"])
   },

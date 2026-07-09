@@ -119,6 +119,7 @@ export const teacherHtml = `<!doctype html>
     <div class="layout">
       <header>
         <h1>실시간 교실 관찰</h1>
+        <p id="roomStatus">room: default-classroom</p>
         <div class="controls">
           <label>거짓 Level
             <select id="level">
@@ -156,6 +157,7 @@ export const teacherHtml = `<!doctype html>
     const chatEl = document.querySelector("#chat");
     const auditEl = document.querySelector("#audit");
     const statusEl = document.querySelector("#socketStatus");
+    const roomStatusEl = document.querySelector("#roomStatus");
     const levelEl = document.querySelector("#level");
     const personaEl = document.querySelector("#persona");
     const downloadExportEl = document.querySelector("#downloadExport");
@@ -166,6 +168,8 @@ export const teacherHtml = `<!doctype html>
     const sessions = new Map();
     const params = new URLSearchParams(location.search);
     const teacherToken = params.get("token") || localStorage.getItem("teacher-token") || "";
+    const roomId = normalizeRoomId(params.get("room") || "default-classroom");
+    roomStatusEl.textContent = "room: " + roomId;
     if (params.get("token")) localStorage.setItem("teacher-token", params.get("token"));
     let selected = null;
     let socket = null;
@@ -180,8 +184,9 @@ export const teacherHtml = `<!doctype html>
         if (!manual) return;
         socket.close();
       }
-      const tokenQuery = teacherToken ? "?token=" + encodeURIComponent(teacherToken) : "";
-      const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/teacher" + tokenQuery);
+      const query = new URLSearchParams({ room: roomId });
+      if (teacherToken) query.set("token", teacherToken);
+      const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/teacher?" + query.toString());
       socket = ws;
       updateSocketStatus("connecting");
       ws.addEventListener("open", () => {
@@ -289,7 +294,7 @@ export const teacherHtml = `<!doctype html>
     }
 
     async function downloadJson(path, filename) {
-      const res = await fetch(path, { headers: authHeaders() });
+      const res = await fetch(withRoom(path), { headers: authHeaders() });
       if (!res.ok) return alert("다운로드 권한을 확인하세요.");
       const data = await res.json();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -302,7 +307,7 @@ export const teacherHtml = `<!doctype html>
     }
 
     async function downloadText(path, filename, type) {
-      const res = await fetch(path, { headers: authHeaders() });
+      const res = await fetch(withRoom(path), { headers: authHeaders() });
       if (!res.ok) return alert("다운로드 권한을 확인하세요.");
       const text = await res.text();
       const blob = new Blob([text], { type });
@@ -316,7 +321,7 @@ export const teacherHtml = `<!doctype html>
 
     async function purgeEvents() {
       if (!confirm("촬영 로그를 삭제할까요? export 후 삭제하는 것을 권장합니다.")) return;
-      const res = await fetch("/api/purge", { method: "POST", headers: authHeaders() });
+      const res = await fetch(withRoom("/api/purge"), { method: "POST", headers: authHeaders() });
       if (!res.ok) return alert("삭제 권한을 확인하세요.");
       sessions.clear();
       selected = null;
@@ -327,6 +332,18 @@ export const teacherHtml = `<!doctype html>
 
     function authHeaders() {
       return teacherToken ? { "x-teacher-token": teacherToken } : {};
+    }
+
+    function withRoom(path) {
+      return path + "?room=" + encodeURIComponent(roomId);
+    }
+
+    function normalizeRoomId(value) {
+      return String(value || "default-classroom")
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80) || "default-classroom";
     }
 
     connect();

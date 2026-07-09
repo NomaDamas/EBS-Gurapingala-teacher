@@ -12,7 +12,8 @@ const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const room = getRoom(env);
+    const roomId = normalizeRoomId(url.searchParams.get("room") || env.DEFAULT_ROOM_ID);
+    const room = getRoom(env, roomId);
 
     if (url.pathname === "/") {
       return html(studentHtml);
@@ -30,7 +31,10 @@ export default {
     if (url.pathname === "/api/export") {
       if (!isTeacherAuthorized(request, env)) return unauthorized();
       const events = await readEvents(room, env);
-      return json(buildExportPayload(events));
+      return json({
+        ...buildExportPayload(events),
+        roomId
+      });
     }
     if (url.pathname === "/api/debrief") {
       if (!isTeacherAuthorized(request, env)) return unauthorized();
@@ -61,6 +65,7 @@ export default {
         method: "POST",
         body: JSON.stringify({
           type: "student_joined",
+          roomId,
           sessionId: body.sessionId,
           studentName: body.studentName,
           at: new Date().toISOString()
@@ -78,6 +83,7 @@ export default {
         method: "POST",
         body: JSON.stringify({
           type: "student_heartbeat",
+          roomId,
           sessionId: body.sessionId,
           studentName: body.studentName,
           at: new Date().toISOString()
@@ -121,6 +127,7 @@ export default {
         method: "POST",
         body: JSON.stringify({
           type: "chat_turn",
+          roomId,
           sessionId: body.sessionId,
           studentName: body.studentName,
           studentMessage: body.message,
@@ -132,7 +139,8 @@ export default {
 
       return json({
         answer,
-        telemetry: "sent"
+        telemetry: "sent",
+        roomId
       });
     }
     if (url.pathname === "/ws/teacher") {
@@ -274,9 +282,17 @@ export class ClassroomRoom {
   }
 }
 
-function getRoom(env) {
-  const id = env.ROOM.idFromName("default-classroom");
+function getRoom(env, roomId = "default-classroom") {
+  const id = env.ROOM.idFromName(normalizeRoomId(roomId));
   return env.ROOM.get(id);
+}
+
+function normalizeRoomId(value) {
+  return String(value || "default-classroom")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "default-classroom";
 }
 
 async function readConfig(room, env) {
@@ -307,6 +323,7 @@ function buildHealthPayload(env) {
     defaultFalseLevel: Number(env.DEFAULT_FALSE_LEVEL || 2),
     chatRateLimitPerMinute: Number(env.CHAT_RATE_LIMIT_PER_MINUTE || 12),
     eventTtlHours: Number(env.EVENT_TTL_HOURS || 24),
+    defaultRoomId: normalizeRoomId(env.DEFAULT_ROOM_ID),
     endpoints: {
       student: "/",
       teacher: "/teacher",

@@ -21,6 +21,7 @@ EBS 다큐프라임 `<생각의 멸종>` 실험용 학생/교사용 AI 챗봇입
 - 정답, 거짓 답변, 거짓 근거, Level 적합성 검수 JSON 생성
 - OpenAI Responses API JSON schema 생성 및 3회 재검수 루프
 - 서버 이벤트 로그 기반 멀티턴 맥락 유지: 학생 후속 질문도 같은 세션의 최근 대화를 prompt와 감사 JSON에 반영
+- `?room=<촬영방>` query로 학급/촬영일별 telemetry, export, purge 데이터 분리
 - 50턴 역사 도메인 평가 세트 포함
 - Cloudflare Workers + Durable Objects WebSocket 구조
 
@@ -52,7 +53,14 @@ npm run smoke
 배포 URL 검증:
 
 ```bash
-WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> npm run verify:deploy
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> WORKER_ROOM=2026-07-13-3-5 npm run verify:deploy
+```
+
+촬영반별 URL 분리 예시:
+
+```text
+학생: https://<worker-domain>/?room=2026-07-13-3-5
+교사: https://<worker-domain>/teacher?room=2026-07-13-3-5&token=<token>
 ```
 
 출력 예시:

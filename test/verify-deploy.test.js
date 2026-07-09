@@ -5,22 +5,29 @@ import { spawn } from "node:child_process";
 
 test("verify-deploy validates a deployed Worker-compatible HTTP surface", async () => {
   const server = createServer((req, res) => {
-    if (req.url === "/") return html(res, "질문의 온도");
-    if (req.url === "/api/health") {
+    const url = new URL(req.url, "http://127.0.0.1");
+    if (url.searchParams.get("room") !== "shoot-3-5") {
+      res.statusCode = 400;
+      return res.end("missing room");
+    }
+    if (url.pathname === "/") return html(res, "질문의 온도");
+    if (url.pathname === "/api/health") {
       return json(res, {
         ok: true,
         openaiConfigured: false,
         teacherProtected: true
       });
     }
-    if (req.url === "/api/evaluation-set") {
+    if (url.pathname === "/api/evaluation-set") {
       return json(res, { items: Array.from({ length: 50 }, (_, index) => ({ turn: index + 1 })) });
     }
-    if (req.url === "/teacher") {
+    if (url.pathname === "/teacher" && !url.searchParams.has("token")) {
       res.statusCode = 401;
       return res.end("Teacher token required");
     }
-    if (req.url === "/teacher?token=teacher-secret") return html(res, "실시간 교실 관찰");
+    if (url.pathname === "/teacher" && url.searchParams.get("token") === "teacher-secret") {
+      return html(res, "실시간 교실 관찰");
+    }
     res.statusCode = 404;
     res.end("not found");
   });
@@ -32,7 +39,8 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
   try {
     const result = await runNode(["scripts/verify-deploy.js"], {
       WORKER_URL: workerUrl,
-      TEACHER_TOKEN: "teacher-secret"
+      TEACHER_TOKEN: "teacher-secret",
+      WORKER_ROOM: "shoot-3-5"
     });
 
     assert.equal(result.code, 0, result.stdout + result.stderr);

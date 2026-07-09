@@ -37,6 +37,17 @@ https://<worker-domain>/teacher?token=<TEACHER_TOKEN>
 
 대시보드는 token을 브라우저 localStorage에 저장해 WebSocket, export, debrief, purge 요청에 `x-teacher-token`으로 전달한다.
 
+## 3-1. 촬영방 분리
+
+촬영일·학급별로 `room` query를 다르게 주면 Durable Object 저장소가 분리된다. 학생/교사/export/purge는 같은 `room` 값을 사용해야 한다.
+
+```text
+학생: https://<worker-domain>/?room=2026-07-13-3-5
+교사: https://<worker-domain>/teacher?room=2026-07-13-3-5&token=<TEACHER_TOKEN>
+```
+
+`room` 값은 영문 소문자, 숫자, `_`, `-` 중심으로 정규화된다. 값을 생략하면 `default-classroom`을 사용한다.
+
 ## 4. 배포
 
 PR에서는 GitHub Actions `Verify product gates`가 다음 명령을 실행한다.
@@ -61,10 +72,10 @@ npm run deploy
 배포 후 실제 Worker URL을 검증한다.
 
 ```bash
-WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> npm run verify:deploy
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> WORKER_ROOM=2026-07-13-3-5 npm run verify:deploy
 ```
 
-이 검증은 학생 페이지, `/api/health`, 50턴 평가 endpoint, `/teacher` 보호 여부, token 기반 교사용 접속을 확인한다. `TEACHER_TOKEN`을 생략하면 교사용 token 접속 확인은 건너뛰고 보호 정책 상태만 점검한다.
+이 검증은 학생 페이지, `/api/health`, 50턴 평가 endpoint, `/teacher` 보호 여부, token 기반 교사용 접속을 확인한다. `TEACHER_TOKEN`을 생략하면 교사용 token 접속 확인은 건너뛰고 보호 정책 상태만 점검한다. `WORKER_ROOM`을 생략하면 기본 방을 확인한다.
 
 GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 
@@ -107,6 +118,7 @@ GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 | `CHAT_RATE_LIMIT_PER_MINUTE` | `12` | 학생 session별 분당 채팅 제한 |
 | `EVENT_TTL_HOURS` | `24` | Durable Object 이벤트 로그 보관 시간 |
 | `DEFAULT_FALSE_LEVEL` | `2` | 교사 설정 전 기본 거짓 Level |
+| `DEFAULT_ROOM_ID` | `default-classroom` | `room` query가 없을 때 사용할 기본 촬영방 |
 | `OPENAI_MODEL` | `gpt-5.5` | OpenAI provider 모델 |
 | `EVAL_JUDGE` | unset | `openai`로 설정하면 50턴 평가에서 외부 LLM judge 사용 |
 | `EVAL_JUDGE_MODEL` | `OPENAI_MODEL` | 외부 judge 모델 |

@@ -109,6 +109,7 @@ export const studentHtml = `<!doctype html>
       <p class="sub">이순신 장군 AI 챗봇과 대화하면서, 임진왜란 당시 조선이 일본군의 침략을 막아낼 수 있었던 이유를 정리해봅시다.</p>
       <div class="toolbar">
         <span class="pill" id="status">입장 전</span>
+        <span class="pill" id="roomStatus">room: default-classroom</span>
         <span class="pill">교과서, 검색, 친구 토론을 함께 사용할 수 있어요</span>
       </div>
     </header>
@@ -127,11 +128,16 @@ export const studentHtml = `<!doctype html>
     const form = document.querySelector("#form");
     const join = document.querySelector("#join");
     const status = document.querySelector("#status");
+    const roomStatus = document.querySelector("#roomStatus");
     const nameInput = document.querySelector("#name");
     const messageInput = document.querySelector("#message");
-    let sessionId = localStorage.getItem("ebs-session-id") || crypto.randomUUID();
+    const params = new URLSearchParams(location.search);
+    const roomId = normalizeRoomId(params.get("room") || "default-classroom");
+    const sessionKey = "ebs-session-id:" + roomId;
+    roomStatus.textContent = "room: " + roomId;
+    let sessionId = localStorage.getItem(sessionKey) || crypto.randomUUID();
     let studentName = localStorage.getItem("ebs-student-name") || "";
-    localStorage.setItem("ebs-session-id", sessionId);
+    localStorage.setItem(sessionKey, sessionId);
     nameInput.value = studentName;
 
     function addMessage(role, text) {
@@ -146,7 +152,7 @@ export const studentHtml = `<!doctype html>
       studentName = nameInput.value.trim();
       if (!studentName) return nameInput.focus();
       localStorage.setItem("ebs-student-name", studentName);
-      await fetch("/api/join", {
+      await fetch(withRoom("/api/join"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sessionId, studentName })
@@ -161,7 +167,7 @@ export const studentHtml = `<!doctype html>
 
     function sendHeartbeat() {
       if (!studentName) return;
-      fetch("/api/heartbeat", {
+      fetch(withRoom("/api/heartbeat"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sessionId, studentName })
@@ -178,7 +184,7 @@ export const studentHtml = `<!doctype html>
       if (!message) return;
       messageInput.value = "";
       addMessage("me", message);
-      const res = await fetch("/api/chat", {
+      const res = await fetch(withRoom("/api/chat"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sessionId, studentName, message })
@@ -190,6 +196,18 @@ export const studentHtml = `<!doctype html>
       }
       addMessage("bot", data.answer);
     });
+
+    function withRoom(path) {
+      return path + "?room=" + encodeURIComponent(roomId);
+    }
+
+    function normalizeRoomId(value) {
+      return String(value || "default-classroom")
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80) || "default-classroom";
+    }
   </script>
 </body>
 </html>`;

@@ -1,5 +1,6 @@
 const baseUrl = normalizeBaseUrl(process.env.WORKER_URL || process.argv[2]);
 const teacherToken = process.env.TEACHER_TOKEN || "";
+const roomId = normalizeRoomId(process.env.WORKER_ROOM || "");
 
 if (!baseUrl) {
   console.error("Usage: WORKER_URL=https://<worker-domain> node scripts/verify-deploy.js");
@@ -34,7 +35,7 @@ const checks = [
   }],
   ["teacher page accepts token when provided", async () => {
     if (!teacherToken) return true;
-    const res = await fetchUrl(`/teacher?token=${encodeURIComponent(teacherToken)}`);
+    const res = await fetchUrl("/teacher", { token: teacherToken });
     const body = await res.text();
     return res.status === 200 && body.includes("실시간 교실 관찰");
   }]
@@ -60,8 +61,13 @@ if (failed) {
   console.log(`deploy verification passed: ${checks.length}/${checks.length}`);
 }
 
-function fetchUrl(path, init) {
-  return fetch(new URL(path, baseUrl), init);
+function fetchUrl(path, query = {}, init) {
+  const url = new URL(path, baseUrl);
+  if (roomId) url.searchParams.set("room", roomId);
+  for (const [key, value] of Object.entries(query)) {
+    if (value) url.searchParams.set(key, value);
+  }
+  return fetch(url, init);
 }
 
 function normalizeBaseUrl(value) {
@@ -71,4 +77,12 @@ function normalizeBaseUrl(value) {
   url.search = "";
   url.hash = "";
   return url.toString();
+}
+
+function normalizeRoomId(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
 }
