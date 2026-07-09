@@ -47,6 +47,9 @@ const checks = [
       typeof body.openaiConfigured === "boolean" &&
       typeof body.openaiModel === "string" &&
       typeof body.teacherProtected === "boolean" &&
+      res.headers.get("cache-control") === "no-store" &&
+      res.headers.get("content-security-policy")?.includes("frame-ancestors 'none'") &&
+      res.headers.get("permissions-policy") === "camera=(), microphone=(), geolocation=()" &&
       JSON.stringify(body).includes("OPENAI_API_KEY") === false &&
       JSON.stringify(body).includes(teacherToken || "__no_token__") === false;
   }],

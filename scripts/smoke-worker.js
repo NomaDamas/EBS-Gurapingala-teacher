@@ -75,7 +75,9 @@ const checks = [
       body.endpoints.debriefCsv === "/api/debrief.csv" &&
       res.headers.get("cache-control") === "no-store" &&
       res.headers.get("x-content-type-options") === "nosniff" &&
-      res.headers.get("referrer-policy") === "no-referrer";
+      res.headers.get("referrer-policy") === "no-referrer" &&
+      res.headers.get("content-security-policy")?.includes("frame-ancestors 'none'") &&
+      res.headers.get("permissions-policy") === "camera=(), microphone=(), geolocation=()";
   }],
   ["invalid student JSON returns 400", async () => {
     const res = await appFetch("https://example.com/api/join", {

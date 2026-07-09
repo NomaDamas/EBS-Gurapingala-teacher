@@ -32,4 +32,7 @@ test("/api/health returns safe deployment metadata without secrets", async () =>
   assert.equal(res.headers.get("cache-control"), "no-store");
   assert.equal(res.headers.get("x-content-type-options"), "nosniff");
   assert.equal(res.headers.get("referrer-policy"), "no-referrer");
+  assert.match(res.headers.get("content-security-policy"), /frame-ancestors 'none'/);
+  assert.match(res.headers.get("content-security-policy"), /object-src 'none'/);
+  assert.equal(res.headers.get("permissions-policy"), "camera=(), microphone=(), geolocation=()");
 });

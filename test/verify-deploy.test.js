@@ -250,13 +250,21 @@ function runNode(args, env) {
 }
 
 function html(res, body) {
+  setSecurityHeaders(res);
   res.setHeader("content-type", "text/html; charset=utf-8");
   res.end(body);
 }
 
 function json(res, body) {
+  setSecurityHeaders(res);
   res.setHeader("content-type", "application/json; charset=utf-8");
   res.end(JSON.stringify(body));
+}
+
+function setSecurityHeaders(res) {
+  res.setHeader("cache-control", "no-store");
+  res.setHeader("content-security-policy", "default-src 'self'; frame-ancestors 'none'; object-src 'none'");
+  res.setHeader("permissions-policy", "camera=(), microphone=(), geolocation=()");
 }
 
 function isTeacherHeader(req) {

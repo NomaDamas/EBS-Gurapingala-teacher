@@ -3,15 +3,10 @@ import { DEFAULT_OPENAI_MODEL, generateAuditedAnswer } from "./domain/llm-provid
 import { EVALUATION_SET_50, PUBLIC_EVALUATION_SET_50 } from "./domain/evaluation-set.js";
 import { buildDebriefCsv, buildDebriefRows, buildExportPayload } from "./domain/session-export.js";
 import { buildSessionContext } from "./domain/session-context.js";
-import { isTeacherAuthorized, rateLimitDecision, unauthorized } from "./domain/security.js";
+import { SECURITY_HEADERS, isTeacherAuthorized, rateLimitDecision, unauthorized } from "./domain/security.js";
 import { studentHtml } from "./ui/student.js";
 import { teacherHtml } from "./ui/teacher.js";
 
-const SECURITY_HEADERS = {
-  "cache-control": "no-store",
-  "x-content-type-options": "nosniff",
-  "referrer-policy": "no-referrer"
-};
 const JSON_HEADERS = {
   ...SECURITY_HEADERS,
   "content-type": "application/json; charset=utf-8"

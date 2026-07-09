@@ -1,3 +1,22 @@
+export const SECURITY_HEADERS = {
+  "cache-control": "no-store",
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "no-referrer",
+  "content-security-policy": [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "connect-src 'self' ws: wss:",
+    "img-src 'self' data:",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self'"
+  ].join("; "),
+  "permissions-policy": "camera=(), microphone=(), geolocation=()"
+};
+
 export function isTeacherAuthorized(request, env) {
   const token = env.TEACHER_TOKEN;
   if (!token) return true;
@@ -9,7 +28,11 @@ export function isTeacherAuthorized(request, env) {
 export function unauthorized() {
   return new Response("Teacher token required", {
     status: 401,
-    headers: { "www-authenticate": "Bearer" }
+    headers: {
+      ...SECURITY_HEADERS,
+      "content-type": "text/plain; charset=utf-8",
+      "www-authenticate": "Bearer"
+    }
   });
 }
 

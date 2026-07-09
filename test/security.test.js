@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isTeacherAuthorized, rateLimitDecision } from "../src/domain/security.js";
+import { isTeacherAuthorized, rateLimitDecision, unauthorized } from "../src/domain/security.js";
 
 test("isTeacherAuthorized는 TEACHER_TOKEN이 없으면 통과시킨다", () => {
   const request = new Request("https://example.com/teacher");
@@ -20,6 +20,15 @@ test("isTeacherAuthorized는 query token과 header token을 허용한다", () =>
 test("isTeacherAuthorized는 잘못된 token을 거부한다", () => {
   const request = new Request("https://example.com/teacher?token=wrong");
   assert.equal(isTeacherAuthorized(request, { TEACHER_TOKEN: "secret" }), false);
+});
+
+test("unauthorized 응답은 공통 보안 헤더를 포함한다", () => {
+  const response = unauthorized();
+
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.match(response.headers.get("content-security-policy"), /frame-ancestors 'none'/);
+  assert.equal(response.headers.get("permissions-policy"), "camera=(), microphone=(), geolocation=()");
 });
 
 test("rateLimitDecision은 window 안의 요청 수를 제한한다", () => {
