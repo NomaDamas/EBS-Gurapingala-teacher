@@ -57,7 +57,7 @@ npm run smoke
 배포 URL 검증:
 
 ```bash
-WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true npm run verify:deploy
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run verify:deploy
 ```
 
 `verify:deploy`는 검증용 telemetry 정리를 위해 `/api/purge`를 호출하므로 실제 촬영방 `room`을 넘기지 않는다. 기본 검증 room은 `deploy-verify`다.
@@ -101,6 +101,7 @@ npx wrangler deploy
 단일 `OPENAI_API_KEY`가 서버에만 저장되므로 여러 학생이 같은 API 계정을 공유해도 학생 브라우저에는 키가 노출되지 않습니다.
 `OPENAI_API_KEY`가 없거나 `LLM_PROVIDER=rules`이면 로컬 룰 기반 provider로 동작합니다.
 `OPENAI_API_KEY`가 있으면 Responses API structured output으로 `correct_answer`, `false_answer`, `false_basis`, `level_fit_reason`, `student_answer`를 생성하고, 검수 실패 시 최대 3회 재생성합니다.
+`OPENAI_TIMEOUT_MS`는 OpenAI provider 요청 timeout입니다. 기본값은 `15000`ms이며 `/api/health.openaiTimeoutMs`와 교사용 audit의 `provider.timeoutMs`로 확인합니다.
 `EVAL_JUDGE=openai`를 설정하면 같은 API 키로 외부 LLM judge가 50턴 결과를 판정하며, judge 호출 실패 시 local judge로 fallback합니다.
 
 ## 문서

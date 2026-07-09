@@ -58,6 +58,7 @@ VERIFY_ROOM=deploy-verify \
 REQUIRE_OPENAI=true \
 REQUIRE_TEACHER_TOKEN=true \
 EXPECTED_OPENAI_MODEL=gpt-5.5 \
+EXPECTED_OPENAI_TIMEOUT_MS=15000 \
 npm run verify:deploy
 ```
 

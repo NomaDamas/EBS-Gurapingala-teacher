@@ -116,7 +116,7 @@ GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 | `EXPECTED_OPENAI_MODEL` | 배포 후 `/api/health.openaiModel` 기대값. workflow 기본값은 `gpt-5.5` |
 | `EXPECTED_OPENAI_TIMEOUT_MS` | 배포 후 `/api/health.openaiTimeoutMs` 기대값. 미설정 시 정상 범위만 확인 |
 
-수동 배포 workflow도 Node.js 22에서 `package-lock.json` 기반 `npm ci`로 의존성을 설치한 뒤 `node --test`, `node scripts/run-eval.js`, `node scripts/readiness-audit.js`, `node scripts/smoke-worker.js`를 통과하고 `npx wrangler deploy`를 실행한다. production environment에서는 `WORKER_HEALTH_URL`이 비어 있으면 배포 전에 실패한다. 값은 `https://<worker-domain>` 또는 `https://<worker-domain>/api/health` 어느 쪽이어도 된다. workflow는 기본적으로 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`, `EXPECTED_OPENAI_MODEL=gpt-5.5`로 실제 배포 URL을 검증한다.
+수동 배포 workflow도 Node.js 22에서 `package-lock.json` 기반 `npm ci`로 의존성을 설치한 뒤 `node --test`, `node scripts/run-eval.js`, `node scripts/readiness-audit.js`, `node scripts/smoke-worker.js`를 통과하고 `npx wrangler deploy`를 실행한다. production environment에서는 `WORKER_HEALTH_URL`이 비어 있으면 배포 전에 실패한다. 값은 `https://<worker-domain>` 또는 `https://<worker-domain>/api/health` 어느 쪽이어도 된다. workflow는 기본적으로 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`, `EXPECTED_OPENAI_MODEL=gpt-5.5`, `EXPECTED_OPENAI_TIMEOUT_MS=15000`으로 실제 배포 URL을 검증한다.
 
 ## 5. URL
 
