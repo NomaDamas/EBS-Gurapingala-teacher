@@ -96,6 +96,8 @@ Acceptance:
 - prompt injection 방어 문구와 JSON schema 검수 실패 처리를 둔다.
 - 실험 종료 후 데이터 삭제 버튼 또는 TTL을 둔다.
 
+현재 상태: `TEACHER_TOKEN` 기반 교사용 URL/API/WebSocket 보호, 학생 session별 분당 rate limit, 이벤트 TTL, `/api/purge` 삭제 API와 대시보드 삭제 버튼 구현됨. Cloudflare Access 연동은 선택 운영 설정으로 남는다.
+
 ## Issue 7. UI 고도화와 참고 디자인 반영
 
 Main goal: 검증된 채팅 UI 패턴을 참고하되 방송 촬영에 적합한 교실 관찰 UI로 만든다.

@@ -2,6 +2,7 @@ import { normalizeLevel } from "./domain/misinfo-policy.js";
 import { generateAuditedAnswer } from "./domain/llm-provider.js";
 import { EVALUATION_SET_50 } from "./domain/evaluation-set.js";
 import { buildDebriefRows, buildExportPayload } from "./domain/session-export.js";
+import { isTeacherAuthorized, rateLimitDecision, unauthorized } from "./domain/security.js";
 import { studentHtml } from "./ui/student.js";
 import { teacherHtml } from "./ui/teacher.js";
 
@@ -16,26 +17,34 @@ export default {
       return html(studentHtml);
     }
     if (url.pathname === "/teacher") {
+      if (!isTeacherAuthorized(request, env)) return unauthorized();
       return html(teacherHtml);
     }
     if (url.pathname === "/api/evaluation-set") {
       return json({ items: EVALUATION_SET_50 });
     }
     if (url.pathname === "/api/export") {
-      const events = await readEvents(room);
+      if (!isTeacherAuthorized(request, env)) return unauthorized();
+      const events = await readEvents(room, env);
       return json(buildExportPayload(events));
     }
     if (url.pathname === "/api/debrief") {
-      const events = await readEvents(room);
+      if (!isTeacherAuthorized(request, env)) return unauthorized();
+      const events = await readEvents(room, env);
       return json({
         schemaVersion: "debrief-table/v1",
         generatedAt: new Date().toISOString(),
         rows: buildDebriefRows(events)
       });
     }
+    if (url.pathname === "/api/purge" && request.method === "POST") {
+      if (!isTeacherAuthorized(request, env)) return unauthorized();
+      await room.fetch("https://room.local/purge", { method: "POST" });
+      return json({ ok: true });
+    }
     if (url.pathname === "/api/join" && request.method === "POST") {
       const body = await request.json();
-      await room.fetch("https://room.local/event", {
+      await room.fetch(roomEventUrl(env), {
         method: "POST",
         body: JSON.stringify({
           type: "student_joined",
@@ -48,7 +57,7 @@ export default {
     }
     if (url.pathname === "/api/heartbeat" && request.method === "POST") {
       const body = await request.json();
-      await room.fetch("https://room.local/event", {
+      await room.fetch(roomEventUrl(env), {
         method: "POST",
         body: JSON.stringify({
           type: "student_heartbeat",
@@ -61,6 +70,13 @@ export default {
     }
     if (url.pathname === "/api/chat" && request.method === "POST") {
       const body = await request.json();
+      const rateLimit = await checkRateLimit(room, body.sessionId, env);
+      if (!rateLimit.allowed) {
+        return json({
+          error: "rate_limited",
+          retryAfterMs: rateLimit.retryAfterMs
+        }, 429);
+      }
       const config = await readConfig(room, env);
       const level = normalizeLevel(config.level || env.DEFAULT_FALSE_LEVEL);
       const persona = config.persona || env.DEFAULT_PERSONA;
@@ -77,7 +93,7 @@ export default {
         return json({ error: "Preflight failed", audit }, 422);
       }
 
-      await room.fetch("https://room.local/event", {
+      await room.fetch(roomEventUrl(env), {
         method: "POST",
         body: JSON.stringify({
           type: "chat_turn",
@@ -96,6 +112,7 @@ export default {
       });
     }
     if (url.pathname === "/ws/teacher") {
+      if (!isTeacherAuthorized(request, env)) return unauthorized();
       return room.fetch(request);
     }
     return new Response("Not found", { status: 404 });
@@ -137,12 +154,27 @@ export class ClassroomRoom {
     }
     if (url.pathname === "/event" && request.method === "POST") {
       const event = await request.json();
-      await this.recordEvent(event);
+      await this.recordEvent(event, Number(url.searchParams.get("ttlHours") || 24));
       this.broadcast(event);
       return new Response("ok");
     }
+    if (url.pathname === "/rate-limit" && request.method === "POST") {
+      const body = await request.json();
+      return json(await this.checkRateLimit(body.sessionId, body.limit));
+    }
     if (url.pathname === "/events") {
-      return json(await this.state.storage.get("events") || []);
+      return json(await this.readEvents(Number(url.searchParams.get("ttlHours") || 24)));
+    }
+    if (url.pathname === "/purge" && request.method === "POST") {
+      await this.state.storage.delete("events");
+      await this.state.storage.delete("rateLimits");
+      this.broadcast({
+        type: "events_purged",
+        sessionId: "teacher",
+        studentName: "teacher",
+        at: new Date().toISOString()
+      });
+      return new Response("ok");
     }
     if (url.pathname === "/config") {
       const config = await this.state.storage.get("config");
@@ -162,15 +194,40 @@ export class ClassroomRoom {
     }
   }
 
-  async recordEvent(event) {
-    const events = await this.state.storage.get("events") || [];
+  async recordEvent(event, ttlHours = 24) {
+    const events = await this.readEvents(ttlHours);
     events.push(event);
     await this.state.storage.put("events", events.slice(-1000));
   }
 
+  async readEvents(ttlHours = 24) {
+    const events = await this.state.storage.get("events") || [];
+    const pruned = events.filter((event) => {
+      const eventTime = event.at ? Date.parse(event.at) : Date.now();
+      return Number.isFinite(eventTime) && Date.now() - eventTime <= ttlHours * 60 * 60 * 1000;
+    });
+    if (pruned.length !== events.length) await this.state.storage.put("events", pruned);
+    return pruned;
+  }
+
+  async checkRateLimit(sessionId, limit) {
+    const key = String(sessionId || "anonymous");
+    const rateLimits = await this.state.storage.get("rateLimits") || {};
+    const decision = rateLimitDecision({
+      timestamps: rateLimits[key] || [],
+      limit: Number(limit) || 12
+    });
+    rateLimits[key] = decision.timestamps;
+    await this.state.storage.put("rateLimits", rateLimits);
+    return {
+      allowed: decision.allowed,
+      retryAfterMs: decision.retryAfterMs
+    };
+  }
+
   async sendSnapshot(socket) {
     try {
-      const events = await this.state.storage.get("events") || [];
+      const events = await this.readEvents();
       socket.send(JSON.stringify({
         type: "snapshot",
         sessionId: "teacher",
@@ -198,8 +255,23 @@ async function readConfig(room, env) {
   };
 }
 
-async function readEvents(room) {
-  const res = await room.fetch("https://room.local/events");
+async function readEvents(room, env) {
+  const res = await room.fetch(`https://room.local/events?ttlHours=${encodeURIComponent(env.EVENT_TTL_HOURS || 24)}`);
+  return await res.json();
+}
+
+function roomEventUrl(env) {
+  return `https://room.local/event?ttlHours=${encodeURIComponent(env.EVENT_TTL_HOURS || 24)}`;
+}
+
+async function checkRateLimit(room, sessionId, env) {
+  const res = await room.fetch("https://room.local/rate-limit", {
+    method: "POST",
+    body: JSON.stringify({
+      sessionId,
+      limit: Number(env.CHAT_RATE_LIMIT_PER_MINUTE || 12)
+    })
+  });
   return await res.json();
 }
 

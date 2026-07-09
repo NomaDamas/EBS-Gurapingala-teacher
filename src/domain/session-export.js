@@ -63,6 +63,15 @@ export function buildExportPayload(events, now = new Date()) {
   };
 }
 
+export function pruneEventsByTtl(events, now = Date.now(), ttlHours = 24) {
+  const ttlMs = Number(ttlHours) * 60 * 60 * 1000;
+  if (!Number.isFinite(ttlMs) || ttlMs <= 0) return normalizeEvents(events);
+  return normalizeEvents(events).filter((event) => {
+    const eventTime = event.at ? Date.parse(event.at) : now;
+    return Number.isFinite(eventTime) && now - eventTime <= ttlMs;
+  });
+}
+
 function normalizeEvents(events) {
   return Array.isArray(events) ? events.filter(Boolean) : [];
 }

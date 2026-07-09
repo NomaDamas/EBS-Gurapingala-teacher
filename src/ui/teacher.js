@@ -138,6 +138,7 @@ export const teacherHtml = `<!doctype html>
         <div class="actions">
           <button id="downloadExport">전체 로그 JSON</button>
           <button class="secondary" id="downloadDebrief">정정 수업 오류표</button>
+          <button class="secondary" id="purgeEvents">촬영 로그 삭제</button>
         </div>
       </header>
       <div class="panes">
@@ -155,11 +156,16 @@ export const teacherHtml = `<!doctype html>
     const personaEl = document.querySelector("#persona");
     const downloadExportEl = document.querySelector("#downloadExport");
     const downloadDebriefEl = document.querySelector("#downloadDebrief");
+    const purgeEventsEl = document.querySelector("#purgeEvents");
     const sessions = new Map();
+    const params = new URLSearchParams(location.search);
+    const teacherToken = params.get("token") || localStorage.getItem("teacher-token") || "";
+    if (params.get("token")) localStorage.setItem("teacher-token", params.get("token"));
     let selected = null;
 
     function connect() {
-      const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/teacher");
+      const tokenQuery = teacherToken ? "?token=" + encodeURIComponent(teacherToken) : "";
+      const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/teacher" + tokenQuery);
       ws.addEventListener("open", () => {
         statusEl.value = "online";
         ws.send(JSON.stringify({ type: "teacher_config", level: levelEl.value, persona: personaEl.value }));
@@ -228,7 +234,8 @@ export const teacherHtml = `<!doctype html>
     }
 
     async function downloadJson(path, filename) {
-      const res = await fetch(path);
+      const res = await fetch(path, { headers: authHeaders() });
+      if (!res.ok) return alert("다운로드 권한을 확인하세요.");
       const data = await res.json();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -239,10 +246,26 @@ export const teacherHtml = `<!doctype html>
       URL.revokeObjectURL(url);
     }
 
+    async function purgeEvents() {
+      if (!confirm("촬영 로그를 삭제할까요? export 후 삭제하는 것을 권장합니다.")) return;
+      const res = await fetch("/api/purge", { method: "POST", headers: authHeaders() });
+      if (!res.ok) return alert("삭제 권한을 확인하세요.");
+      sessions.clear();
+      selected = null;
+      renderStudents();
+      chatEl.innerHTML = "<div class='empty'>촬영 로그가 삭제되었습니다.</div>";
+      auditEl.textContent = "교사용 감사 JSON 대기 중";
+    }
+
+    function authHeaders() {
+      return teacherToken ? { "x-teacher-token": teacherToken } : {};
+    }
+
     connect();
     setInterval(renderStudents, 5000);
     downloadExportEl.addEventListener("click", () => downloadJson("/api/export", "classroom-export.json"));
     downloadDebriefEl.addEventListener("click", () => downloadJson("/api/debrief", "debrief-table.json"));
+    purgeEventsEl.addEventListener("click", purgeEvents);
   </script>
 </body>
 </html>`;

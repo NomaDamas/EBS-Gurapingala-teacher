@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildDebriefRows, buildExportPayload, summarizeSessions } from "../src/domain/session-export.js";
+import { buildDebriefRows, buildExportPayload, pruneEventsByTtl, summarizeSessions } from "../src/domain/session-export.js";
 
 const EVENTS = [
   {
@@ -61,4 +61,10 @@ test("buildExportPayload는 session summary, debrief rows, raw events를 포함�
   assert.equal(payload.sessionSummary.length, 1);
   assert.equal(payload.debriefRows.length, 1);
   assert.equal(payload.events.length, 3);
+});
+
+test("pruneEventsByTtl은 TTL이 지난 이벤트를 제거한다", () => {
+  const pruned = pruneEventsByTtl(EVENTS, Date.parse("2026-07-10T03:00:00.000Z"), 1);
+
+  assert.equal(pruned.length, 0);
 });
