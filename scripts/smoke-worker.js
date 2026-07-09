@@ -114,7 +114,13 @@ const checks = [
     const debriefBody = await debriefRes.json();
     const csvRes = await appFetch("https://example.com/api/debrief.csv?token=teacher-secret");
     const csvBody = await csvRes.text();
-    return exportBody.events.length >= 2 && debriefBody.rows.length === 1 && csvBody.includes("correctAnswer");
+    const csvDisposition = csvRes.headers.get("content-disposition") || "";
+    return exportBody.roomId === "default-classroom" &&
+      exportBody.events.length >= 2 &&
+      debriefBody.roomId === "default-classroom" &&
+      debriefBody.rows.length === 1 &&
+      csvBody.includes("correctAnswer") &&
+      csvDisposition.includes("default-classroom-debrief-table.csv");
   }],
   ["room query isolates classroom events", async () => {
     await appFetch("https://example.com/api/join?room=room-a", {

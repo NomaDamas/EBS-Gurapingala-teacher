@@ -38,6 +38,21 @@ const checks = [
     const res = await fetchUrl("/teacher", { token: teacherToken });
     const body = await res.text();
     return res.status === 200 && body.includes("실시간 교실 관찰");
+  }],
+  ["debrief export is room aware", async () => {
+    if (!teacherToken || !roomId) return true;
+    const res = await fetchUrl("/api/debrief", { token: teacherToken });
+    const body = await res.json();
+    return res.status === 200 &&
+      body.schemaVersion === "debrief-table/v1" &&
+      body.roomId === roomId &&
+      Array.isArray(body.rows);
+  }],
+  ["debrief csv filename is room aware", async () => {
+    if (!teacherToken || !roomId) return true;
+    const res = await fetchUrl("/api/debrief.csv", { token: teacherToken });
+    const disposition = res.headers.get("content-disposition") || "";
+    return res.status === 200 && disposition.includes(`${roomId}-debrief-table.csv`);
   }]
 ];
 

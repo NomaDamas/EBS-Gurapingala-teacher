@@ -41,6 +41,7 @@ export default {
       const events = await readEvents(room, env);
       return json({
         schemaVersion: "debrief-table/v1",
+        roomId,
         generatedAt: new Date().toISOString(),
         rows: buildDebriefRows(events)
       });
@@ -48,7 +49,7 @@ export default {
     if (url.pathname === "/api/debrief.csv") {
       if (!isTeacherAuthorized(request, env)) return unauthorized();
       const events = await readEvents(room, env);
-      return csv(buildDebriefCsv(events), "debrief-table.csv");
+      return csv(buildDebriefCsv(events), `${roomId}-debrief-table.csv`);
     }
     if (url.pathname === "/api/purge" && request.method === "POST") {
       if (!isTeacherAuthorized(request, env)) return unauthorized();

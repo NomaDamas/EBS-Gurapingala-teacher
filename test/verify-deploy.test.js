@@ -28,6 +28,18 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     if (url.pathname === "/teacher" && url.searchParams.get("token") === "teacher-secret") {
       return html(res, "실시간 교실 관찰");
     }
+    if (url.pathname === "/api/debrief" && url.searchParams.get("token") === "teacher-secret") {
+      return json(res, {
+        schemaVersion: "debrief-table/v1",
+        roomId: "shoot-3-5",
+        rows: []
+      });
+    }
+    if (url.pathname === "/api/debrief.csv" && url.searchParams.get("token") === "teacher-secret") {
+      res.setHeader("content-type", "text/csv; charset=utf-8");
+      res.setHeader("content-disposition", 'attachment; filename="shoot-3-5-debrief-table.csv"');
+      return res.end("roomId,sessionId\n");
+    }
     res.statusCode = 404;
     res.end("not found");
   });
@@ -46,7 +58,9 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.equal(result.code, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /PASS student page loads/);
     assert.match(result.stdout, /PASS teacher page accepts token when provided/);
-    assert.match(result.stdout, /deploy verification passed: 5\/5/);
+    assert.match(result.stdout, /PASS debrief export is room aware/);
+    assert.match(result.stdout, /PASS debrief csv filename is room aware/);
+    assert.match(result.stdout, /deploy verification passed: 7\/7/);
   } finally {
     await close(server);
   }
