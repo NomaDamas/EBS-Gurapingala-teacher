@@ -31,6 +31,12 @@ npm run dev
 npm run eval
 ```
 
+프로덕션 readiness 점검:
+
+```bash
+npm run readiness
+```
+
 출력 예시:
 
 ```text

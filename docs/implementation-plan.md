@@ -83,7 +83,7 @@ Acceptance:
 - 학생별 online/offline heartbeat가 표시된다.
 - 촬영 종료 후 정정 수업용 “오류 정답표”를 export한다.
 
-현재 상태: Level/persona 설정, 실시간 수신, 학생 heartbeat, online/offline 표시, 전체 로그 export, 정정 수업용 오류표 export 구현됨. TTL/삭제 버튼과 CSV export는 다음 운영 보강 범위.
+현재 상태: Level/persona 설정, 실시간 수신, 학생 heartbeat, online/offline 표시, 전체 로그 export, 정정 수업용 오류표 export, TTL, 삭제 버튼 구현됨. CSV export는 선택 운영 보강 범위.
 
 ## Issue 6. 보안·운영 보호장치
 
@@ -124,6 +124,8 @@ Checklist:
 - 교사가 의도한 탐구·검증 과정을 학생이 우회하는 장면을 관찰할 수 있는가?
 - 실험 후 학생에게 확실히 정정할 자료가 자동 생성되는가?
 - 방송·학교·윤리·개인정보 요구사항이 모두 문서화됐는가?
+
+현재 상태: `npm run readiness`가 제품 철학과 구현 gap을 자동 점검한다. 학생/교사 URL, 실시간 telemetry, Level 정책, 감사 JSON, LLM 재생성, 50턴 평가, LLM-as-judge, 단일 API 키, Cloudflare 배포, 교사용 보호, 정정 수업 export, gap 문서화를 배포 전 게이트로 검사한다.
 
 ## PR 운영 루프
 

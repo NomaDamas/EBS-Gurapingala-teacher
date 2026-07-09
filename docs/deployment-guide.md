@@ -40,6 +40,9 @@ https://<worker-domain>/teacher?token=<TEACHER_TOKEN>
 ## 4. 배포
 
 ```bash
+npm test
+npm run eval
+npm run readiness
 npm run deploy
 ```
 
