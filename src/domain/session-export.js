@@ -63,6 +63,7 @@ export function summarizeSessions(events, now = Date.now()) {
       lastSeenAt: null,
       lastChatAt: null,
       chatTurns: 0,
+      blockedTurns: 0,
       latencyTotalMs: 0,
       latencySamples: 0,
       lastLevel: null,
@@ -72,6 +73,7 @@ export function summarizeSessions(events, now = Date.now()) {
     if (event.type === "student_joined" && !existing.joinedAt) existing.joinedAt = event.at;
     if (event.type === "chat_turn") {
       existing.chatTurns += 1;
+      if (event.blockedForStudent) existing.blockedTurns += 1;
       existing.lastChatAt = event.at || existing.lastChatAt;
       const level = event.teacherAudit?.input?.appliedLevel;
       if (level) {

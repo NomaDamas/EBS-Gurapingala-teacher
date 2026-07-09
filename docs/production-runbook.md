@@ -74,7 +74,7 @@
 ## 4. 촬영 직후
 
 1. 교사용 대시보드에서 전체 로그 JSON을 다운로드한다.
-   - `sessionSummary`에서 학생별 `chatTurns`, `lastChatAt`, `lastLevel`, `averageLatencyMs`를 확인한다.
+   - `sessionSummary`에서 학생별 `chatTurns`, `blockedTurns`, `lastChatAt`, `lastLevel`, `averageLatencyMs`를 확인한다.
    - `events`에서 `teacher_config_updated` 이벤트를 확인해 Level/persona 조건 전환 시점을 복원한다.
 2. 정정 수업 오류표 JSON을 다운로드한다.
 3. 정정 수업 오류표 CSV를 다운로드한다.
