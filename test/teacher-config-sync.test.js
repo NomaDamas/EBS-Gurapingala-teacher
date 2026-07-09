@@ -18,6 +18,9 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /id="configStatus"/);
   assert.match(teacher, /configStatusEl\.value = "저장 중/);
   assert.match(teacher, /configStatusEl\.value = "적용됨/);
+  assert.match(teacher, /id="classSummary"/);
+  assert.match(teacher, /function renderClassSummary/);
+  assert.match(teacher, /current\.chatTurns = \(current\.chatTurns \|\| 0\) \+ 1/);
   assert.match(teacher, /history\.replaceState/);
   assert.match(teacher, /function buildRoomUrl\(path, includeToken = false\)/);
   assert.match(teacher, /function exportFilename\(kind, extension\)/);

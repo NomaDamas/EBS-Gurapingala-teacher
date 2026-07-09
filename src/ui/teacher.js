@@ -78,6 +78,17 @@ export const teacherHtml = `<!doctype html>
       gap: 4px;
     }
     .student.active { outline: 3px solid rgba(182,75,43,.24); }
+    .classSummary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      padding: 10px;
+      border-radius: 18px;
+      background: rgba(255, 250, 240, .72);
+      border: 1px solid var(--line);
+    }
+    .classSummary span { display: grid; gap: 2px; font-size: 12px; color: rgba(24,32,28,.62); }
+    .classSummary strong { font-size: 20px; color: var(--ink); }
     .dot {
       width: 10px;
       height: 10px;
@@ -114,6 +125,11 @@ export const teacherHtml = `<!doctype html>
   <main>
     <aside>
       <strong>학생 카드</strong>
+      <div class="classSummary" id="classSummary">
+        <span>전체<strong>0</strong></span>
+        <span>온라인<strong>0</strong></span>
+        <span>채팅턴<strong>0</strong></span>
+      </div>
       <div id="students"></div>
     </aside>
     <div class="layout">
@@ -159,6 +175,7 @@ export const teacherHtml = `<!doctype html>
   </main>
   <script>
     const studentsEl = document.querySelector("#students");
+    const classSummaryEl = document.querySelector("#classSummary");
     const chatEl = document.querySelector("#chat");
     const auditEl = document.querySelector("#audit");
     const statusEl = document.querySelector("#socketStatus");
@@ -284,6 +301,7 @@ export const teacherHtml = `<!doctype html>
         current.messages.push({ role: "bot", text: event.studentVisibleAnswer });
         current.audit = event.teacherAudit;
         current.latencyMs = event.latencyMs;
+        current.chatTurns = (current.chatTurns || 0) + 1;
       }
       sessions.set(event.sessionId, current);
       if (!selected) selected = event.sessionId;
@@ -293,8 +311,12 @@ export const teacherHtml = `<!doctype html>
 
     function renderStudents() {
       studentsEl.innerHTML = "";
+      let onlineCount = 0;
+      let chatTurns = 0;
       for (const [id, session] of sessions) {
         session.online = Date.now() - (session.lastSeenMs || 0) < 35000;
+        if (session.online) onlineCount += 1;
+        chatTurns += session.chatTurns || 0;
         const el = document.createElement("article");
         el.className = "student" + (id === selected ? " active" : "");
         const dotClass = session.online ? "dot" : "dot offline";
@@ -308,6 +330,11 @@ export const teacherHtml = `<!doctype html>
         });
         studentsEl.appendChild(el);
       }
+      renderClassSummary({ total: sessions.size, online: onlineCount, chatTurns });
+    }
+
+    function renderClassSummary({ total, online, chatTurns }) {
+      classSummaryEl.innerHTML = "<span>전체<strong>" + total + "</strong></span><span>온라인<strong>" + online + "</strong></span><span>채팅턴<strong>" + chatTurns + "</strong></span>";
     }
 
     function renderSelected() {
