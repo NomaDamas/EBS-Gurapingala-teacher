@@ -33,9 +33,11 @@ const checks = [
   },
   {
     id: "preflight-and-regeneration",
-    evidence: ["src/domain/llm-provider.js"],
+    evidence: ["src/domain/llm-provider.js", "src/worker.js", "docs/experiment-policy.md"],
     run: async (files) =>
-      includesAll(files["src/domain/llm-provider.js"], ["MAX_ATTEMPTS = 3", "FAIL_CLOSED_AFTER_RETRIES", "studentCorrectionLeak"])
+      includesAll(files["src/domain/llm-provider.js"], ["MAX_ATTEMPTS = 3", "FAIL_CLOSED_AFTER_RETRIES", "studentCorrectionLeak"]) &&
+      includesAll(files["src/worker.js"], ["FAIL_CLOSED_STUDENT_MESSAGE", "blockedForStudent", "studentAnswer", "teacherAudit"]) &&
+      includesAll(files["docs/experiment-policy.md"], ["shouldSendToStudent=false", "학생 응답에는 교사용 `audit`", "교사용 telemetry"])
   },
   {
     id: "fifty-turn-evaluation-set",
@@ -118,7 +120,7 @@ const checks = [
     id: "launch-audit-documented",
     evidence: ["docs/launch-audit.md", "README.md", "docs/implementation-plan.md"],
     run: async (files) =>
-      includesAll(files["docs/launch-audit.md"], ["학생은 로그인 없이 URL과 이름만으로 입장", "교사는 학생 카드별 online/offline과 채팅 진행 상태를 실시간 관찰", "production 배포는 교사용 token 보호를 강제", "학생 화면에는 Level에 맞춘 거짓 답변만 표시", "공개 평가 endpoint가 정답·거짓 근거를 누출하지 않음", "진실과 거짓이 섞이고 너무 쉬운 거짓으로만 흐르지 않음", "배포 검증이 실제 촬영방 로그를 삭제하지 않음", "GitHub Deploy workflow", "GPT-5.5 xhigh 또는 동등한 외부 코드 리뷰 승인", "REQUIRE_OPENAI=true", "REQUIRE_TEACHER_TOKEN=true", "VERIFY_ROOM=deploy-verify", "x-purge-room"]) &&
+      includesAll(files["docs/launch-audit.md"], ["학생은 로그인 없이 URL과 이름만으로 입장", "교사는 학생 카드별 online/offline과 채팅 진행 상태를 실시간 관찰", "production 배포는 교사용 token 보호를 강제", "학생 화면에는 Level에 맞춘 거짓 답변만 표시", "preflight 실패 audit가 학생 응답으로 누출되지 않음", "공개 평가 endpoint가 정답·거짓 근거를 누출하지 않음", "진실과 거짓이 섞이고 너무 쉬운 거짓으로만 흐르지 않음", "배포 검증이 실제 촬영방 로그를 삭제하지 않음", "GitHub Deploy workflow", "GPT-5.5 xhigh 또는 동등한 외부 코드 리뷰 승인", "REQUIRE_OPENAI=true", "REQUIRE_TEACHER_TOKEN=true", "VERIFY_ROOM=deploy-verify", "x-purge-room"]) &&
       includesAll(files["README.md"], ["프로덕션 런치 감사 매트릭스"]) &&
       includesAll(files["docs/implementation-plan.md"], ["Launch audit", "docs/launch-audit.md"])
   }

@@ -8,6 +8,7 @@ import { studentHtml } from "./ui/student.js";
 import { teacherHtml } from "./ui/teacher.js";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
+const FAIL_CLOSED_STUDENT_MESSAGE = "답변을 다시 점검해야 해. 질문을 한 번만 더 다르게 물어봐 줄래?";
 
 export default {
   async fetch(request, env) {
@@ -127,10 +128,7 @@ export default {
       });
       const { audit, answer } = result;
       const latencyMs = Date.now() - startedAtMs;
-
-      if (!result.shouldSendToStudent) {
-        return json({ error: "Preflight failed", audit }, 422);
-      }
+      const studentAnswer = result.shouldSendToStudent ? answer : FAIL_CLOSED_STUDENT_MESSAGE;
 
       await room.fetch(roomEventUrl(env), {
         method: "POST",
@@ -140,7 +138,8 @@ export default {
           sessionId: body.sessionId,
           studentName: body.studentName,
           studentMessage: body.message,
-          studentVisibleAnswer: answer,
+          studentVisibleAnswer: studentAnswer,
+          blockedForStudent: !result.shouldSendToStudent,
           latencyMs,
           teacherAudit: audit,
           at: new Date().toISOString()
@@ -148,7 +147,7 @@ export default {
       });
 
       return json({
-        answer,
+        answer: studentAnswer,
         telemetry: "sent",
         roomId,
         latencyMs

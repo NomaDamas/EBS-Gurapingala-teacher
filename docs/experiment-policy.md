@@ -28,6 +28,8 @@ LLM 사용 단계에서는 다음 방어가 필요하다.
 
 현재 구현은 `src/domain/llm-provider.js`에서 이 흐름을 수행한다. LLM이 정답으로 되돌아가거나 Level 신호가 없거나 필수 JSON 필드가 비면 최대 3회 재생성하고, 그래도 실패하면 학생에게는 재질문 메시지만 보낸다.
 
+Worker의 `/api/chat` 응답도 같은 fail-closed 원칙을 따른다. 어떤 provider가 `shouldSendToStudent=false`를 반환해도 학생 응답에는 교사용 `audit`, `correctAnswer`, `falseClaim`, `whyFalse`를 넣지 않고 재질문 메시지만 보낸다. 해당 audit는 교사용 telemetry와 export에만 남긴다.
+
 후속 질문 대응은 학생 브라우저가 보내는 값을 신뢰하지 않고 서버 이벤트 로그에서 계산한다. Worker는 같은 `sessionId`의 이전 `chat_turn`만 모아 `turnIndex`와 최근 대화 6개를 만들고, 이를 LLM prompt와 교사용 감사 JSON의 `input.recentContext`에 넣는다. 따라서 학생이 “왜?”, “더 쉽게 말해줘”처럼 짧게 물어도 직전 역사 주제와 현재 Level 조건을 유지한 상태로 생성·검수된다.
 
 ## 윤리적 운영 조건
