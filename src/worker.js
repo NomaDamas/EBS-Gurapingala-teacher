@@ -179,10 +179,11 @@ export class ClassroomRoom {
         if (data?.type === "teacher_config") {
           const nextLevel = normalizeLevel(data.level);
           const nextPersona = sanitizeText(data.persona || "교육용 역사 챗봇", 240);
+          const updatedAt = new Date().toISOString();
           await this.state.storage.put("config", {
             level: nextLevel,
             persona: nextPersona,
-            updatedAt: new Date().toISOString()
+            updatedAt
           });
           this.broadcast({
             type: "teacher_config_updated",
@@ -192,9 +193,10 @@ export class ClassroomRoom {
             persona: nextPersona,
             config: {
               level: nextLevel,
-              persona: nextPersona
+              persona: nextPersona,
+              updatedAt
             },
-            at: new Date().toISOString()
+            at: updatedAt
           });
         }
       });

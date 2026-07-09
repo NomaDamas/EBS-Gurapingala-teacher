@@ -8,12 +8,16 @@ test("teacher dashboard syncs stored config without creating teacher student car
 
   assert.match(worker, /const config = await this\.state\.storage\.get\("config"\) \|\| null/);
   assert.match(worker, /type: "teacher_config_updated"/);
-  assert.match(worker, /config:\s*\{\s*level: nextLevel,\s*persona: nextPersona/s);
+  assert.match(worker, /const updatedAt = new Date\(\)\.toISOString\(\)/);
+  assert.match(worker, /config:\s*\{\s*level: nextLevel,\s*persona: nextPersona,\s*updatedAt/s);
 
   assert.equal(teacher.includes('updateSocketStatus("online");\n        sendTeacherConfig();'), false);
   assert.match(teacher, /if \(event\.config\) applyTeacherConfig\(event\.config\)/);
   assert.match(teacher, /if \(event\.type === "teacher_config_updated"\)[\s\S]*return;/);
   assert.match(teacher, /function applyTeacherConfig\(config\)/);
+  assert.match(teacher, /id="configStatus"/);
+  assert.match(teacher, /configStatusEl\.value = "저장 중/);
+  assert.match(teacher, /configStatusEl\.value = "적용됨/);
   assert.match(teacher, /history\.replaceState/);
   assert.match(teacher, /function buildRoomUrl\(path, includeToken = false\)/);
   assert.match(teacher, /function exportFilename\(kind, extension\)/);

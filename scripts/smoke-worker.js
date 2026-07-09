@@ -33,6 +33,7 @@ const checks = [
     return res.status === 200 &&
       body.includes("실시간 교실 관찰") &&
       body.includes("실시간 연결 재시도") &&
+      body.includes("설정 적용 상태") &&
       body.includes("학생 URL 복사") &&
       body.includes("교사용 URL 복사");
   }],

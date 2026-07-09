@@ -132,6 +132,9 @@ export const teacherHtml = `<!doctype html>
           <label>연결 상태
             <input id="socketStatus" value="connecting" readonly />
           </label>
+          <label>설정 적용 상태
+            <input id="configStatus" value="server sync 대기" readonly />
+          </label>
         </div>
         <div class="actions">
           <button id="reconnectSocket">실시간 연결 재시도</button>
@@ -159,6 +162,7 @@ export const teacherHtml = `<!doctype html>
     const chatEl = document.querySelector("#chat");
     const auditEl = document.querySelector("#audit");
     const statusEl = document.querySelector("#socketStatus");
+    const configStatusEl = document.querySelector("#configStatus");
     const roomStatusEl = document.querySelector("#roomStatus");
     const levelEl = document.querySelector("#level");
     const personaEl = document.querySelector("#persona");
@@ -235,6 +239,7 @@ export const teacherHtml = `<!doctype html>
 
     function sendTeacherConfig() {
       if (!socket || socket.readyState !== WebSocket.OPEN) return;
+      configStatusEl.value = "저장 중: Level " + levelEl.value;
       socket.send(JSON.stringify({ type: "teacher_config", level: levelEl.value, persona: personaEl.value }));
     }
 
@@ -321,6 +326,8 @@ export const teacherHtml = `<!doctype html>
     function applyTeacherConfig(config) {
       if (config.level) levelEl.value = String(config.level);
       if (config.persona) personaEl.value = config.persona;
+      const appliedAt = config.updatedAt ? new Date(config.updatedAt).toLocaleTimeString() : new Date().toLocaleTimeString();
+      configStatusEl.value = "적용됨: Level " + levelEl.value + " · " + appliedAt;
     }
 
     async function downloadJson(path, filename) {
