@@ -8,14 +8,14 @@ const checks = [
     id: "student-entry-no-login",
     evidence: ["src/ui/student.js", "src/worker.js"],
     run: async (files) =>
-      includesAll(files["src/ui/student.js"], ["이름을 입력하세요", "/api/join", "/api/chat", "roomId", "withRoom"]) &&
+      includesAll(files["src/ui/student.js"], ["이름을 입력하세요", "교사용 대시보드에 기록됩니다", "이름 외 개인정보는 입력하지 마세요", "/api/join", "/api/chat", "roomId", "withRoom"]) &&
       includesAll(files["src/worker.js"], ['url.pathname === "/"', 'url.pathname === "/api/join"', "normalizeRoomId"])
   },
   {
     id: "teacher-realtime-dashboard",
     evidence: ["src/ui/teacher.js", "src/worker.js"],
     run: async (files) =>
-      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot", "실시간 연결 재시도", "reconnectAttempts", "roomId", "withRoom", "applyTeacherConfig", "teacher_config_updated", "학생 URL 복사", "교사용 URL 복사", "history.replaceState", "latencyMs", "설정 적용 상태", "configStatus", "classSummary", "채팅턴"]) &&
+      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot", "실시간 연결 재시도", "reconnectAttempts", "roomId", "withRoom", "applyTeacherConfig", "teacher_config_updated", "학생 URL 복사", "교사용 URL 복사", "history.replaceState", "latencyMs", "blockedForStudent", "blockedMsg", "설정 적용 상태", "configStatus", "classSummary", "채팅턴"]) &&
       includesAll(files["src/worker.js"], ["WebSocketPair", "sendSnapshot", "broadcast", "getRoom(env, roomId)", "config"])
   },
   {
@@ -92,7 +92,7 @@ const checks = [
     id: "debrief-export-after-experiment",
     evidence: ["src/domain/session-export.js", "src/ui/teacher.js", "docs/experiment-policy.md"],
     run: async (files) =>
-      includesAll(files["src/domain/session-export.js"], ["buildDebriefRows", "buildDebriefCsv", "correctAnswer", "whyFalse", "roomId", "latencyMs", "averageLatencyMs", "lastChatAt", "lastLevel", "verificationPrompt", "debriefNote"]) &&
+      includesAll(files["src/domain/session-export.js"], ["buildDebriefRows", "buildDebriefCsv", "correctAnswer", "whyFalse", "roomId", "latencyMs", "blockedForStudent", "averageLatencyMs", "lastChatAt", "lastLevel", "verificationPrompt", "debriefNote"]) &&
       includesAll(files["src/ui/teacher.js"], ["/api/debrief", "/api/debrief.csv", "정정 수업 오류표", "exportFilename"]) &&
       includesAll(files["docs/experiment-policy.md"], ["정정 수업"])
   },

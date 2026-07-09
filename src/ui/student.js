@@ -51,6 +51,15 @@ export const studentHtml = `<!doctype html>
       letter-spacing: -.05em;
     }
     .sub { max-width: 680px; color: rgba(31, 35, 32, .72); }
+    .notice {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 1px dashed rgba(31, 35, 32, .22);
+      border-radius: 16px;
+      background: rgba(255, 250, 240, .58);
+      color: rgba(31, 35, 32, .70);
+      font-size: 13px;
+    }
     .join, .composer, .message, .panel {
       border: 1px solid var(--line);
       border-radius: 24px;
@@ -107,6 +116,7 @@ export const studentHtml = `<!doctype html>
     <header>
       <h1>질문의 온도</h1>
       <p class="sub">이순신 장군 AI 챗봇과 대화하면서, 임진왜란 당시 조선이 일본군의 침략을 막아낼 수 있었던 이유를 정리해봅시다.</p>
+      <p class="notice">수업 활동 관찰을 위해 이름, 질문, 답변, 접속 상태가 교사용 대시보드에 기록됩니다. 이름 외 개인정보는 입력하지 마세요.</p>
       <div class="toolbar">
         <span class="pill" id="status">입장 전</span>
         <span class="pill" id="roomStatus">room: default-classroom</span>

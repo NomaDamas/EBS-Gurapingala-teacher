@@ -39,20 +39,22 @@
 
 1. 교사는 `/teacher?room=<room>&token=<TEACHER_TOKEN>`으로 접속한다.
 2. 학생 역할 기기 2대 이상에서 `/?room=<room>`로 접속하고 이름만 입력해 입장한다.
-3. 교사용 화면의 `학생 URL 복사`, `교사용 URL 복사` 버튼으로 공유 링크를 확인한다.
-4. 교사용 token은 localStorage에 저장된 뒤 주소창에서 제거되는지 확인한다.
-5. 교사용 화면에서 학생 카드가 online으로 보이는지 확인한다.
-6. 교사용 화면에서 Level과 persona를 바꾸고 저장되는지 확인한다.
+3. 학생 화면에 이름·질문·답변·접속 상태가 교사용 대시보드에 기록된다는 고지가 보이는지 확인한다.
+4. 교사용 화면의 `학생 URL 복사`, `교사용 URL 복사` 버튼으로 공유 링크를 확인한다.
+5. 교사용 token은 localStorage에 저장된 뒤 주소창에서 제거되는지 확인한다.
+6. 교사용 화면에서 학생 카드가 online으로 보이는지 확인한다.
+7. 교사용 화면에서 Level과 persona를 바꾸고 저장되는지 확인한다.
    - WebSocket 문제가 있으면 교사용 token으로 `/api/config`를 호출해 같은 Level/persona 설정을 저장할 수 있다.
-7. 학생이 질문을 보내면 교사용 화면에서 다음이 실시간으로 보이는지 확인한다.
+8. 학생이 질문을 보내면 교사용 화면에서 다음이 실시간으로 보이는지 확인한다.
    - 학생 질문
    - 학생에게 보인 답변
    - `correctAnswer`
    - `falseClaim`
    - `whyFalse`
    - `preflight.verdict`
-8. 같은 학생 기기에서 “왜?”, “더 쉽게 말해줘” 같은 후속 질문을 보내고, 교사용 JSON의 `input.turnIndex`와 `input.recentContext`가 채워지는지 확인한다.
-9. 교사용 화면의 연결 상태가 `online`과 마지막 수신 시각을 표시하는지 확인하고, `실시간 연결 재시도` 버튼으로 WebSocket 재연결이 가능한지 확인한다.
+9. fail-closed 턴이 발생하면 학생 카드와 채팅 bubble에 blocked 표시가 붙고, debrief export의 `blockedForStudent`가 `true`로 남는지 확인한다.
+10. 같은 학생 기기에서 “왜?”, “더 쉽게 말해줘” 같은 후속 질문을 보내고, 교사용 JSON의 `input.turnIndex`와 `input.recentContext`가 채워지는지 확인한다.
+11. 교사용 화면의 연결 상태가 `online`과 마지막 수신 시각을 표시하는지 확인하고, `실시간 연결 재시도` 버튼으로 WebSocket 재연결이 가능한지 확인한다.
 
 ## 3. 촬영 중
 
@@ -75,6 +77,7 @@
    - `roomId`
    - `studentName`
    - `latencyMs`
+   - `blockedForStudent`
    - `question`
    - `studentVisibleAnswer`
    - `verificationPrompt`

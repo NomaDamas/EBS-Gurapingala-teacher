@@ -21,7 +21,11 @@ const env = {
 const checks = [
   ["student page loads", async () => {
     const res = await appFetch("https://example.com/");
-    return res.status === 200 && (await res.text()).includes("질문의 온도");
+    const body = await res.text();
+    return res.status === 200 &&
+      body.includes("질문의 온도") &&
+      body.includes("교사용 대시보드에 기록됩니다") &&
+      body.includes("이름 외 개인정보는 입력하지 마세요");
   }],
   ["teacher page requires token", async () => {
     const res = await appFetch("https://example.com/teacher");
@@ -37,6 +41,7 @@ const checks = [
       body.includes("채팅턴") &&
       body.includes("학생 URL 복사") &&
       body.includes("교사용 URL 복사") &&
+      body.includes("blockedForStudent") &&
       body.includes("x-purge-room");
   }],
   ["evaluation set exposes 50 turns", async () => {

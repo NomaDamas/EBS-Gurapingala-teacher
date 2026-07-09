@@ -108,6 +108,17 @@ export const teacherHtml = `<!doctype html>
     .bubble { border-radius: 18px; padding: 12px 14px; margin: 10px 0; max-width: 78%; white-space: pre-wrap; }
     .studentMsg { background: #1f2320; color: #fffaf0; margin-left: auto; }
     .botMsg { background: #fffaf0; border-left: 5px solid var(--accent); }
+    .blockedMsg { border-left-color: #8a3324; background: #fff1e6; }
+    .flag {
+      display: inline-block;
+      margin-left: 6px;
+      border-radius: 999px;
+      padding: 2px 7px;
+      background: rgba(182, 75, 43, .14);
+      color: #8a3324;
+      font-size: 11px;
+      font-weight: 700;
+    }
     pre {
       margin: 0;
       padding: 16px;
@@ -298,9 +309,10 @@ export const teacherHtml = `<!doctype html>
       current.updatedAt = new Date().toLocaleTimeString();
       if (event.type === "chat_turn") {
         current.messages.push({ role: "student", text: event.studentMessage });
-        current.messages.push({ role: "bot", text: event.studentVisibleAnswer });
+        current.messages.push({ role: "bot", text: event.studentVisibleAnswer, blockedForStudent: Boolean(event.blockedForStudent) });
         current.audit = event.teacherAudit;
         current.latencyMs = event.latencyMs;
+        current.blockedForStudent = Boolean(event.blockedForStudent);
         current.chatTurns = (current.chatTurns || 0) + 1;
       }
       sessions.set(event.sessionId, current);
@@ -322,7 +334,8 @@ export const teacherHtml = `<!doctype html>
         const dotClass = session.online ? "dot" : "dot offline";
         const state = session.online ? "online" : "offline";
         const latency = Number.isFinite(session.latencyMs) ? " · " + session.latencyMs + "ms" : "";
-        el.innerHTML = "<strong><span class='" + dotClass + "'></span>" + session.name + "</strong><small>" + state + " · " + session.updatedAt + " · " + session.lastEvent + latency + "</small>";
+        const blocked = session.blockedForStudent ? "<span class='flag'>blocked</span>" : "";
+        el.innerHTML = "<strong><span class='" + dotClass + "'></span>" + session.name + blocked + "</strong><small>" + state + " · " + session.updatedAt + " · " + session.lastEvent + latency + "</small>";
         el.addEventListener("click", () => {
           selected = id;
           renderStudents();
@@ -343,7 +356,7 @@ export const teacherHtml = `<!doctype html>
       chatEl.innerHTML = "";
       for (const message of session.messages) {
         const el = document.createElement("div");
-        el.className = "bubble " + (message.role === "student" ? "studentMsg" : "botMsg");
+        el.className = "bubble " + (message.role === "student" ? "studentMsg" : "botMsg") + (message.blockedForStudent ? " blockedMsg" : "");
         el.textContent = message.text;
         chatEl.appendChild(el);
       }
