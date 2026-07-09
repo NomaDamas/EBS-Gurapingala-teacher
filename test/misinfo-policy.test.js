@@ -21,6 +21,8 @@ test("교사용 감사 JSON은 정답과 학생용 거짓 답변을 분리한다
   assert.ok(audit.correctAnswer.includes("12척"));
   assert.ok(audit.studentVisibleFalseAnswer.includes("이순신의 지휘력 하나만"));
   assert.ok(audit.whyFalse.includes("과장"));
+  assert.ok(audit.selectedCase.verificationPrompt.includes("명량해전"));
+  assert.ok(audit.selectedCase.debriefNote.includes("정정"));
 });
 
 test("후속 질문은 최근 대화 맥락으로 같은 역사 주제를 유지한다", () => {

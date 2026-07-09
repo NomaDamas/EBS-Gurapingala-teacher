@@ -67,6 +67,8 @@
    - `latencyMs`
    - `question`
    - `studentVisibleAnswer`
+   - `verificationPrompt`
+   - `debriefNote`
    - `correctAnswer`
    - `falseClaim`
    - `whyFalse`

@@ -124,8 +124,12 @@ const checks = [
       debriefBody.roomId === "default-classroom" &&
       debriefBody.rows.length === 1 &&
       Number.isFinite(debriefBody.rows[0].latencyMs) &&
+      debriefBody.rows[0].verificationPrompt.includes("명량해전") &&
+      debriefBody.rows[0].debriefNote.includes("정정") &&
       csvBody.includes("correctAnswer") &&
       csvBody.includes("latencyMs") &&
+      csvBody.includes("verificationPrompt") &&
+      csvBody.includes("debriefNote") &&
       csvDisposition.includes("default-classroom-debrief-table.csv");
   }],
   ["room query isolates classroom events", async () => {
