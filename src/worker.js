@@ -2,6 +2,7 @@ import { normalizeLevel } from "./domain/misinfo-policy.js";
 import { generateAuditedAnswer } from "./domain/llm-provider.js";
 import { EVALUATION_SET_50 } from "./domain/evaluation-set.js";
 import { buildDebriefCsv, buildDebriefRows, buildExportPayload } from "./domain/session-export.js";
+import { buildSessionContext } from "./domain/session-context.js";
 import { isTeacherAuthorized, rateLimitDecision, unauthorized } from "./domain/security.js";
 import { studentHtml } from "./ui/student.js";
 import { teacherHtml } from "./ui/teacher.js";
@@ -86,13 +87,16 @@ export default {
         }, 429);
       }
       const config = await readConfig(room, env);
+      const events = await readEvents(room, env);
+      const sessionContext = buildSessionContext(events, body.sessionId);
       const level = normalizeLevel(config.level || env.DEFAULT_FALSE_LEVEL);
       const persona = config.persona || env.DEFAULT_PERSONA;
       const result = await generateAuditedAnswer({
         message: body.message,
         level,
         persona,
-        turnIndex: Number(body.turnIndex || 0),
+        turnIndex: sessionContext.turnIndex,
+        recentMessages: sessionContext.recentMessages,
         env
       });
       const { audit, answer } = result;

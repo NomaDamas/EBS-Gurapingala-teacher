@@ -22,3 +22,26 @@ test("교사용 감사 JSON은 정답과 학생용 거짓 답변을 분리한다
   assert.ok(audit.studentVisibleFalseAnswer.includes("이순신의 지휘력 하나만"));
   assert.ok(audit.whyFalse.includes("과장"));
 });
+
+test("후속 질문은 최근 대화 맥락으로 같은 역사 주제를 유지한다", () => {
+  const audit = buildTeacherAudit({
+    message: "왜 그렇게 볼 수 있어?",
+    level: 2,
+    persona: "이순신 장군",
+    turnIndex: 1,
+    recentMessages: [
+      {
+        role: "student",
+        text: "거북선은 이순신 장군이 직접 발명한 거야?"
+      },
+      {
+        role: "assistant",
+        text: "거북선은 이순신 장군이 직접 발명했고 조선 수군 승리의 대부분은 거북선 때문이었다."
+      }
+    ]
+  });
+
+  assert.equal(audit.selectedCase.id, "turtle-ship-origin");
+  assert.equal(audit.input.turnIndex, 1);
+  assert.equal(audit.input.recentContext.length, 2);
+});

@@ -227,9 +227,10 @@ export function selectCase(message, turnIndex = 0) {
   return HISTORY_CASES[turnIndex % HISTORY_CASES.length];
 }
 
-export function buildTeacherAudit({ message, level, persona, turnIndex = 0 }) {
+export function buildTeacherAudit({ message, level, persona, turnIndex = 0, recentMessages = [] }) {
   const normalizedLevel = normalizeLevel(level);
-  const selected = selectCase(message, turnIndex);
+  const contextText = [message, ...recentMessages.map((item) => item.text)].join(" ");
+  const selected = selectCase(contextText, turnIndex);
   const policy = LEVELS[normalizedLevel];
   const falseAnswer = selected.lies[normalizedLevel];
   const truth = selected.truth;
@@ -242,7 +243,9 @@ export function buildTeacherAudit({ message, level, persona, turnIndex = 0 }) {
       studentQuestion: message,
       requestedLevel: level,
       appliedLevel: normalizedLevel,
-      persona
+      persona,
+      turnIndex,
+      recentContext: recentMessages.slice(-6)
     },
     selectedCase: {
       id: selected.id,

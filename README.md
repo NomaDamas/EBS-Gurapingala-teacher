@@ -19,6 +19,7 @@ EBS 다큐프라임 `<생각의 멸종>` 실험용 학생/교사용 AI 챗봇입
 - Level 1-4 거짓정보 정책
 - 정답, 거짓 답변, 거짓 근거, Level 적합성 검수 JSON 생성
 - OpenAI Responses API JSON schema 생성 및 3회 재검수 루프
+- 서버 이벤트 로그 기반 멀티턴 맥락 유지: 학생 후속 질문도 같은 세션의 최근 대화를 prompt와 감사 JSON에 반영
 - 50턴 역사 도메인 평가 세트 포함
 - Cloudflare Workers + Durable Objects WebSocket 구조
 

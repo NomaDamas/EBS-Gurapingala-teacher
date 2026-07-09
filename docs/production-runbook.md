@@ -35,6 +35,7 @@
    - `falseClaim`
    - `whyFalse`
    - `preflight.verdict`
+6. 같은 학생 기기에서 “왜?”, “더 쉽게 말해줘” 같은 후속 질문을 보내고, 교사용 JSON의 `input.turnIndex`와 `input.recentContext`가 채워지는지 확인한다.
 
 ## 3. 촬영 중
 

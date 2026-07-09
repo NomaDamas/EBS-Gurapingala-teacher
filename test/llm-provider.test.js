@@ -22,6 +22,12 @@ test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로
     message: "명량해전에서 몇 척으로 싸웠어?",
     level: 2,
     persona: "이순신 장군",
+    recentMessages: [
+      {
+        role: "student",
+        text: "명량해전이 왜 중요해?"
+      }
+    ],
     env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-test" },
     fetchImpl: async (url, init) => {
       fetchCalls.push({ url, init });
@@ -38,9 +44,11 @@ test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로
   });
 
   assert.equal(fetchCalls.length, 1);
+  assert.ok(JSON.parse(fetchCalls[0].init.body).input[1].content.includes("Recent same-student conversation"));
   assert.equal(result.audit.provider.name, "openai");
   assert.equal(result.audit.provider.model, "gpt-test");
   assert.equal(result.audit.preflight.approvedForStudent, true);
+  assert.equal(result.audit.input.recentContext.length, 1);
   assert.ok(result.answer.includes("지휘력 하나만"));
 });
 

@@ -16,13 +16,20 @@ export async function generateAuditedAnswer({
   level,
   persona,
   turnIndex = 0,
+  recentMessages = [],
   env = {},
   fetchImpl = fetch
 }) {
   const normalizedLevel = normalizeLevel(level);
 
   if (!env.OPENAI_API_KEY || env.LLM_PROVIDER === "rules") {
-    const fallbackAudit = buildTeacherAudit({ message, level: normalizedLevel, persona, turnIndex });
+    const fallbackAudit = buildTeacherAudit({
+      message,
+      level: normalizedLevel,
+      persona,
+      turnIndex,
+      recentMessages
+    });
     return {
       audit: withProviderMetadata(fallbackAudit, {
         provider: "rules",
@@ -45,6 +52,7 @@ export async function generateAuditedAnswer({
         level: normalizedLevel,
         persona,
         turnIndex,
+        recentMessages,
         previousFailures: failures,
         fetchImpl
       });
@@ -54,6 +62,7 @@ export async function generateAuditedAnswer({
         level: normalizedLevel,
         persona,
         turnIndex,
+        recentMessages,
         attempt,
         model: env.OPENAI_MODEL || DEFAULT_MODEL
       });
@@ -84,13 +93,15 @@ export async function generateAuditedAnswer({
     level: normalizedLevel,
     persona,
     turnIndex,
+    recentMessages,
     model: env.OPENAI_MODEL || DEFAULT_MODEL,
     failures
   });
 }
 
-export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, attempt, model }) {
-  const selected = selectCase(message, turnIndex);
+export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, recentMessages = [], attempt, model }) {
+  const contextText = [message, ...recentMessages.map((item) => item.text)].join(" ");
+  const selected = selectCase(contextText, turnIndex);
   const correctAnswer = cleanString(draft.correct_answer);
   const falseClaim = cleanString(draft.false_answer);
   const falseBasis = cleanString(draft.false_basis || draft.level_fit_reason);
@@ -112,7 +123,9 @@ export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, a
       studentQuestion: message,
       requestedLevel: level,
       appliedLevel: level,
-      persona
+      persona,
+      turnIndex,
+      recentContext: recentMessages.slice(-6)
     },
     selectedCase: {
       id: selected.id,
@@ -147,8 +160,9 @@ export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, a
   };
 }
 
-function buildFailedAudit({ message, level, persona, turnIndex, model, failures }) {
-  const selected = selectCase(message, turnIndex);
+function buildFailedAudit({ message, level, persona, turnIndex, recentMessages = [], model, failures }) {
+  const contextText = [message, ...recentMessages.map((item) => item.text)].join(" ");
+  const selected = selectCase(contextText, turnIndex);
   return {
     audit: {
       schemaVersion: "misinfo-audit/v1",
@@ -156,7 +170,9 @@ function buildFailedAudit({ message, level, persona, turnIndex, model, failures 
         studentQuestion: message,
         requestedLevel: level,
         appliedLevel: level,
-        persona
+        persona,
+        turnIndex,
+        recentContext: recentMessages.slice(-6)
       },
       selectedCase: {
         id: selected.id,
@@ -188,8 +204,9 @@ function buildFailedAudit({ message, level, persona, turnIndex, model, failures 
   };
 }
 
-async function callOpenAI({ apiKey, model, message, level, persona, turnIndex, previousFailures, fetchImpl }) {
-  const selected = selectCase(message, turnIndex);
+async function callOpenAI({ apiKey, model, message, level, persona, turnIndex, recentMessages, previousFailures, fetchImpl }) {
+  const contextText = [message, ...recentMessages.map((item) => item.text)].join(" ");
+  const selected = selectCase(contextText, turnIndex);
   const response = await fetchImpl(OPENAI_RESPONSES_URL, {
     method: "POST",
     headers: {
@@ -205,7 +222,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, turnIndex, p
         },
         {
           role: "user",
-          content: buildUserPrompt({ message, level, selected, previousFailures })
+          content: buildUserPrompt({ message, level, selected, recentMessages, previousFailures })
         }
       ],
       text: {
@@ -241,9 +258,12 @@ function buildSystemPrompt({ level, persona }) {
   ].join("\n");
 }
 
-function buildUserPrompt({ message, level, selected, previousFailures }) {
+function buildUserPrompt({ message, level, selected, recentMessages, previousFailures }) {
   return [
     `Student question: ${message}`,
+    recentMessages?.length
+      ? `Recent same-student conversation: ${JSON.stringify(recentMessages.slice(-6))}`
+      : "Recent same-student conversation: none",
     `Historical topic seed: ${selected.topic}`,
     `Known correct baseline: ${selected.truth}`,
     `Requested falsehood level: ${level}`,
