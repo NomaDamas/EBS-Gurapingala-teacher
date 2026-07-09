@@ -1,6 +1,7 @@
 import { normalizeLevel } from "./domain/misinfo-policy.js";
 import { generateAuditedAnswer } from "./domain/llm-provider.js";
 import { EVALUATION_SET_50 } from "./domain/evaluation-set.js";
+import { buildDebriefRows, buildExportPayload } from "./domain/session-export.js";
 import { studentHtml } from "./ui/student.js";
 import { teacherHtml } from "./ui/teacher.js";
 
@@ -20,12 +21,37 @@ export default {
     if (url.pathname === "/api/evaluation-set") {
       return json({ items: EVALUATION_SET_50 });
     }
+    if (url.pathname === "/api/export") {
+      const events = await readEvents(room);
+      return json(buildExportPayload(events));
+    }
+    if (url.pathname === "/api/debrief") {
+      const events = await readEvents(room);
+      return json({
+        schemaVersion: "debrief-table/v1",
+        generatedAt: new Date().toISOString(),
+        rows: buildDebriefRows(events)
+      });
+    }
     if (url.pathname === "/api/join" && request.method === "POST") {
       const body = await request.json();
-      await room.fetch("https://room.local/broadcast", {
+      await room.fetch("https://room.local/event", {
         method: "POST",
         body: JSON.stringify({
           type: "student_joined",
+          sessionId: body.sessionId,
+          studentName: body.studentName,
+          at: new Date().toISOString()
+        })
+      });
+      return json({ ok: true });
+    }
+    if (url.pathname === "/api/heartbeat" && request.method === "POST") {
+      const body = await request.json();
+      await room.fetch("https://room.local/event", {
+        method: "POST",
+        body: JSON.stringify({
+          type: "student_heartbeat",
           sessionId: body.sessionId,
           studentName: body.studentName,
           at: new Date().toISOString()
@@ -51,7 +77,7 @@ export default {
         return json({ error: "Preflight failed", audit }, 422);
       }
 
-      await room.fetch("https://room.local/broadcast", {
+      await room.fetch("https://room.local/event", {
         method: "POST",
         body: JSON.stringify({
           type: "chat_turn",
@@ -93,6 +119,7 @@ export class ClassroomRoom {
       const [client, server] = Object.values(pair);
       server.accept();
       this.sessions.add(server);
+      this.sendSnapshot(server);
       server.addEventListener("message", async (event) => {
         const data = safeJson(event.data);
         if (data?.type === "teacher_config") {
@@ -108,10 +135,14 @@ export class ClassroomRoom {
       server.addEventListener("error", () => this.sessions.delete(server));
       return new Response(null, { status: 101, webSocket: client });
     }
-    if (url.pathname === "/broadcast" && request.method === "POST") {
+    if (url.pathname === "/event" && request.method === "POST") {
       const event = await request.json();
+      await this.recordEvent(event);
       this.broadcast(event);
       return new Response("ok");
+    }
+    if (url.pathname === "/events") {
+      return json(await this.state.storage.get("events") || []);
     }
     if (url.pathname === "/config") {
       const config = await this.state.storage.get("config");
@@ -130,6 +161,27 @@ export class ClassroomRoom {
       }
     }
   }
+
+  async recordEvent(event) {
+    const events = await this.state.storage.get("events") || [];
+    events.push(event);
+    await this.state.storage.put("events", events.slice(-1000));
+  }
+
+  async sendSnapshot(socket) {
+    try {
+      const events = await this.state.storage.get("events") || [];
+      socket.send(JSON.stringify({
+        type: "snapshot",
+        sessionId: "teacher",
+        studentName: "teacher",
+        events,
+        at: new Date().toISOString()
+      }));
+    } catch {
+      this.sessions.delete(socket);
+    }
+  }
 }
 
 function getRoom(env) {
@@ -144,6 +196,11 @@ async function readConfig(room, env) {
     level: config.level || env.DEFAULT_FALSE_LEVEL,
     persona: config.persona || env.DEFAULT_PERSONA
   };
+}
+
+async function readEvents(room) {
+  const res = await room.fetch("https://room.local/events");
+  return await res.json();
 }
 
 function html(body) {

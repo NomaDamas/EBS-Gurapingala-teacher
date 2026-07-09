@@ -32,6 +32,8 @@ npm run deploy
 - 학생용: `https://<worker-domain>/`
 - 교사용: `https://<worker-domain>/teacher`
 - 평가 세트: `https://<worker-domain>/api/evaluation-set`
+- 전체 로그 export: `https://<worker-domain>/api/export`
+- 정정 수업 오류표: `https://<worker-domain>/api/debrief`
 
 ## 5. 운영 전 필수 보강
 

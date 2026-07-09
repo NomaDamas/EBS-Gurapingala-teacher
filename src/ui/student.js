@@ -151,10 +151,21 @@ export const studentHtml = `<!doctype html>
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sessionId, studentName })
       });
+      sendHeartbeat();
+      setInterval(sendHeartbeat, 15000);
       join.classList.add("hidden");
       form.classList.remove("hidden");
       status.textContent = studentName + " online";
       addMessage("bot", "안녕. 임진왜란과 이순신 장군에 대해 궁금한 점을 물어봐.");
+    }
+
+    function sendHeartbeat() {
+      if (!studentName) return;
+      fetch("/api/heartbeat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId, studentName })
+      }).catch(() => {});
     }
 
     document.querySelector("#joinBtn").addEventListener("click", joinClass);

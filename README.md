@@ -8,6 +8,8 @@ EBS 다큐프라임 `<생각의 멸종>` 실험용 학생/교사용 AI 챗봇입
 - 교사용 대시보드 URL: `/teacher`
 - 학생은 이름만 입력하고 입장
 - 교사는 학생 카드와 실시간 채팅 텔레메트리 확인
+- 교사는 전체 로그 JSON과 정정 수업용 오류표 export 가능
+- 학생 heartbeat 기반 online/offline 표시
 - Level 1-4 거짓정보 정책
 - 정답, 거짓 답변, 거짓 근거, Level 적합성 검수 JSON 생성
 - OpenAI Responses API JSON schema 생성 및 3회 재검수 루프

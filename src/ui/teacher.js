@@ -50,8 +50,9 @@ export const teacherHtml = `<!doctype html>
       letter-spacing: -.05em;
     }
     .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
     label { display: grid; gap: 6px; font-size: 13px; color: rgba(24,32,28,.66); }
-    input, select, textarea {
+    input, select, textarea, button {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 14px;
@@ -60,6 +61,15 @@ export const teacherHtml = `<!doctype html>
       background: #fffaf0;
       color: var(--ink);
     }
+    button {
+      width: auto;
+      border: 0;
+      background: var(--ink);
+      color: #fffaf0;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    button.secondary { background: var(--accent); }
     textarea { min-height: 74px; resize: vertical; }
     .student {
       padding: 13px;
@@ -76,6 +86,10 @@ export const teacherHtml = `<!doctype html>
       background: var(--green);
       box-shadow: 0 0 0 5px rgba(79,111,56,.14);
       margin-right: 8px;
+    }
+    .dot.offline {
+      background: #9b9a91;
+      box-shadow: 0 0 0 5px rgba(155,154,145,.16);
     }
     .layout { display: grid; grid-template-rows: auto 1fr; gap: 18px; min-width: 0; }
     .panes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, .85fr); gap: 18px; min-height: 0; }
@@ -121,6 +135,10 @@ export const teacherHtml = `<!doctype html>
         <label style="margin-top:10px">페르소나 시스템 프롬프트
           <textarea id="persona">이순신 장군처럼 말하되, 학생에게 친절한 역사 수업 도우미처럼 답한다.</textarea>
         </label>
+        <div class="actions">
+          <button id="downloadExport">전체 로그 JSON</button>
+          <button class="secondary" id="downloadDebrief">정정 수업 오류표</button>
+        </div>
       </header>
       <div class="panes">
         <section id="chat"><div class="empty">학생 카드를 클릭하면 대화가 표시됩니다.</div></section>
@@ -135,6 +153,8 @@ export const teacherHtml = `<!doctype html>
     const statusEl = document.querySelector("#socketStatus");
     const levelEl = document.querySelector("#level");
     const personaEl = document.querySelector("#persona");
+    const downloadExportEl = document.querySelector("#downloadExport");
+    const downloadDebriefEl = document.querySelector("#downloadDebrief");
     const sessions = new Map();
     let selected = null;
 
@@ -154,10 +174,15 @@ export const teacherHtml = `<!doctype html>
     }
 
     function handleTelemetry(event) {
+      if (event.type === "snapshot") {
+        for (const item of event.events || []) handleTelemetry(item);
+        return;
+      }
       if (!event.sessionId) return;
       const current = sessions.get(event.sessionId) || { messages: [], name: event.studentName || "이름 없음", online: true };
       current.name = event.studentName || current.name;
-      current.online = true;
+      current.lastSeenMs = event.at ? Date.parse(event.at) : Date.now();
+      current.online = Date.now() - current.lastSeenMs < 35000;
       current.lastEvent = event.type;
       current.updatedAt = new Date().toLocaleTimeString();
       if (event.type === "chat_turn") {
@@ -174,9 +199,12 @@ export const teacherHtml = `<!doctype html>
     function renderStudents() {
       studentsEl.innerHTML = "";
       for (const [id, session] of sessions) {
+        session.online = Date.now() - (session.lastSeenMs || 0) < 35000;
         const el = document.createElement("article");
         el.className = "student" + (id === selected ? " active" : "");
-        el.innerHTML = "<strong><span class='dot'></span>" + session.name + "</strong><small>" + session.updatedAt + " · " + session.lastEvent + "</small>";
+        const dotClass = session.online ? "dot" : "dot offline";
+        const state = session.online ? "online" : "offline";
+        el.innerHTML = "<strong><span class='" + dotClass + "'></span>" + session.name + "</strong><small>" + state + " · " + session.updatedAt + " · " + session.lastEvent + "</small>";
         el.addEventListener("click", () => {
           selected = id;
           renderStudents();
@@ -199,7 +227,22 @@ export const teacherHtml = `<!doctype html>
       auditEl.textContent = session.audit ? JSON.stringify(session.audit, null, 2) : "입장 이벤트만 수신됨";
     }
 
+    async function downloadJson(path, filename) {
+      const res = await fetch(path);
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
     connect();
+    setInterval(renderStudents, 5000);
+    downloadExportEl.addEventListener("click", () => downloadJson("/api/export", "classroom-export.json"));
+    downloadDebriefEl.addEventListener("click", () => downloadJson("/api/debrief", "debrief-table.json"));
   </script>
 </body>
 </html>`;
