@@ -293,8 +293,15 @@ export const teacherHtml = `<!doctype html>
 
     function handleTelemetry(event) {
       if (event.type === "snapshot") {
+        const previousSelected = selected;
+        sessions.clear();
+        selected = null;
         if (event.config) applyTeacherConfig(event.config);
         for (const item of event.events || []) handleTelemetry(item);
+        if (previousSelected && sessions.has(previousSelected)) selected = previousSelected;
+        renderStudents();
+        if (selected) renderSelected();
+        else renderEmptyChat("학생 카드를 클릭하면 대화가 표시됩니다.");
         return;
       }
       if (event.type === "teacher_config_updated") {
@@ -314,6 +321,10 @@ export const teacherHtml = `<!doctype html>
       }
       if (event.type === "events_purged") {
         auditEl.textContent = JSON.stringify(event, null, 2);
+        sessions.clear();
+        selected = null;
+        renderStudents();
+        renderEmptyChat("촬영 로그가 삭제되었습니다.");
         return;
       }
       if (!event.sessionId) return;

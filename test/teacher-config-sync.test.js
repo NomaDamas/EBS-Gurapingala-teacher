@@ -26,6 +26,8 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /if \(event\.config\) applyTeacherConfig\(event\.config\)/);
   assert.match(teacher, /if \(event\.type === "teacher_config_updated"\)[\s\S]*return;/);
   assert.match(teacher, /if \(event\.type === "teacher_config_rejected"\)[\s\S]*return;/);
+  assert.match(teacher, /if \(event\.type === "snapshot"\)[\s\S]*sessions\.clear\(\);[\s\S]*selected = null;[\s\S]*for \(const item of event\.events \|\| \[\]\) handleTelemetry\(item\);[\s\S]*if \(previousSelected && sessions\.has\(previousSelected\)\) selected = previousSelected;[\s\S]*return;/);
+  assert.match(teacher, /if \(event\.type === "events_purged"\)[\s\S]*sessions\.clear\(\);[\s\S]*selected = null;[\s\S]*renderEmptyChat\("촬영 로그가 삭제되었습니다\."\);[\s\S]*return;/);
   assert.match(teacher, /function applyTeacherConfig\(config\)/);
   assert.match(teacher, /async function sendTeacherConfig\(\)/);
   assert.match(teacher, /await postTeacherConfig\(payload\)/);
