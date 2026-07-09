@@ -72,10 +72,10 @@ npm run deploy
 배포 후 실제 Worker URL을 검증한다.
 
 ```bash
-WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true npm run verify:deploy
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true EXPECTED_OPENAI_MODEL=gpt-5.5 npm run verify:deploy
 ```
 
-이 검증은 학생 페이지, `/api/health`, 50턴 평가 endpoint, `/api/join`과 `/api/chat`, `/teacher` 보호 여부, token 기반 교사용 접속, export telemetry, purge 정리를 확인한다. 교사용 API 검증은 URL query token이 아니라 `x-teacher-token` header를 사용해 token이 검증 URL에 남지 않게 한다. `REQUIRE_OPENAI=true`를 주면 `/api/health`의 `provider=openai`와 `openaiConfigured=true`도 강제해 촬영 배포가 rules fallback으로 뜨는 것을 막는다. `TEACHER_TOKEN`을 생략하면 교사용 token 접속·export·purge 확인은 건너뛰고 보호 정책 상태만 점검한다.
+이 검증은 학생 페이지, `/api/health`, 50턴 평가 endpoint, `/api/join`과 `/api/chat`, `/teacher` 보호 여부, token 기반 교사용 접속, export telemetry, purge 정리를 확인한다. 교사용 API 검증은 URL query token이 아니라 `x-teacher-token` header를 사용해 token이 검증 URL에 남지 않게 한다. `REQUIRE_OPENAI=true`를 주면 `/api/health`의 `provider=openai`와 `openaiConfigured=true`도 강제해 촬영 배포가 rules fallback으로 뜨는 것을 막는다. `EXPECTED_OPENAI_MODEL`을 주면 `/api/health.openaiModel`이 촬영 기대 모델과 일치하는지도 확인한다. `TEACHER_TOKEN`을 생략하면 교사용 token 접속·export·purge 확인은 건너뛰고 보호 정책 상태만 점검한다.
 
 촬영 배포에서는 `REQUIRE_TEACHER_TOKEN=true`도 함께 사용한다. 이 값이 있으면 `TEACHER_TOKEN`이 비어 있거나 `/api/health`의 `teacherProtected`가 `false`인 배포는 실패 처리된다.
 
@@ -110,8 +110,9 @@ GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 | `VERIFY_ROOM` | 배포 후 검증 전용 room. 기본값 `deploy-verify`; 실제 촬영방 금지 |
 | `REQUIRE_OPENAI` | 배포 후 OpenAI provider 강제 여부. workflow 기본값은 `true`; rehearsal에서 rules fallback을 의도할 때만 `false` |
 | `REQUIRE_TEACHER_TOKEN` | 배포 후 교사용 token 보호 강제 여부. workflow 기본값은 `true`; 로컬 공개 리허설에서만 `false` |
+| `EXPECTED_OPENAI_MODEL` | 배포 후 `/api/health.openaiModel` 기대값. workflow 기본값은 `gpt-5.5` |
 
-수동 배포 workflow도 Node.js 22에서 `package-lock.json` 기반 `npm ci`로 의존성을 설치한 뒤 `node --test`, `node scripts/run-eval.js`, `node scripts/readiness-audit.js`, `node scripts/smoke-worker.js`를 통과하고 `npx wrangler deploy`를 실행한다. production environment에서는 `WORKER_HEALTH_URL`이 비어 있으면 배포 전에 실패한다. 값은 `https://<worker-domain>` 또는 `https://<worker-domain>/api/health` 어느 쪽이어도 된다. workflow는 기본적으로 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`로 실제 배포 URL을 검증한다.
+수동 배포 workflow도 Node.js 22에서 `package-lock.json` 기반 `npm ci`로 의존성을 설치한 뒤 `node --test`, `node scripts/run-eval.js`, `node scripts/readiness-audit.js`, `node scripts/smoke-worker.js`를 통과하고 `npx wrangler deploy`를 실행한다. production environment에서는 `WORKER_HEALTH_URL`이 비어 있으면 배포 전에 실패한다. 값은 `https://<worker-domain>` 또는 `https://<worker-domain>/api/health` 어느 쪽이어도 된다. workflow는 기본적으로 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`, `EXPECTED_OPENAI_MODEL=gpt-5.5`로 실제 배포 URL을 검증한다.
 
 ## 5. URL
 

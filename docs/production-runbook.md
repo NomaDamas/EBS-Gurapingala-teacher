@@ -26,10 +26,11 @@
    - `ok`가 `true`인지 확인한다.
    - `teacherProtected`가 `true`인지 확인한다.
    - `openaiConfigured`가 의도한 값인지 확인한다.
+   - `openaiModel`이 촬영에 사용할 모델과 일치하는지 확인한다.
    - `chatRateLimitPerMinute`, `eventTtlHours`가 촬영 규모에 맞는지 확인한다.
    - 응답 헤더의 `cache-control: no-store`, `x-content-type-options: nosniff`, `referrer-policy: no-referrer`를 확인한다.
 7. 배포 URL 전체 검증을 실행한다.
-   - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true npm run verify:deploy`
+   - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXPECTED_OPENAI_MODEL=gpt-5.5 npm run verify:deploy`
    - 학생 페이지, health, OpenAI provider 설정, 평가 세트, 학생 join/chat, 교사용 보호, token 접속, export telemetry, purge 정리가 모두 통과해야 한다.
    - export, debrief, purge, full evaluation API 검증은 URL query token 대신 `x-teacher-token` header로 수행되어야 한다.
    - `verify:deploy`는 `/api/purge`를 호출하므로 실제 촬영방 room을 쓰지 않는다. 검증 전용 room은 `deploy-verify` 또는 `deploy-verify-<suffix>`로만 둔다.

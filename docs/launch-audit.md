@@ -59,6 +59,7 @@ WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=dep
 | 위험 | 대응 |
 |---|---|
 | 실제 LLM provider가 촬영 중 rules fallback으로 동작 | `REQUIRE_OPENAI=true npm run verify:deploy`와 `/api/health`의 `provider=openai` 확인 |
+| 촬영 기대 모델이 아닌 다른 OpenAI 모델로 배포 | `/api/health.openaiModel`, `EXPECTED_OPENAI_MODEL` deploy verification |
 | production Deploy workflow가 실제 URL 검증을 건너뜀 | production에서 `WORKER_HEALTH_URL`이 비어 있으면 배포 전에 실패 |
 | 촬영 당일 새 wrangler/의존성으로 동작이 달라짐 | Node.js 22와 `package-lock.json` 기반 `npm ci`로 CI/Deploy 의존성을 고정 |
 | GitHub Deploy workflow가 로컬 검증과 다른 조건으로 배포 | workflow 기본 배포 후 검증은 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`로 실행 |

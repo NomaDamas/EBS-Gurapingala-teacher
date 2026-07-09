@@ -7,7 +7,7 @@ import {
 } from "./misinfo-policy.js";
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
-const DEFAULT_MODEL = "gpt-5.5";
+export const DEFAULT_OPENAI_MODEL = "gpt-5.5";
 const MAX_ATTEMPTS = 3;
 const RETRY_STUDENT_MESSAGE = "답변을 다시 점검해야 해. 질문을 한 번만 더 다르게 물어봐 줄래?";
 
@@ -47,7 +47,7 @@ export async function generateAuditedAnswer({
     try {
       const draft = await callOpenAI({
         apiKey: env.OPENAI_API_KEY,
-        model: env.OPENAI_MODEL || DEFAULT_MODEL,
+        model: env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
         message,
         level: normalizedLevel,
         persona,
@@ -64,7 +64,7 @@ export async function generateAuditedAnswer({
         turnIndex,
         recentMessages,
         attempt,
-        model: env.OPENAI_MODEL || DEFAULT_MODEL
+        model: env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL
       });
       if (audit.preflight.approvedForStudent) {
         return {
@@ -94,7 +94,7 @@ export async function generateAuditedAnswer({
     persona,
     turnIndex,
     recentMessages,
-    model: env.OPENAI_MODEL || DEFAULT_MODEL,
+    model: env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
     failures
   });
 }

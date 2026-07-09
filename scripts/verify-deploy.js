@@ -4,6 +4,7 @@ const filmingRoomId = normalizeRoomId(process.env.WORKER_ROOM || "");
 const verifyRoomId = normalizeRoomId(process.env.VERIFY_ROOM || "deploy-verify");
 const requireOpenAI = process.env.REQUIRE_OPENAI === "true";
 const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN === "true";
+const expectedOpenAIModel = process.env.EXPECTED_OPENAI_MODEL || "";
 const allowUnsafePurge = process.env.ALLOW_PURGE_FILMING_ROOM === "true";
 const verifySessionId = `${verifyRoomId}-session-${Date.now()}`;
 
@@ -44,6 +45,7 @@ const checks = [
     return res.status === 200 &&
       body.ok === true &&
       typeof body.openaiConfigured === "boolean" &&
+      typeof body.openaiModel === "string" &&
       typeof body.teacherProtected === "boolean" &&
       JSON.stringify(body).includes("OPENAI_API_KEY") === false &&
       JSON.stringify(body).includes(teacherToken || "__no_token__") === false;
@@ -55,6 +57,13 @@ const checks = [
     return res.status === 200 &&
       body.openaiConfigured === true &&
       body.provider === "openai";
+  }],
+  ["OpenAI model matches expectation when provided", async () => {
+    if (!expectedOpenAIModel) return true;
+    const res = await fetchUrl("/api/health");
+    const body = await res.json();
+    return res.status === 200 &&
+      body.openaiModel === expectedOpenAIModel;
   }],
   ["teacher token is configured when required", async () => {
     if (!requireTeacherToken) return true;

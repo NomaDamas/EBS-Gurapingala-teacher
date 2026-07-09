@@ -1,5 +1,5 @@
 import { normalizeLevel } from "./domain/misinfo-policy.js";
-import { generateAuditedAnswer } from "./domain/llm-provider.js";
+import { DEFAULT_OPENAI_MODEL, generateAuditedAnswer } from "./domain/llm-provider.js";
 import { EVALUATION_SET_50, PUBLIC_EVALUATION_SET_50 } from "./domain/evaluation-set.js";
 import { buildDebriefCsv, buildDebriefRows, buildExportPayload } from "./domain/session-export.js";
 import { buildSessionContext } from "./domain/session-context.js";
@@ -344,6 +344,7 @@ function buildHealthPayload(env) {
     schemaVersion: "health/v1",
     ok: true,
     provider: env.OPENAI_API_KEY && env.LLM_PROVIDER !== "rules" ? "openai" : "rules",
+    openaiModel: env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
     openaiConfigured: Boolean(env.OPENAI_API_KEY),
     teacherProtected: Boolean(env.TEACHER_TOKEN),
     defaultFalseLevel: Number(env.DEFAULT_FALSE_LEVEL || 2),
