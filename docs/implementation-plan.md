@@ -97,7 +97,7 @@ Acceptance:
 Main goal: 검증된 채팅 UI 패턴을 참고하되 방송 촬영에 적합한 교실 관찰 UI로 만든다.
 
 Reference:
-- Vercel AI Chatbot: https://github.com/vercel/ai-chatbot
+- Vercel Chatbot: https://github.com/vercel/chatbot
 - Chatbot UI: https://github.com/mckaywrigley/chatbot-ui
 - NextChat: https://github.com/ChatGPTNextWeb/NextChat
 
