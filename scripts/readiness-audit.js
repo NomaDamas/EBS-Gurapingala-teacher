@@ -29,7 +29,7 @@ const checks = [
     evidence: ["src/domain/misinfo-policy.js", "src/domain/llm-provider.js"],
     run: async (files) =>
       includesAll(files["src/domain/misinfo-policy.js"], ["correctAnswer", "falseClaim", "whyFalse", "studentVisibleFalseAnswer", "verificationPrompt", "debriefNote"]) &&
-      includesAll(files["src/domain/llm-provider.js"], ["correct_answer", "false_answer", "false_basis", "level_fit_reason", "student_answer"])
+      includesAll(files["src/domain/llm-provider.js"], ["correct_answer", "false_answer", "false_basis", "level_fit_reason", "student_answer", "verificationPrompt", "debriefNote"])
   },
   {
     id: "preflight-and-regeneration",

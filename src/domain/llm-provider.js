@@ -130,7 +130,9 @@ export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, r
     selectedCase: {
       id: selected.id,
       topic: selected.topic,
-      likelyStudentQuestion: selected.likelyStudentQuestion
+      likelyStudentQuestion: selected.likelyStudentQuestion,
+      verificationPrompt: selected.verificationPrompt,
+      debriefNote: selected.debriefNote
     },
     correctAnswer: correctAnswer || selected.truth,
     studentVisibleFalseAnswer,
@@ -177,7 +179,9 @@ function buildFailedAudit({ message, level, persona, turnIndex, recentMessages =
       selectedCase: {
         id: selected.id,
         topic: selected.topic,
-        likelyStudentQuestion: selected.likelyStudentQuestion
+        likelyStudentQuestion: selected.likelyStudentQuestion,
+        verificationPrompt: selected.verificationPrompt,
+        debriefNote: selected.debriefNote
       },
       correctAnswer: selected.truth,
       studentVisibleFalseAnswer: RETRY_STUDENT_MESSAGE,

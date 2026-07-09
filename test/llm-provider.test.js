@@ -49,6 +49,8 @@ test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로
   assert.equal(result.audit.provider.model, "gpt-test");
   assert.equal(result.audit.preflight.approvedForStudent, true);
   assert.equal(result.audit.input.recentContext.length, 1);
+  assert.ok(result.audit.selectedCase.verificationPrompt.includes("명량해전"));
+  assert.ok(result.audit.selectedCase.debriefNote.includes("정정"));
   assert.ok(result.answer.includes("지휘력 하나만"));
 });
 
@@ -76,6 +78,8 @@ test("LLM 응답이 검수를 실패하면 3회 재시도 후 fail-closed 재질
   assert.equal(calls, 3);
   assert.equal(result.shouldSendToStudent, true);
   assert.equal(result.audit.preflight.verdict, "FAIL_CLOSED_AFTER_RETRIES");
+  assert.ok(result.audit.selectedCase.verificationPrompt.includes("임진왜란"));
+  assert.ok(result.audit.selectedCase.debriefNote.includes("정정"));
   assert.ok(result.answer.includes("다시"));
 });
 
