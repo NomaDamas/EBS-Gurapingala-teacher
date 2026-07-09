@@ -90,6 +90,24 @@ const checks = [
     const res = await fetchUrl("/api/debrief.csv", { token: teacherToken });
     const disposition = res.headers.get("content-disposition") || "";
     return res.status === 200 && disposition.includes(`${roomId}-debrief-table.csv`);
+  }],
+  ["deploy verification telemetry is exportable", async () => {
+    if (!teacherToken) return true;
+    const res = await fetchUrl("/api/export", { token: teacherToken });
+    const body = await res.json();
+    return res.status === 200 &&
+      Array.isArray(body.events) &&
+      body.events.some((event) => event.sessionId === verifySessionId && event.type === "chat_turn");
+  }],
+  ["deploy verification telemetry can be purged", async () => {
+    if (!teacherToken) return true;
+    const purge = await fetchUrl("/api/purge", { token: teacherToken }, { method: "POST" });
+    if (purge.status !== 200) return false;
+    const res = await fetchUrl("/api/export", { token: teacherToken });
+    const body = await res.json();
+    return res.status === 200 &&
+      Array.isArray(body.events) &&
+      body.events.every((event) => event.sessionId !== verifySessionId);
   }]
 ];
 

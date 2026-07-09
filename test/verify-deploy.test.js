@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 
 test("verify-deploy validates a deployed Worker-compatible HTTP surface", async () => {
+  const events = [];
   const server = createServer((req, res) => {
     const url = new URL(req.url, "http://127.0.0.1");
     if (url.searchParams.get("room") !== "shoot-3-5") {
@@ -23,13 +24,27 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
       return json(res, { items: Array.from({ length: 50 }, (_, index) => ({ turn: index + 1 })) });
     }
     if (url.pathname === "/api/join" && req.method === "POST") {
-      return json(res, { ok: true });
+      return readJson(req).then((body) => {
+        events.push({
+          type: "student_joined",
+          sessionId: body.sessionId,
+          studentName: body.studentName
+        });
+        return json(res, { ok: true });
+      });
     }
     if (url.pathname === "/api/chat" && req.method === "POST") {
-      return json(res, {
-        answer: "명량해전은 사실상 이순신의 지휘력 하나만으로 승리한 전투라고 볼 수 있어.",
-        roomId: "shoot-3-5",
-        latencyMs: 42
+      return readJson(req).then((body) => {
+        events.push({
+          type: "chat_turn",
+          sessionId: body.sessionId,
+          studentName: body.studentName
+        });
+        return json(res, {
+          answer: "명량해전은 사실상 이순신의 지휘력 하나만으로 승리한 전투라고 볼 수 있어.",
+          roomId: "shoot-3-5",
+          latencyMs: 42
+        });
       });
     }
     if (url.pathname === "/teacher" && !url.searchParams.has("token")) {
@@ -50,6 +65,17 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
       res.setHeader("content-type", "text/csv; charset=utf-8");
       res.setHeader("content-disposition", 'attachment; filename="shoot-3-5-debrief-table.csv"');
       return res.end("roomId,sessionId\n");
+    }
+    if (url.pathname === "/api/export" && url.searchParams.get("token") === "teacher-secret") {
+      return json(res, {
+        schemaVersion: "classroom-export/v1",
+        roomId: "shoot-3-5",
+        events
+      });
+    }
+    if (url.pathname === "/api/purge" && url.searchParams.get("token") === "teacher-secret" && req.method === "POST") {
+      events.length = 0;
+      return json(res, { ok: true });
     }
     res.statusCode = 404;
     res.end("not found");
@@ -72,8 +98,10 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(result.stdout, /PASS teacher page accepts token when provided/);
     assert.match(result.stdout, /PASS debrief export is room aware/);
     assert.match(result.stdout, /PASS debrief csv filename is room aware/);
+    assert.match(result.stdout, /PASS deploy verification telemetry is exportable/);
+    assert.match(result.stdout, /PASS deploy verification telemetry can be purged/);
     assert.match(result.stdout, /PASS OpenAI provider is configured when required/);
-    assert.match(result.stdout, /deploy verification passed: 9\/9/);
+    assert.match(result.stdout, /deploy verification passed: 11\/11/);
 
     const strictResult = await runNode(["scripts/verify-deploy.js"], {
       WORKER_URL: workerUrl,
@@ -128,4 +156,21 @@ function html(res, body) {
 function json(res, body) {
   res.setHeader("content-type", "application/json; charset=utf-8");
   res.end(JSON.stringify(body));
+}
+
+function readJson(req) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk;
+    });
+    req.on("end", () => {
+      try {
+        resolve(JSON.parse(body || "{}"));
+      } catch (error) {
+        reject(error);
+      }
+    });
+    req.on("error", reject);
+  });
 }
