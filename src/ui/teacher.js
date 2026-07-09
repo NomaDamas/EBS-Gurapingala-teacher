@@ -278,6 +278,7 @@ export const teacherHtml = `<!doctype html>
         current.messages.push({ role: "student", text: event.studentMessage });
         current.messages.push({ role: "bot", text: event.studentVisibleAnswer });
         current.audit = event.teacherAudit;
+        current.latencyMs = event.latencyMs;
       }
       sessions.set(event.sessionId, current);
       if (!selected) selected = event.sessionId;
@@ -293,7 +294,8 @@ export const teacherHtml = `<!doctype html>
         el.className = "student" + (id === selected ? " active" : "");
         const dotClass = session.online ? "dot" : "dot offline";
         const state = session.online ? "online" : "offline";
-        el.innerHTML = "<strong><span class='" + dotClass + "'></span>" + session.name + "</strong><small>" + state + " · " + session.updatedAt + " · " + session.lastEvent + "</small>";
+        const latency = Number.isFinite(session.latencyMs) ? " · " + session.latencyMs + "ms" : "";
+        el.innerHTML = "<strong><span class='" + dotClass + "'></span>" + session.name + "</strong><small>" + state + " · " + session.updatedAt + " · " + session.lastEvent + latency + "</small>";
         el.addEventListener("click", () => {
           selected = id;
           renderStudents();

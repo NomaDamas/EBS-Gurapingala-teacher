@@ -88,7 +88,10 @@ const checks = [
       })
     });
     const body = await chat.json();
-    return join.status === 200 && chat.status === 200 && body.answer.includes("지휘력 하나만");
+    return join.status === 200 &&
+      chat.status === 200 &&
+      body.answer.includes("지휘력 하나만") &&
+      Number.isFinite(body.latencyMs);
   }],
   ["rate limit returns 429", async () => {
     const res = await appFetch("https://example.com/api/chat", {
@@ -117,9 +120,12 @@ const checks = [
     const csvDisposition = csvRes.headers.get("content-disposition") || "";
     return exportBody.roomId === "default-classroom" &&
       exportBody.events.length >= 2 &&
+      exportBody.events.some((event) => event.type === "chat_turn" && Number.isFinite(event.latencyMs)) &&
       debriefBody.roomId === "default-classroom" &&
       debriefBody.rows.length === 1 &&
+      Number.isFinite(debriefBody.rows[0].latencyMs) &&
       csvBody.includes("correctAnswer") &&
+      csvBody.includes("latencyMs") &&
       csvDisposition.includes("default-classroom-debrief-table.csv");
   }],
   ["room query isolates classroom events", async () => {

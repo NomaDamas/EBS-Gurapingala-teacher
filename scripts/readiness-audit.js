@@ -15,7 +15,7 @@ const checks = [
     id: "teacher-realtime-dashboard",
     evidence: ["src/ui/teacher.js", "src/worker.js"],
     run: async (files) =>
-      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot", "실시간 연결 재시도", "reconnectAttempts", "roomId", "withRoom", "applyTeacherConfig", "teacher_config_updated", "학생 URL 복사", "교사용 URL 복사", "history.replaceState"]) &&
+      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot", "실시간 연결 재시도", "reconnectAttempts", "roomId", "withRoom", "applyTeacherConfig", "teacher_config_updated", "학생 URL 복사", "교사용 URL 복사", "history.replaceState", "latencyMs"]) &&
       includesAll(files["src/worker.js"], ["WebSocketPair", "sendSnapshot", "broadcast", "getRoom(env, roomId)", "config"])
   },
   {
@@ -81,7 +81,7 @@ const checks = [
     id: "debrief-export-after-experiment",
     evidence: ["src/domain/session-export.js", "src/ui/teacher.js", "docs/experiment-policy.md"],
     run: async (files) =>
-      includesAll(files["src/domain/session-export.js"], ["buildDebriefRows", "buildDebriefCsv", "correctAnswer", "whyFalse", "roomId"]) &&
+      includesAll(files["src/domain/session-export.js"], ["buildDebriefRows", "buildDebriefCsv", "correctAnswer", "whyFalse", "roomId", "latencyMs"]) &&
       includesAll(files["src/ui/teacher.js"], ["/api/debrief", "/api/debrief.csv", "정정 수업 오류표", "exportFilename"]) &&
       includesAll(files["docs/experiment-policy.md"], ["정정 수업"])
   },

@@ -96,7 +96,7 @@ Acceptance:
 - 학생별 online/offline heartbeat가 표시된다.
 - 촬영 종료 후 정정 수업용 “오류 정답표”를 export한다.
 
-현재 상태: Level/persona 설정, 실시간 수신, 학생 heartbeat, online/offline 표시, 전체 로그 export, 정정 수업용 오류표 export, TTL, 삭제 버튼 구현됨. CSV export는 선택 운영 보강 범위.
+현재 상태: Level/persona 설정, 실시간 수신, 학생 heartbeat, online/offline 표시, turn timestamp/latency/Level/preflight verdict 기록, 전체 로그 export, 정정 수업용 오류표 JSON/CSV export, TTL, 삭제 버튼 구현됨.
 
 ## Issue 6. 보안·운영 보호장치
 

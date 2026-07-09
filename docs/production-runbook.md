@@ -64,6 +64,7 @@
 5. CSV를 스프레드시트로 열고 다음 열을 확인한다.
    - `roomId`
    - `studentName`
+   - `latencyMs`
    - `question`
    - `studentVisibleAnswer`
    - `correctAnswer`

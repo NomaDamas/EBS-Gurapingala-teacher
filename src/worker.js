@@ -93,6 +93,7 @@ export default {
       return json({ ok: true });
     }
     if (url.pathname === "/api/chat" && request.method === "POST") {
+      const startedAtMs = Date.now();
       const parsed = await readJsonBody(request);
       if (parsed.error) return parsed.error;
       const validation = validateStudentPayload(parsed.body, { requireMessage: true });
@@ -119,6 +120,7 @@ export default {
         env
       });
       const { audit, answer } = result;
+      const latencyMs = Date.now() - startedAtMs;
 
       if (!result.shouldSendToStudent) {
         return json({ error: "Preflight failed", audit }, 422);
@@ -133,6 +135,7 @@ export default {
           studentName: body.studentName,
           studentMessage: body.message,
           studentVisibleAnswer: answer,
+          latencyMs,
           teacherAudit: audit,
           at: new Date().toISOString()
         })
@@ -141,7 +144,8 @@ export default {
       return json({
         answer,
         telemetry: "sent",
-        roomId
+        roomId,
+        latencyMs
       });
     }
     if (url.pathname === "/ws/teacher") {
