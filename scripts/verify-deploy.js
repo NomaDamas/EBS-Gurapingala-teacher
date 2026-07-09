@@ -159,6 +159,17 @@ const checks = [
     const body = await res.text();
     return res.status === 200 && body.includes("실시간 교실 관찰");
   }],
+  ["teacher websocket accepts subprotocol token without query token", async () => {
+    if (!teacherToken) return true;
+    const withoutToken = await fetchUrl("/ws/teacher");
+    const withProtocolToken = await fetchUrl("/ws/teacher", {}, {
+      headers: {
+        "sec-websocket-protocol": encodeTeacherWebSocketProtocol(teacherToken)
+      }
+    });
+    return withoutToken.status === 401 &&
+      withProtocolToken.status === 426;
+  }],
   ["debrief export is room aware", async () => {
     if (!teacherToken) return true;
     const res = await fetchTeacherUrl("/api/debrief");
@@ -244,6 +255,11 @@ function fetchTeacherUrl(path, init = {}) {
       "x-teacher-token": teacherToken
     }
   });
+}
+
+function encodeTeacherWebSocketProtocol(token) {
+  const encoded = btoa(String(token)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return `teacher-token.${encoded}`;
 }
 
 function normalizeBaseUrl(value) {

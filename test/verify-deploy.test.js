@@ -117,6 +117,14 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     if (url.pathname === "/teacher" && url.searchParams.get("token") === "teacher-secret") {
       return html(res, "실시간 교실 관찰");
     }
+    if (url.pathname === "/ws/teacher" && !isTeacherProtocol(req)) {
+      res.statusCode = 401;
+      return res.end("Teacher token required");
+    }
+    if (url.pathname === "/ws/teacher" && isTeacherProtocol(req)) {
+      res.statusCode = 426;
+      return res.end("Expected websocket");
+    }
     if (url.pathname === "/api/debrief" && isTeacherHeader(req)) {
       return json(res, {
         schemaVersion: "debrief-table/v1",
@@ -167,13 +175,14 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(result.stdout, /PASS full evaluation set requires teacher token/);
     assert.match(result.stdout, /PASS teacher config API controls generated audit level/);
     assert.match(result.stdout, /PASS teacher page accepts token when provided/);
+    assert.match(result.stdout, /PASS teacher websocket accepts subprotocol token without query token/);
     assert.match(result.stdout, /PASS debrief export is room aware/);
     assert.match(result.stdout, /PASS debrief csv filename is room aware/);
     assert.match(result.stdout, /PASS deploy verification telemetry is exportable/);
     assert.match(result.stdout, /PASS deploy verification telemetry can be purged/);
     assert.match(result.stdout, /PASS OpenAI provider is configured when required/);
     assert.match(result.stdout, /PASS OpenAI model matches expectation when provided/);
-    assert.match(result.stdout, /deploy verification passed: 15\/15/);
+    assert.match(result.stdout, /deploy verification passed: 16\/16/);
     assert.deepEqual(purgedRooms, ["deploy-verify"]);
 
     const strictResult = await runNode(["scripts/verify-deploy.js"], {
@@ -271,6 +280,15 @@ function setSecurityHeaders(res) {
 
 function isTeacherHeader(req) {
   return req.headers["x-teacher-token"] === "teacher-secret";
+}
+
+function isTeacherProtocol(req) {
+  return req.headers["sec-websocket-protocol"] === encodeTeacherWebSocketProtocol("teacher-secret");
+}
+
+function encodeTeacherWebSocketProtocol(token) {
+  const encoded = btoa(String(token)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return `teacher-token.${encoded}`;
 }
 
 function readJson(req) {

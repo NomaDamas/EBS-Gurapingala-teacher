@@ -76,7 +76,7 @@ npm run deploy
 WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true EXPECTED_OPENAI_MODEL=gpt-5.5 npm run verify:deploy
 ```
 
-이 검증은 학생 페이지와 관찰 고지, `/api/health`, 50턴 평가 endpoint, `/api/join`과 `/api/chat`, `/teacher` 보호 여부, token 기반 교사용 접속, Level/persona 설정 API, export telemetry, purge 정리를 확인한다. 교사용 API 검증은 URL query token이 아니라 `x-teacher-token` header를 사용해 token이 검증 URL에 남지 않게 한다. `REQUIRE_OPENAI=true`를 주면 `/api/health`의 `provider=openai`와 `openaiConfigured=true`도 강제해 촬영 배포가 rules fallback으로 뜨는 것을 막는다. `EXPECTED_OPENAI_MODEL`을 주면 `/api/health.openaiModel`이 촬영 기대 모델과 일치하는지도 확인한다. `TEACHER_TOKEN`을 생략하면 교사용 token 접속·export·purge 확인은 건너뛰고 보호 정책 상태만 점검한다.
+이 검증은 학생 페이지와 관찰 고지, `/api/health`, 50턴 평가 endpoint, `/api/join`과 `/api/chat`, `/teacher` 보호 여부, token 기반 교사용 접속, Level/persona 설정 API, export telemetry, purge 정리를 확인한다. 교사용 API 검증은 URL query token이 아니라 `x-teacher-token` header를 사용해 token이 검증 URL에 남지 않게 한다. 실시간 WebSocket 보호는 `teacher websocket accepts subprotocol token without query token` 체크로 검증하며, token 없이 `/ws/teacher`에 접근하면 401이고 `Sec-WebSocket-Protocol` token만 있으면 인증 통과 후 upgrade 요구 426이 나와야 한다. `REQUIRE_OPENAI=true`를 주면 `/api/health`의 `provider=openai`와 `openaiConfigured=true`도 강제해 촬영 배포가 rules fallback으로 뜨는 것을 막는다. `EXPECTED_OPENAI_MODEL`을 주면 `/api/health.openaiModel`이 촬영 기대 모델과 일치하는지도 확인한다. `TEACHER_TOKEN`을 생략하면 교사용 token 접속·export·purge 확인은 건너뛰고 보호 정책 상태만 점검한다.
 
 촬영 배포에서는 `REQUIRE_TEACHER_TOKEN=true`도 함께 사용한다. 이 값이 있으면 `TEACHER_TOKEN`이 비어 있거나 `/api/health`의 `teacherProtected`가 `false`인 배포는 실패 처리된다.
 
