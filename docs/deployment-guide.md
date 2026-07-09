@@ -72,10 +72,10 @@ npm run deploy
 배포 후 실제 Worker URL을 검증한다.
 
 ```bash
-WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> WORKER_ROOM=2026-07-13-3-5 npm run verify:deploy
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> WORKER_ROOM=2026-07-13-3-5 REQUIRE_OPENAI=true npm run verify:deploy
 ```
 
-이 검증은 학생 페이지, `/api/health`, 50턴 평가 endpoint, `/teacher` 보호 여부, token 기반 교사용 접속을 확인한다. `TEACHER_TOKEN`을 생략하면 교사용 token 접속 확인은 건너뛰고 보호 정책 상태만 점검한다. `WORKER_ROOM`을 생략하면 기본 방을 확인한다.
+이 검증은 학생 페이지, `/api/health`, 50턴 평가 endpoint, `/teacher` 보호 여부, token 기반 교사용 접속을 확인한다. `REQUIRE_OPENAI=true`를 주면 `/api/health`의 `provider=openai`와 `openaiConfigured=true`도 강제해 촬영 배포가 rules fallback으로 뜨는 것을 막는다. `TEACHER_TOKEN`을 생략하면 교사용 token 접속 확인은 건너뛰고 보호 정책 상태만 점검한다. `WORKER_ROOM`을 생략하면 기본 방을 확인한다.
 
 GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 

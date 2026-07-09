@@ -14,6 +14,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     if (url.pathname === "/api/health") {
       return json(res, {
         ok: true,
+        provider: "rules",
         openaiConfigured: false,
         teacherProtected: true
       });
@@ -60,7 +61,18 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(result.stdout, /PASS teacher page accepts token when provided/);
     assert.match(result.stdout, /PASS debrief export is room aware/);
     assert.match(result.stdout, /PASS debrief csv filename is room aware/);
-    assert.match(result.stdout, /deploy verification passed: 7\/7/);
+    assert.match(result.stdout, /PASS OpenAI provider is configured when required/);
+    assert.match(result.stdout, /deploy verification passed: 8\/8/);
+
+    const strictResult = await runNode(["scripts/verify-deploy.js"], {
+      WORKER_URL: workerUrl,
+      TEACHER_TOKEN: "teacher-secret",
+      WORKER_ROOM: "shoot-3-5",
+      REQUIRE_OPENAI: "true"
+    });
+
+    assert.notEqual(strictResult.code, 0);
+    assert.match(strictResult.stdout, /FAIL OpenAI provider is configured when required/);
   } finally {
     await close(server);
   }

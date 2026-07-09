@@ -1,6 +1,7 @@
 const baseUrl = normalizeBaseUrl(process.env.WORKER_URL || process.argv[2]);
 const teacherToken = process.env.TEACHER_TOKEN || "";
 const roomId = normalizeRoomId(process.env.WORKER_ROOM || "");
+const requireOpenAI = process.env.REQUIRE_OPENAI === "true";
 
 if (!baseUrl) {
   console.error("Usage: WORKER_URL=https://<worker-domain> node scripts/verify-deploy.js");
@@ -22,6 +23,14 @@ const checks = [
       typeof body.teacherProtected === "boolean" &&
       JSON.stringify(body).includes("OPENAI_API_KEY") === false &&
       JSON.stringify(body).includes(teacherToken || "__no_token__") === false;
+  }],
+  ["OpenAI provider is configured when required", async () => {
+    if (!requireOpenAI) return true;
+    const res = await fetchUrl("/api/health");
+    const body = await res.json();
+    return res.status === 200 &&
+      body.openaiConfigured === true &&
+      body.provider === "openai";
   }],
   ["evaluation set exposes 50 turns", async () => {
     const res = await fetchUrl("/api/evaluation-set");

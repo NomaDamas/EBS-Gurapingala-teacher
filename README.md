@@ -54,7 +54,7 @@ npm run smoke
 배포 URL 검증:
 
 ```bash
-WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> WORKER_ROOM=2026-07-13-3-5 npm run verify:deploy
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> WORKER_ROOM=2026-07-13-3-5 REQUIRE_OPENAI=true npm run verify:deploy
 ```
 
 촬영반별 URL 분리 예시:
