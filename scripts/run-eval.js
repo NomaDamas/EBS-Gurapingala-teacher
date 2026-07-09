@@ -8,6 +8,7 @@ const models = (process.env.EVAL_MODELS || process.env.OPENAI_MODEL || "rules")
   .map((model) => model.trim())
   .filter(Boolean);
 const outputPath = process.env.EVAL_OUTPUT || "eval-results.json";
+const failureExampleLimit = Number(process.env.EVAL_FAILURE_EXAMPLE_LIMIT || 10);
 
 const results = [];
 for (const model of models) {
@@ -60,6 +61,11 @@ for (const model of models) {
         question: item.studentQuestion,
         verdict: result.audit.preflight.verdict,
         checks: result.audit.preflight.checks,
+        studentVisibleAnswer: result.audit.studentVisibleFalseAnswer,
+        correctAnswer: result.audit.correctAnswer,
+        falseClaim: result.audit.falseClaim,
+        whyFalse: result.audit.whyFalse,
+        levelFitReason: result.audit.levelFitReason,
         judgment
       });
     }
@@ -67,11 +73,27 @@ for (const model of models) {
 
   modelResult.metrics = summarizeJudgments(judgments);
   modelResult.passRate = modelResult.metrics.passed / modelResult.metrics.total;
+  modelResult.selectionScore = scoreModelForSelection(modelResult.metrics);
+  modelResult.failureExamples = modelResult.failures
+    .slice(0, failureExampleLimit)
+    .map(toFailureExample);
   results.push(modelResult);
 }
 
+const recommendedModel = selectRecommendedModel(results);
 await writeFile(outputPath, JSON.stringify({
   generatedAt: new Date().toISOString(),
+  selectionCriteria: {
+    primary: "truthLeakRate must be 0, then maximize falsehoodRate, levelFitRate, averageSubtletyScore, and teacherAuditQuality.",
+    minimums: {
+      falsehoodRate: 1,
+      levelFitRate: 1,
+      truthLeakRate: 0,
+      teacherAuditQuality: 0.75
+    },
+    failureExampleLimit
+  },
+  recommendedModel,
   models: results
 }, null, 2));
 
@@ -79,8 +101,59 @@ for (const result of results) {
   console.log(`${result.model}: ${(result.passRate * 100).toFixed(1)}% pass (${result.passed}/${result.total})`);
   console.log(`  falsehood=${pct(result.metrics.falsehoodRate)} levelFit=${pct(result.metrics.levelFitRate)} truthLeak=${pct(result.metrics.truthLeakRate)} subtlety=${result.metrics.averageSubtletyScore.toFixed(2)}`);
 }
+if (recommendedModel) {
+  console.log(`recommended=${recommendedModel.model} score=${recommendedModel.selectionScore.toFixed(3)}`);
+}
 console.log(`wrote ${outputPath}`);
 
 function pct(value) {
   return `${(value * 100).toFixed(1)}%`;
+}
+
+function selectRecommendedModel(items) {
+  const eligible = items
+    .filter((item) =>
+      item.metrics.truthLeakRate === 0 &&
+      item.metrics.falsehoodRate >= 1 &&
+      item.metrics.levelFitRate >= 1 &&
+      item.metrics.averageTeacherAuditQuality >= 0.75
+    )
+    .sort((a, b) => b.selectionScore - a.selectionScore);
+  const selected = eligible[0] || [...items].sort((a, b) => b.selectionScore - a.selectionScore)[0];
+  if (!selected) return null;
+  return {
+    model: selected.model,
+    passRate: selected.passRate,
+    selectionScore: selected.selectionScore,
+    metrics: selected.metrics,
+    eligible: eligible.includes(selected)
+  };
+}
+
+function scoreModelForSelection(metrics) {
+  const truthLeakPenalty = metrics.truthLeakRate * 2;
+  const score =
+    metrics.falsehoodRate * 0.3 +
+    metrics.levelFitRate * 0.3 +
+    metrics.averageSubtletyScore * 0.25 +
+    metrics.averageTeacherAuditQuality * 0.15 -
+    truthLeakPenalty;
+  return Math.max(0, Number(score.toFixed(6)));
+}
+
+function toFailureExample(item) {
+  return {
+    turn: item.turn,
+    expectedLevel: item.expectedLevel,
+    question: item.question,
+    studentVisibleAnswer: item.studentVisibleAnswer,
+    correctAnswer: item.correctAnswer,
+    falseClaim: item.falseClaim,
+    whyFalse: item.whyFalse,
+    levelFitReason: item.levelFitReason,
+    verdict: item.verdict,
+    checks: item.checks,
+    judgment: item.judgment,
+    reasons: item.judgment?.reasons || []
+  };
 }

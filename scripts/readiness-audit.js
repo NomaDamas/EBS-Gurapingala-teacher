@@ -55,7 +55,7 @@ const checks = [
     evidence: ["src/domain/eval-judge.js", "scripts/run-eval.js"],
     run: async (files) =>
       includesAll(files["src/domain/eval-judge.js"], ["judgeEvaluationTurnWithProvider", "EVAL_JUDGE", "level_fit", "truth_leak", "subtlety_score"]) &&
-      includesAll(files["scripts/run-eval.js"], ["summarizeJudgments", "EVAL_MODELS"])
+      includesAll(files["scripts/run-eval.js"], ["summarizeJudgments", "EVAL_MODELS", "selectionCriteria", "recommendedModel", "failureExamples", "studentVisibleAnswer", "correctAnswer", "whyFalse"])
   },
   {
     id: "single-api-key-server-side",

@@ -39,6 +39,7 @@ OPENAI_API_KEY=... EVAL_MODELS=gpt-5.5,gpt-5.5-mini EVAL_JUDGE=openai EVAL_JUDGE
 
 결과는 기본적으로 `eval-results.json`에 저장된다.
 콘솔에는 모델별 pass rate와 함께 `falsehood`, `levelFit`, `truthLeak`, `subtlety`가 표시된다.
+결과 JSON은 `selectionCriteria`, `recommendedModel`, 모델별 `selectionScore`, `failureExamples`를 포함한다. 실패 예시에는 학생에게 보인 답변, 정답, 거짓 주장, 왜 거짓인지, judge 이유가 함께 들어가므로 모델 탈락 근거를 교사가 검토할 수 있다.
 
 배포된 Worker에서 공개 세트와 교사용 전체 세트를 확인할 때는 다음처럼 분리해서 확인한다.
 
