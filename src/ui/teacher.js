@@ -368,7 +368,20 @@ export const teacherHtml = `<!doctype html>
     }
 
     function renderClassSummary({ total, online, chatTurns }) {
-      classSummaryEl.innerHTML = "<span>전체<strong>" + total + "</strong></span><span>온라인<strong>" + online + "</strong></span><span>채팅턴<strong>" + chatTurns + "</strong></span>";
+      classSummaryEl.replaceChildren(
+        summaryMetric("전체", total),
+        summaryMetric("온라인", online),
+        summaryMetric("채팅턴", chatTurns)
+      );
+    }
+
+    function summaryMetric(label, value) {
+      const item = document.createElement("span");
+      const strong = document.createElement("strong");
+      item.appendChild(document.createTextNode(label));
+      strong.textContent = String(value);
+      item.appendChild(strong);
+      return item;
     }
 
     function renderSelected() {

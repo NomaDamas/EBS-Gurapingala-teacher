@@ -30,6 +30,9 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /configStatusEl\.value = "적용됨/);
   assert.match(teacher, /id="classSummary"/);
   assert.match(teacher, /function renderClassSummary/);
+  assert.match(teacher, /classSummaryEl\.replaceChildren/);
+  assert.match(teacher, /function summaryMetric\(label, value\)/);
+  assert.match(teacher, /strong\.textContent = String\(value\)/);
   assert.match(teacher, /current\.chatTurns = \(current\.chatTurns \|\| 0\) \+ 1/);
   assert.match(teacher, /history\.replaceState/);
   assert.match(teacher, /encodeTeacherWebSocketProtocol\(teacherToken\)/);
@@ -43,6 +46,7 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /document\.createTextNode\(session\.name\)/);
   assert.match(teacher, /blocked\.textContent = "blocked"/);
   assert.doesNotMatch(teacher, /innerHTML = .*session\.name/);
+  assert.doesNotMatch(teacher, /classSummaryEl\.innerHTML/);
   assert.match(teacher, /blockedMsg/);
   assert.match(teacher, /session\.latencyMs/);
   assert.match(teacher, /copyStudentUrlEl\.addEventListener/);
