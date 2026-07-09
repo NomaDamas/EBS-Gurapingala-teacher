@@ -47,13 +47,13 @@ npm run smoke
 배포 후에는 실제 Worker URL에서 OpenAI provider가 설정된 상태로 확인한다.
 
 ```bash
-WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run verify:deploy
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXPECTED_OPENAI_TIMEOUT_MS=15000 PR_HEAD_SHA=<latest-sha> VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json npm run verify:deploy
 ```
 
 머지 또는 촬영 릴리즈 전에는 외부 리뷰 승인과 실제 배포 검증 결과가 최신 PR head에 묶여 있는지 별도로 감사한다.
 
 ```bash
-EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true npm run release:audit
+EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json npm run release:audit
 ```
 
 ## 외부 승인 조건
@@ -61,7 +61,7 @@ EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<w
 - GitHub Actions `Verify product gates`가 최신 PR head에서 `SUCCESS`여야 한다.
 - GPT-5.5 xhigh 또는 동등한 외부 코드 리뷰 승인이 있어야 한다.
 - 외부 리뷰어는 [GPT-5.5 xhigh 외부 리뷰 패킷](external-review-packet.md)의 프롬프트, 반려 조건, 판정 양식을 사용한다.
-- `npm run release:audit`가 최신 PR head SHA, 외부 승인, 실제 `verify:deploy` 통과, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true` 증거로 통과해야 한다.
+- `npm run release:audit`가 최신 PR head SHA, 외부 승인 JSON, 실제 `verify:deploy` 증거 JSON, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true` 증거로 통과해야 한다.
 - 승인 전에는 `main`에 머지하지 않는다.
 - Cloudflare production secret `OPENAI_API_KEY`, `TEACHER_TOKEN` 등록은 실제 배포 계정에서 별도 확인한다.
 - 촬영 전 리허설에서 학생 기기 2대 이상, 교사용 대시보드, 정정 수업 export를 실제 URL로 확인한다.

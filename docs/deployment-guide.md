@@ -81,7 +81,7 @@ npm run deploy
 배포 후 실제 Worker URL을 검증한다.
 
 ```bash
-WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run verify:deploy
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 PR_HEAD_SHA=<latest-sha> VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json npm run verify:deploy
 ```
 
 이 검증은 학생 페이지와 관찰 고지, `/api/health`, 50턴 평가 endpoint, `/api/join`과 `/api/chat`, `/teacher` 보호 여부, token 기반 교사용 접속, Level/persona 설정 API, unsafe persona 거절, export telemetry, purge 정리를 확인한다. 교사용 API 검증은 URL query token이 아니라 `x-teacher-token` header를 사용해 token이 검증 URL에 남지 않게 한다. 실시간 WebSocket 보호는 `teacher websocket accepts subprotocol token without query token` 체크로 검증하며, token 없이 `/ws/teacher`에 접근하면 401이고 `Sec-WebSocket-Protocol` token만 있으면 인증 통과 후 upgrade 요구 426이 나와야 한다. `REQUIRE_OPENAI=true`를 주면 `/api/health`의 `provider=openai`와 `openaiConfigured=true`도 강제해 촬영 배포가 rules fallback으로 뜨는 것을 막는다. `EXPECTED_OPENAI_MODEL`을 주면 `/api/health.openaiModel`이 촬영 기대 모델과 일치하는지도 확인한다. `EXPECTED_OPENAI_TIMEOUT_MS`를 주면 `/api/health.openaiTimeoutMs`가 촬영 기대 timeout과 일치하는지도 확인한다. `TEACHER_TOKEN`을 생략하면 교사용 token 접속·export·purge 확인은 건너뛰고 보호 정책 상태만 점검한다.
@@ -93,8 +93,10 @@ WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=dep
 머지 또는 촬영 릴리즈 직전에는 배포 검증과 외부 리뷰 증거가 최신 PR head에 묶였는지 확인한다.
 
 ```bash
-EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true npm run release:audit
+EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json npm run release:audit
 ```
+
+`EXTERNAL_REVIEW_FILE`은 `decision: "APPROVE"`, `reviewer` 또는 `model`, `prHeadSha`를 포함한 JSON이어야 한다. `VERIFY_DEPLOY_EVIDENCE_FILE`은 `verify:deploy`가 생성한 `deploy-verification-evidence/v1` JSON이어야 하며 같은 `PR_HEAD_SHA`, 같은 `WORKER_URL`, `requireOpenAI=true`, `requireTeacherToken=true`를 기록해야 한다.
 
 GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 

@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { buildDebriefCsv } from "../src/domain/session-export.js";
 
 test("verify-deploy validates a deployed Worker-compatible HTTP surface", async () => {
@@ -208,12 +211,16 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
   await listen(server);
   const address = server.address();
   const workerUrl = `http://127.0.0.1:${address.port}`;
+  const evidenceDir = await mkdtemp(join(tmpdir(), "verify-deploy-"));
+  const evidenceFile = join(evidenceDir, "deploy-evidence.json");
 
   try {
     const result = await runNode(["scripts/verify-deploy.js"], {
       WORKER_URL: workerUrl,
       TEACHER_TOKEN: "teacher-secret",
-      WORKER_ROOM: "shoot-3-5"
+      WORKER_ROOM: "shoot-3-5",
+      VERIFY_DEPLOY_EVIDENCE_FILE: evidenceFile,
+      PR_HEAD_SHA: "abc123"
     });
 
     assert.equal(result.code, 0, result.stdout + result.stderr);
@@ -233,7 +240,16 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(result.stdout, /PASS OpenAI model matches expectation when provided/);
     assert.match(result.stdout, /PASS OpenAI timeout matches expectation when provided/);
     assert.match(result.stdout, /deploy verification passed: 18\/18/);
+    assert.match(result.stdout, /deploy verification evidence written:/);
     assert.deepEqual(purgedRooms, ["deploy-verify"]);
+    const evidence = JSON.parse(await readFile(evidenceFile, "utf8"));
+    assert.equal(evidence.schemaVersion, "deploy-verification-evidence/v1");
+    assert.equal(evidence.status, "pass");
+    assert.equal(evidence.prHeadSha, "abc123");
+    assert.equal(evidence.workerUrl, `${workerUrl}/`);
+    assert.equal(evidence.passedChecks, 18);
+    assert.equal(evidence.totalChecks, 18);
+    assert.equal(evidence.checks.length, 18);
 
     const strictResult = await runNode(["scripts/verify-deploy.js"], {
       WORKER_URL: workerUrl,

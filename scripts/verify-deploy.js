@@ -1,3 +1,6 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+
 const baseUrl = normalizeBaseUrl(process.env.WORKER_URL || process.argv[2]);
 const teacherToken = process.env.TEACHER_TOKEN || "";
 const filmingRoomId = normalizeRoomId(process.env.WORKER_ROOM || "");
@@ -6,6 +9,8 @@ const requireOpenAI = process.env.REQUIRE_OPENAI === "true";
 const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN === "true";
 const expectedOpenAIModel = process.env.EXPECTED_OPENAI_MODEL || "";
 const expectedOpenAITimeoutMs = normalizeExpectedTimeout(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "");
+const deployEvidenceFile = String(process.env.VERIFY_DEPLOY_EVIDENCE_FILE || "").trim();
+const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "").trim();
 const allowUnsafePurge = process.env.ALLOW_PURGE_FILMING_ROOM === "true";
 const verifySessionId = `${verifyRoomId}-session-${Date.now()}`;
 const verifySessionSecret = `${verifyRoomId}-secret-${Date.now()}`;
@@ -350,17 +355,26 @@ const checks = [
   }]
 ];
 
-let failed = 0;
+const checkResults = [];
 for (const [name, run] of checks) {
   try {
     const passed = await run();
+    checkResults.push({ name, passed });
     console.log(`${passed ? "PASS" : "FAIL"} ${name}`);
-    if (!passed) failed += 1;
   } catch (error) {
-    failed += 1;
+    checkResults.push({
+      name,
+      passed: false,
+      error: error instanceof Error ? error.message : String(error)
+    });
     console.log(`FAIL ${name}`);
     console.error(`  ${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+const failed = checkResults.filter((result) => !result.passed).length;
+if (deployEvidenceFile) {
+  await writeDeployEvidence(deployEvidenceFile, failed === 0, checkResults);
 }
 
 if (failed) {
@@ -368,6 +382,27 @@ if (failed) {
   process.exitCode = 1;
 } else {
   console.log(`deploy verification passed: ${checks.length}/${checks.length}`);
+}
+
+async function writeDeployEvidence(file, passed, results) {
+  const payload = {
+    schemaVersion: "deploy-verification-evidence/v1",
+    generatedAt: new Date().toISOString(),
+    status: passed ? "pass" : "fail",
+    workerUrl: baseUrl,
+    prHeadSha,
+    verifyRoom: verifyRoomId,
+    requireOpenAI,
+    requireTeacherToken,
+    expectedOpenAIModel,
+    expectedOpenAITimeoutMs: expectedOpenAITimeoutMs || null,
+    passedChecks: results.filter((result) => result.passed).length,
+    totalChecks: results.length,
+    checks: results
+  };
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, `${JSON.stringify(payload, null, 2)}\n`);
+  console.log(`deploy verification evidence written: ${file}`);
 }
 
 function fetchUrl(path, query = {}, init) {

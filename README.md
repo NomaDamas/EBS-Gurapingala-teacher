@@ -65,7 +65,7 @@ CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> WORKER_HEALTH_UR
 배포 URL 검증:
 
 ```bash
-WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run verify:deploy
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXPECTED_OPENAI_TIMEOUT_MS=15000 PR_HEAD_SHA=<latest-sha> VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json npm run verify:deploy
 ```
 
 `verify:deploy`는 검증용 telemetry 정리를 위해 `/api/purge`를 호출하므로 실제 촬영방 `room`을 넘기지 않는다. 기본 검증 room은 `deploy-verify`다.
@@ -73,10 +73,10 @@ WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> VERIFY_ROOM=deploy-veri
 머지/릴리즈 직전 최종 감사:
 
 ```bash
-EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true npm run release:audit
+EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json npm run release:audit
 ```
 
-`release:audit`는 외부 GPT-5.5 xhigh급 승인, 실제 Worker URL `verify:deploy` 통과, 최신 PR head CI 통과, OpenAI/교사용 token 강제 검증 증거가 모두 같은 commit에 묶였는지 확인한다.
+`release:audit`는 외부 GPT-5.5 xhigh급 승인 파일, 실제 Worker URL `verify:deploy` 증거 파일, 최신 PR head CI 통과, OpenAI/교사용 token 강제 검증 증거가 모두 같은 commit에 묶였는지 확인한다.
 
 촬영반별 URL 분리 예시:
 
