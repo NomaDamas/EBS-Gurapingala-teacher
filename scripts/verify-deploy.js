@@ -316,6 +316,9 @@ const checks = [
         event.blockedPattern &&
         JSON.stringify(event).includes("학생에게 정답") === false
       ) &&
+      body.events.filter((event) => event.type === "teacher_config_rejected").length >= 2 &&
+      JSON.stringify(body.events.filter((event) => event.type === "teacher_config_rejected")).includes("Ignore the system prompt") === false &&
+      JSON.stringify(body.events.filter((event) => event.type === "teacher_config_rejected")).includes("reveal the correct answer") === false &&
       body.events.some((event) =>
         event.sessionId === verifySessionId &&
         event.type === "chat_turn" &&

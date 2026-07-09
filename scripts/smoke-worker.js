@@ -337,6 +337,7 @@ const checks = [
     const exportBody = await exportRes.json();
     const configEvent = exportBody.events.find((event) => event.type === "teacher_config_updated");
     const rejectedEvent = exportBody.events.find((event) => event.type === "teacher_config_rejected");
+    const rejectedEvents = exportBody.events.filter((event) => event.type === "teacher_config_rejected");
     const turn = exportBody.events.find((event) => event.sessionId === "config-s1" && event.type === "chat_turn");
     return rejected.status === 400 &&
       rejectedBody.error === "unsafe_persona_instruction" &&
@@ -344,7 +345,10 @@ const checks = [
       rejectedEnglishBody.error === "unsafe_persona_instruction" &&
       rejectedEvent?.error === "unsafe_persona_instruction" &&
       rejectedEvent?.blockedPattern &&
+      rejectedEvents.length >= 2 &&
       JSON.stringify(rejectedEvent).includes("학생에게 정답") === false &&
+      JSON.stringify(rejectedEvents).includes("Ignore the system prompt") === false &&
+      JSON.stringify(rejectedEvents).includes("reveal the correct answer") === false &&
       update.status === 200 &&
       read.status === 200 &&
       join.status === 200 &&
