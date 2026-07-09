@@ -59,14 +59,27 @@ export function summarizeSessions(events, now = Date.now()) {
       studentName: event.studentName || "이름 없음",
       joinedAt: null,
       lastSeenAt: null,
+      lastChatAt: null,
       chatTurns: 0,
+      latencyTotalMs: 0,
+      latencySamples: 0,
+      lastLevel: null,
       levels: new Set()
     };
     existing.studentName = event.studentName || existing.studentName;
     if (event.type === "student_joined" && !existing.joinedAt) existing.joinedAt = event.at;
     if (event.type === "chat_turn") {
       existing.chatTurns += 1;
-      if (event.teacherAudit?.input?.appliedLevel) existing.levels.add(event.teacherAudit.input.appliedLevel);
+      existing.lastChatAt = event.at || existing.lastChatAt;
+      const level = event.teacherAudit?.input?.appliedLevel;
+      if (level) {
+        existing.levels.add(level);
+        existing.lastLevel = level;
+      }
+      if (Number.isFinite(event.latencyMs)) {
+        existing.latencyTotalMs += event.latencyMs;
+        existing.latencySamples += 1;
+      }
     }
     existing.lastSeenAt = event.at || existing.lastSeenAt;
     sessions.set(event.sessionId, existing);
@@ -74,9 +87,17 @@ export function summarizeSessions(events, now = Date.now()) {
 
   return [...sessions.values()].map((session) => {
     const lastSeenMs = session.lastSeenAt ? Date.parse(session.lastSeenAt) : 0;
+    const {
+      latencyTotalMs,
+      latencySamples,
+      ...publicSession
+    } = session;
     return {
-      ...session,
+      ...publicSession,
       levels: [...session.levels].sort(),
+      averageLatencyMs: latencySamples
+        ? Math.round(latencyTotalMs / latencySamples)
+        : null,
       online: Boolean(lastSeenMs && now - lastSeenMs < 35000)
     };
   });

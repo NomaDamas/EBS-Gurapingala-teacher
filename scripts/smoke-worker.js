@@ -123,6 +123,7 @@ const checks = [
     return exportBody.roomId === "default-classroom" &&
       exportBody.events.length >= 2 &&
       exportBody.events.some((event) => event.type === "chat_turn" && Number.isFinite(event.latencyMs)) &&
+      exportBody.sessionSummary.some((session) => session.lastChatAt && Number.isFinite(session.averageLatencyMs) && session.lastLevel === 2) &&
       debriefBody.roomId === "default-classroom" &&
       debriefBody.rows.length === 1 &&
       Number.isFinite(debriefBody.rows[0].latencyMs) &&

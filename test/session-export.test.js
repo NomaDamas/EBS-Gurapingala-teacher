@@ -58,12 +58,29 @@ test("buildDebriefRows는 채팅 턴을 정정 수업용 행으로 변환한다"
 });
 
 test("summarizeSessions는 heartbeat 기준 online 상태와 턴 수를 계산한다", () => {
-  const sessions = summarizeSessions(EVENTS, Date.parse("2026-07-10T01:00:30.000Z"));
+  const sessions = summarizeSessions([
+    ...EVENTS,
+    {
+      ...EVENTS[2],
+      studentMessage: "왜 그렇게 볼 수 있어?",
+      latencyMs: 1158,
+      at: "2026-07-10T01:00:25.000Z",
+      teacherAudit: {
+        ...EVENTS[2].teacherAudit,
+        input: { appliedLevel: 3 }
+      }
+    }
+  ], Date.parse("2026-07-10T01:00:30.000Z"));
 
   assert.equal(sessions.length, 1);
   assert.equal(sessions[0].online, true);
-  assert.equal(sessions[0].chatTurns, 1);
-  assert.deepEqual(sessions[0].levels, [2]);
+  assert.equal(sessions[0].chatTurns, 2);
+  assert.equal(sessions[0].lastChatAt, "2026-07-10T01:00:25.000Z");
+  assert.equal(sessions[0].averageLatencyMs, 1000);
+  assert.equal(sessions[0].lastLevel, 3);
+  assert.deepEqual(sessions[0].levels, [2, 3]);
+  assert.equal("latencyTotalMs" in sessions[0], false);
+  assert.equal("latencySamples" in sessions[0], false);
 });
 
 test("buildExportPayload는 session summary, debrief rows, raw events를 포함한다", () => {

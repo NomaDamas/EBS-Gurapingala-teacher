@@ -58,6 +58,7 @@
 ## 4. 촬영 직후
 
 1. 교사용 대시보드에서 전체 로그 JSON을 다운로드한다.
+   - `sessionSummary`에서 학생별 `chatTurns`, `lastChatAt`, `lastLevel`, `averageLatencyMs`를 확인한다.
 2. 정정 수업 오류표 JSON을 다운로드한다.
 3. 정정 수업 오류표 CSV를 다운로드한다.
 4. 파일명이 `<room>-...-<timestamp>` 형태로 저장됐는지 확인한다.
