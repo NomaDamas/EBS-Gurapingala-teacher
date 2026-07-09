@@ -265,10 +265,18 @@ export const teacherHtml = `<!doctype html>
       statusEl.value = state + attempts + last;
     }
 
-    function sendTeacherConfig() {
-      if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    async function sendTeacherConfig() {
       configStatusEl.value = "저장 중: Level " + levelEl.value;
-      socket.send(JSON.stringify({ type: "teacher_config", level: levelEl.value, persona: personaEl.value }));
+      const payload = { type: "teacher_config", level: levelEl.value, persona: personaEl.value };
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        try {
+          socket.send(JSON.stringify(payload));
+          return;
+        } catch (error) {
+          updateSocketStatus("config socket failed");
+        }
+      }
+      await postTeacherConfig(payload);
     }
 
     function parseTelemetry(value) {
@@ -384,29 +392,37 @@ export const teacherHtml = `<!doctype html>
     }
 
     async function downloadJson(path, filename) {
-      const res = await fetch(withRoom(path), { headers: authHeaders() });
-      if (!res.ok) return alert("다운로드 권한을 확인하세요.");
-      const data = await res.json();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      link.click();
-      URL.revokeObjectURL(url);
+      try {
+        const res = await fetch(withRoom(path), { headers: authHeaders() });
+        if (!res.ok) return alert("다운로드 권한을 확인하세요.");
+        const data = await res.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        alert("네트워크 문제로 다운로드하지 못했습니다.");
+      }
     }
 
     async function downloadText(path, filename, type) {
-      const res = await fetch(withRoom(path), { headers: authHeaders() });
-      if (!res.ok) return alert("다운로드 권한을 확인하세요.");
-      const text = await res.text();
-      const blob = new Blob([text], { type });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      link.click();
-      URL.revokeObjectURL(url);
+      try {
+        const res = await fetch(withRoom(path), { headers: authHeaders() });
+        if (!res.ok) return alert("다운로드 권한을 확인하세요.");
+        const text = await res.text();
+        const blob = new Blob([text], { type });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        alert("네트워크 문제로 다운로드하지 못했습니다.");
+      }
     }
 
     async function purgeEvents() {
@@ -415,16 +431,38 @@ export const teacherHtml = `<!doctype html>
       if (normalizeRoomId(typedRoom || "") !== roomId) {
         return alert("room 이름이 일치하지 않아 삭제하지 않았습니다.");
       }
-      const res = await fetch(withRoom("/api/purge"), {
-        method: "POST",
-        headers: authHeaders({ "x-purge-room": roomId })
-      });
-      if (!res.ok) return alert("삭제 권한 또는 room 확인 헤더를 확인하세요.");
-      sessions.clear();
-      selected = null;
-      renderStudents();
-      chatEl.innerHTML = "<div class='empty'>촬영 로그가 삭제되었습니다.</div>";
-      auditEl.textContent = "교사용 감사 JSON 대기 중";
+      try {
+        const res = await fetch(withRoom("/api/purge"), {
+          method: "POST",
+          headers: authHeaders({ "x-purge-room": roomId })
+        });
+        if (!res.ok) return alert("삭제 권한 또는 room 확인 헤더를 확인하세요.");
+        sessions.clear();
+        selected = null;
+        renderStudents();
+        chatEl.innerHTML = "<div class='empty'>촬영 로그가 삭제되었습니다.</div>";
+        auditEl.textContent = "교사용 감사 JSON 대기 중";
+      } catch (error) {
+        alert("네트워크 문제로 촬영 로그를 삭제하지 못했습니다.");
+      }
+    }
+
+    async function postTeacherConfig(payload) {
+      try {
+        const res = await fetch(withRoom("/api/config"), {
+          method: "POST",
+          headers: authHeaders({ "content-type": "application/json" }),
+          body: JSON.stringify({ level: payload.level, persona: payload.persona })
+        });
+        const config = await readJsonSafely(res);
+        if (!res.ok) {
+          configStatusEl.value = "저장 실패: 권한 또는 연결 확인";
+          return;
+        }
+        applyTeacherConfig(config);
+      } catch (error) {
+        configStatusEl.value = "저장 실패: 네트워크 확인";
+      }
     }
 
     function authHeaders(extra = {}) {
@@ -456,6 +494,14 @@ export const teacherHtml = `<!doctype html>
         updateSocketStatus(label + " copied");
       } catch {
         prompt(label + " URL", value);
+      }
+    }
+
+    async function readJsonSafely(res) {
+      try {
+        return await res.json();
+      } catch {
+        return {};
       }
     }
 

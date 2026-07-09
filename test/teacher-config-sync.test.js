@@ -19,6 +19,12 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /if \(event\.config\) applyTeacherConfig\(event\.config\)/);
   assert.match(teacher, /if \(event\.type === "teacher_config_updated"\)[\s\S]*return;/);
   assert.match(teacher, /function applyTeacherConfig\(config\)/);
+  assert.match(teacher, /async function sendTeacherConfig\(\)/);
+  assert.match(teacher, /await postTeacherConfig\(payload\)/);
+  assert.match(teacher, /async function postTeacherConfig\(payload\)/);
+  assert.match(teacher, /fetch\(withRoom\("\/api\/config"\)/);
+  assert.match(teacher, /저장 실패: 권한 또는 연결 확인/);
+  assert.match(teacher, /저장 실패: 네트워크 확인/);
   assert.match(teacher, /id="configStatus"/);
   assert.match(teacher, /configStatusEl\.value = "저장 중/);
   assert.match(teacher, /configStatusEl\.value = "적용됨/);
@@ -38,4 +44,6 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /session\.latencyMs/);
   assert.match(teacher, /copyStudentUrlEl\.addEventListener/);
   assert.match(teacher, /copyTeacherUrlEl\.addEventListener/);
+  assert.match(teacher, /네트워크 문제로 다운로드하지 못했습니다/);
+  assert.match(teacher, /네트워크 문제로 촬영 로그를 삭제하지 못했습니다/);
 });
