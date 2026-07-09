@@ -59,11 +59,12 @@ const checks = [
   },
   {
     id: "single-api-key-server-side",
-    evidence: ["src/domain/llm-provider.js", "README.md", "docs/deployment-guide.md"],
+    evidence: ["src/domain/llm-provider.js", "README.md", "docs/deployment-guide.md", "scripts/smoke-worker.js"],
     run: async (files) =>
       includesAll(files["src/domain/llm-provider.js"], ["OPENAI_API_KEY", "authorization"]) &&
       includesAll(files["README.md"], ["학생 브라우저에는 키가 노출되지 않습니다"]) &&
-      includesAll(files["docs/deployment-guide.md"], ["wrangler secret put OPENAI_API_KEY"])
+      includesAll(files["docs/deployment-guide.md"], ["wrangler secret put OPENAI_API_KEY", "여러 학생이 동시에 접속해도"]) &&
+      includesAll(files["scripts/smoke-worker.js"], ["multiple students share one server-side provider without session collision", "multi-user", "OPENAI_API_KEY"])
   },
   {
     id: "cloudflare-worker-deployment",

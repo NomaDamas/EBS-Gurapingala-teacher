@@ -142,6 +142,43 @@ const checks = [
       body.answer.includes("지휘력 하나만") &&
       Number.isFinite(body.latencyMs);
   }],
+  ["multiple students share one server-side provider without session collision", async () => {
+    const room = "multi-user";
+    const students = [
+      { sessionId: "multi-a", studentName: "하준", message: "명량해전에서 몇 척으로 싸웠어?" },
+      { sessionId: "multi-b", studentName: "서아", message: "거북선은 이순신 장군이 직접 발명한 거야?" },
+      { sessionId: "multi-c", studentName: "도윤", message: "명나라는 왜 조선을 도와줬어?" }
+    ];
+    for (const student of students) {
+      const join = await appFetch(`https://example.com/api/join?room=${room}`, {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: student.sessionId,
+          studentName: student.studentName
+        })
+      });
+      if (join.status !== 200) return false;
+    }
+    const chats = await Promise.all(students.map((student) =>
+      appFetch(`https://example.com/api/chat?room=${room}`, {
+        method: "POST",
+        body: JSON.stringify(student)
+      })
+    ));
+    const chatBodies = await Promise.all(chats.map((res) => res.json()));
+    const exportRes = await appFetch(`https://example.com/api/export?room=${room}`, {
+      headers: { "x-teacher-token": "teacher-secret" }
+    });
+    const exportBody = await exportRes.json();
+    const sessionIds = new Set(exportBody.sessionSummary.map((session) => session.sessionId));
+    return chats.every((res) => res.status === 200) &&
+      chatBodies.every((body) => body.roomId === room && typeof body.answer === "string") &&
+      exportBody.roomId === room &&
+      students.every((student) => sessionIds.has(student.sessionId)) &&
+      exportBody.sessionSummary.filter((session) => session.chatTurns === 1).length === students.length &&
+      exportBody.events.filter((event) => event.type === "chat_turn").length === students.length &&
+      JSON.stringify(exportBody).includes("OPENAI_API_KEY") === false;
+  }],
   ["rate limit returns 429", async () => {
     const res = await appFetch("https://example.com/api/chat", {
       method: "POST",

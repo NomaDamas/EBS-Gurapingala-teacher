@@ -20,6 +20,7 @@ npx wrangler secret put OPENAI_API_KEY
 `OPENAI_API_KEY`가 등록되어 있으면 OpenAI Responses API를 사용한다.
 비용·안정성·촬영 리허설을 위해 강제로 룰 기반 provider만 쓰려면 `LLM_PROVIDER=rules`를 환경변수로 둔다.
 모델을 바꾸려면 Cloudflare 환경변수 `OPENAI_MODEL`을 설정한다. 기본값은 `gpt-5.5`다.
+여러 학생이 동시에 접속해도 학생 브라우저는 API key를 받지 않고, Worker가 하나의 서버-side `OPENAI_API_KEY`로 학생별 `/api/chat` 요청을 처리한다. 학생별 구분은 브라우저 계정이 아니라 `sessionId`, `studentName`, `room` telemetry로 수행한다.
 
 ## 3. 교사용 접근 보호
 
