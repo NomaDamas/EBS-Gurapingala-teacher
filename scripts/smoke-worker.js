@@ -79,6 +79,16 @@ const checks = [
       res.headers.get("content-security-policy")?.includes("frame-ancestors 'none'") &&
       res.headers.get("permissions-policy") === "camera=(), microphone=(), geolocation=()";
   }],
+  ["error responses include security headers", async () => {
+    const notFound = await appFetch("https://example.com/no-such-route");
+    const unauthorized = await appFetch("https://example.com/api/export");
+    return notFound.status === 404 &&
+      unauthorized.status === 401 &&
+      notFound.headers.get("cache-control") === "no-store" &&
+      unauthorized.headers.get("cache-control") === "no-store" &&
+      notFound.headers.get("content-security-policy")?.includes("frame-ancestors 'none'") &&
+      unauthorized.headers.get("content-security-policy")?.includes("frame-ancestors 'none'");
+  }],
   ["invalid student JSON returns 400", async () => {
     const res = await appFetch("https://example.com/api/join", {
       method: "POST",

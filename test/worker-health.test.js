@@ -36,3 +36,17 @@ test("/api/health returns safe deployment metadata without secrets", async () =>
   assert.match(res.headers.get("content-security-policy"), /object-src 'none'/);
   assert.equal(res.headers.get("permissions-policy"), "camera=(), microphone=(), geolocation=()");
 });
+
+test("not found responses include common security headers", async () => {
+  const res = await worker.fetch(new Request("https://example.com/no-such-route"), {
+    ROOM: {
+      idFromName: (name) => name,
+      get: () => ({ fetch: async () => new Response("{}") })
+    }
+  });
+
+  assert.equal(res.status, 404);
+  assert.equal(res.headers.get("content-type"), "text/plain; charset=utf-8");
+  assert.equal(res.headers.get("cache-control"), "no-store");
+  assert.match(res.headers.get("content-security-policy"), /frame-ancestors 'none'/);
+});

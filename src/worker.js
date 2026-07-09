@@ -173,7 +173,7 @@ export default {
       if (!isTeacherAuthorized(request, env)) return unauthorized();
       return room.fetch(request);
     }
-    return new Response("Not found", { status: 404 });
+    return text("Not found", 404);
   }
 };
 
@@ -188,7 +188,7 @@ export class ClassroomRoom {
     if (url.pathname === "/ws/teacher") {
       const upgradeHeader = request.headers.get("Upgrade");
       if (upgradeHeader !== "websocket") {
-        return new Response("Expected websocket", { status: 426 });
+        return text("Expected websocket", 426);
       }
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
@@ -209,7 +209,7 @@ export class ClassroomRoom {
       const event = await request.json();
       await this.recordEvent(event, Number(url.searchParams.get("ttlHours") || 24));
       this.broadcast(event);
-      return new Response("ok");
+      return text("ok");
     }
     if (url.pathname === "/rate-limit" && request.method === "POST") {
       const body = await request.json();
@@ -227,7 +227,7 @@ export class ClassroomRoom {
         studentName: "teacher",
         at: new Date().toISOString()
       });
-      return new Response("ok");
+      return text("ok");
     }
     if (url.pathname === "/config" && request.method === "POST") {
       return json(await this.updateConfig(await request.json(), normalizeRoomId(url.searchParams.get("room"))));
@@ -236,7 +236,7 @@ export class ClassroomRoom {
       const config = await this.state.storage.get("config");
       return json(config || {});
     }
-    return new Response("room not found", { status: 404 });
+    return text("room not found", 404);
   }
 
   broadcast(event) {
@@ -425,6 +425,16 @@ function csv(body, filename) {
       ...SECURITY_HEADERS,
       "content-type": "text/csv; charset=utf-8",
       "content-disposition": `attachment; filename="${filename}"`
+    }
+  });
+}
+
+function text(body, status = 200) {
+  return new Response(body, {
+    status,
+    headers: {
+      ...SECURITY_HEADERS,
+      "content-type": "text/plain; charset=utf-8"
     }
   });
 }
