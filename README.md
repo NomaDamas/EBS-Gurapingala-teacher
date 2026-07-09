@@ -16,6 +16,7 @@ EBS 다큐프라임 `<생각의 멸종>` 실험용 학생/교사용 AI 챗봇입
 - 학생 heartbeat 기반 online/offline 표시
 - `TEACHER_TOKEN` 설정 시 교사용/다운로드/WebSocket/삭제 API 보호
 - 학생 session별 채팅 rate limit
+- 학생 입력 검증: 이름 40자, 질문 600자, 잘못된 JSON/누락 필드는 400으로 거절
 - Level 1-4 거짓정보 정책
 - 정답, 거짓 답변, 거짓 근거, Level 적합성 검수 JSON 생성
 - OpenAI Responses API JSON schema 생성 및 3회 재검수 루프

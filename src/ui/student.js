@@ -184,6 +184,10 @@ export const studentHtml = `<!doctype html>
         body: JSON.stringify({ sessionId, studentName, message })
       });
       const data = await res.json();
+      if (!res.ok) {
+        addMessage("bot", data.message || "질문을 처리하지 못했어. 다시 입력해줘.");
+        return;
+      }
       addMessage("bot", data.answer);
     });
   </script>

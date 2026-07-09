@@ -45,6 +45,30 @@ const checks = [
       body.teacherProtected === true &&
       body.endpoints.debriefCsv === "/api/debrief.csv";
   }],
+  ["invalid student JSON returns 400", async () => {
+    const res = await appFetch("https://example.com/api/join", {
+      method: "POST",
+      body: "not-json"
+    });
+    const body = await res.json();
+    return res.status === 400 && body.error === "invalid_json";
+  }],
+  ["student payload validation returns 400", async () => {
+    const missingMessage = await appFetch("https://example.com/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ sessionId: "s-validation", studentName: "민준" })
+    });
+    const longName = await appFetch("https://example.com/api/join", {
+      method: "POST",
+      body: JSON.stringify({ sessionId: "s-validation", studentName: "가".repeat(41) })
+    });
+    const missingMessageBody = await missingMessage.json();
+    const longNameBody = await longName.json();
+    return missingMessage.status === 400 &&
+      missingMessageBody.error === "missing_message" &&
+      longName.status === 400 &&
+      longNameBody.error === "student_name_too_long";
+  }],
   ["student can join and chat with rules provider", async () => {
     const join = await appFetch("https://example.com/api/join", {
       method: "POST",

@@ -52,7 +52,11 @@ export default {
       return json({ ok: true });
     }
     if (url.pathname === "/api/join" && request.method === "POST") {
-      const body = await request.json();
+      const parsed = await readJsonBody(request);
+      if (parsed.error) return parsed.error;
+      const validation = validateStudentPayload(parsed.body, { requireMessage: false });
+      if (validation.error) return validation.error;
+      const body = validation.value;
       await room.fetch(roomEventUrl(env), {
         method: "POST",
         body: JSON.stringify({
@@ -65,7 +69,11 @@ export default {
       return json({ ok: true });
     }
     if (url.pathname === "/api/heartbeat" && request.method === "POST") {
-      const body = await request.json();
+      const parsed = await readJsonBody(request);
+      if (parsed.error) return parsed.error;
+      const validation = validateStudentPayload(parsed.body, { requireMessage: false });
+      if (validation.error) return validation.error;
+      const body = validation.value;
       await room.fetch(roomEventUrl(env), {
         method: "POST",
         body: JSON.stringify({
@@ -78,7 +86,11 @@ export default {
       return json({ ok: true });
     }
     if (url.pathname === "/api/chat" && request.method === "POST") {
-      const body = await request.json();
+      const parsed = await readJsonBody(request);
+      if (parsed.error) return parsed.error;
+      const validation = validateStudentPayload(parsed.body, { requireMessage: true });
+      if (validation.error) return validation.error;
+      const body = validation.value;
       const rateLimit = await checkRateLimit(room, body.sessionId, env);
       if (!rateLimit.allowed) {
         return json({
@@ -152,12 +164,21 @@ export class ClassroomRoom {
       server.addEventListener("message", async (event) => {
         const data = safeJson(event.data);
         if (data?.type === "teacher_config") {
+          const nextLevel = normalizeLevel(data.level);
+          const nextPersona = sanitizeText(data.persona || "교육용 역사 챗봇", 240);
           await this.state.storage.put("config", {
-            level: data.level,
-            persona: data.persona,
+            level: nextLevel,
+            persona: nextPersona,
             updatedAt: new Date().toISOString()
           });
-          this.broadcast({ type: "teacher_config_updated", sessionId: "teacher", studentName: "teacher", ...data });
+          this.broadcast({
+            type: "teacher_config_updated",
+            sessionId: "teacher",
+            studentName: "teacher",
+            level: nextLevel,
+            persona: nextPersona,
+            at: new Date().toISOString()
+          });
         }
       });
       server.addEventListener("close", () => this.sessions.delete(server));
@@ -329,6 +350,60 @@ function csv(body, filename) {
       "content-disposition": `attachment; filename="${filename}"`
     }
   });
+}
+
+async function readJsonBody(request) {
+  try {
+    return { body: await request.json() };
+  } catch {
+    return {
+      error: validationError("invalid_json", "요청 본문은 JSON이어야 합니다.")
+    };
+  }
+}
+
+function validateStudentPayload(body, { requireMessage }) {
+  const sessionId = sanitizeText(body?.sessionId, 120);
+  const studentName = sanitizeText(body?.studentName, 40);
+  const message = sanitizeText(body?.message, 600);
+
+  if (!sessionId) {
+    return { error: validationError("missing_session_id", "세션 정보가 없습니다.") };
+  }
+  if (!studentName) {
+    return { error: validationError("missing_student_name", "이름을 입력해야 합니다.") };
+  }
+  if (requireMessage && !message) {
+    return { error: validationError("missing_message", "질문을 입력해야 합니다.") };
+  }
+  if (String(body?.sessionId || "").length > 120) {
+    return { error: validationError("session_id_too_long", "세션 정보가 너무 깁니다.") };
+  }
+  if (String(body?.studentName || "").length > 40) {
+    return { error: validationError("student_name_too_long", "이름은 40자 이내로 입력해야 합니다.") };
+  }
+  if (requireMessage && String(body?.message || "").length > 600) {
+    return { error: validationError("message_too_long", "질문은 600자 이내로 입력해야 합니다.") };
+  }
+
+  return {
+    value: {
+      sessionId,
+      studentName,
+      ...(requireMessage ? { message } : {})
+    }
+  };
+}
+
+function sanitizeText(value, maxLength) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function validationError(code, message) {
+  return json({ error: code, message }, 400);
 }
 
 function safeJson(value) {
