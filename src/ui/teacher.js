@@ -334,8 +334,21 @@ export const teacherHtml = `<!doctype html>
         const dotClass = session.online ? "dot" : "dot offline";
         const state = session.online ? "online" : "offline";
         const latency = Number.isFinite(session.latencyMs) ? " · " + session.latencyMs + "ms" : "";
-        const blocked = session.blockedForStudent ? "<span class='flag'>blocked</span>" : "";
-        el.innerHTML = "<strong><span class='" + dotClass + "'></span>" + session.name + blocked + "</strong><small>" + state + " · " + session.updatedAt + " · " + session.lastEvent + latency + "</small>";
+        const title = document.createElement("strong");
+        const dot = document.createElement("span");
+        dot.className = dotClass;
+        title.appendChild(dot);
+        title.appendChild(document.createTextNode(session.name));
+        if (session.blockedForStudent) {
+          const blocked = document.createElement("span");
+          blocked.className = "flag";
+          blocked.textContent = "blocked";
+          title.appendChild(blocked);
+        }
+        const meta = document.createElement("small");
+        meta.textContent = state + " · " + session.updatedAt + " · " + session.lastEvent + latency;
+        el.appendChild(title);
+        el.appendChild(meta);
         el.addEventListener("click", () => {
           selected = id;
           renderStudents();

@@ -31,7 +31,9 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /roomId \+ "-" \+ kind/);
   assert.match(teacher, /current\.latencyMs = event\.latencyMs/);
   assert.match(teacher, /current\.blockedForStudent = Boolean\(event\.blockedForStudent\)/);
-  assert.match(teacher, /blockedForStudent \? "<span class='flag'>blocked<\/span>" : ""/);
+  assert.match(teacher, /document\.createTextNode\(session\.name\)/);
+  assert.match(teacher, /blocked\.textContent = "blocked"/);
+  assert.doesNotMatch(teacher, /innerHTML = .*session\.name/);
   assert.match(teacher, /blockedMsg/);
   assert.match(teacher, /session\.latencyMs/);
   assert.match(teacher, /copyStudentUrlEl\.addEventListener/);

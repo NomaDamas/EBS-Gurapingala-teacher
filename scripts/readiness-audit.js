@@ -15,7 +15,7 @@ const checks = [
     id: "teacher-realtime-dashboard",
     evidence: ["src/ui/teacher.js", "src/worker.js"],
     run: async (files) =>
-      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot", "실시간 연결 재시도", "reconnectAttempts", "roomId", "withRoom", "applyTeacherConfig", "teacher_config_updated", "학생 URL 복사", "교사용 URL 복사", "history.replaceState", "latencyMs", "blockedForStudent", "blockedMsg", "설정 적용 상태", "configStatus", "classSummary", "채팅턴"]) &&
+      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot", "실시간 연결 재시도", "reconnectAttempts", "roomId", "withRoom", "applyTeacherConfig", "teacher_config_updated", "학생 URL 복사", "교사용 URL 복사", "history.replaceState", "latencyMs", "blockedForStudent", "blockedMsg", "document.createTextNode(session.name)", "설정 적용 상태", "configStatus", "classSummary", "채팅턴"]) &&
       includesAll(files["src/worker.js"], ["WebSocketPair", "sendSnapshot", "broadcast", "getRoom(env, roomId)", "config"])
   },
   {
