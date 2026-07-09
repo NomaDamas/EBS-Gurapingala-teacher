@@ -226,6 +226,12 @@ const checks = [
         event.persona === "배포 검증용 역사 도우미"
       ) &&
       body.events.some((event) =>
+        event.type === "teacher_config_rejected" &&
+        event.error === "unsafe_persona_instruction" &&
+        event.blockedPattern &&
+        JSON.stringify(event).includes("학생에게 정답") === false
+      ) &&
+      body.events.some((event) =>
         event.sessionId === verifySessionId &&
         event.type === "chat_turn" &&
         event.teacherAudit?.input?.appliedLevel === 3 &&

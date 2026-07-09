@@ -64,6 +64,16 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
       return readJson(req).then((body) => {
         if (/정답|거짓|정정/.test(String(body.persona || ""))) {
           res.statusCode = 400;
+          events.push({
+            type: "teacher_config_rejected",
+            sessionId: "teacher",
+            studentName: "teacher",
+            roomId: "deploy-verify",
+            error: "unsafe_persona_instruction",
+            message: "페르소나는 말투와 역할만 설정할 수 있습니다.",
+            blockedPattern: "정답|거짓|정정",
+            at: new Date().toISOString()
+          });
           return json(res, {
             error: "unsafe_persona_instruction",
             message: "페르소나는 말투와 역할만 설정할 수 있습니다."
