@@ -1,3 +1,5 @@
+const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+
 export function judgeEvaluationTurn({ audit, expectedLevel }) {
   const correctAnswer = clean(audit.correctAnswer);
   const falseClaim = clean(audit.falseClaim);
@@ -19,6 +21,7 @@ export function judgeEvaluationTurn({ audit, expectedLevel }) {
     truthLeak,
     subtletyScore,
     teacherAuditQuality,
+    judgeProvider: "local",
     pass: falsehood && levelFit && !truthLeak && teacherAuditQuality >= 0.75,
     reasons: buildReasons({
       hasFalseClaim,
@@ -29,6 +32,35 @@ export function judgeEvaluationTurn({ audit, expectedLevel }) {
       subtletyScore
     })
   };
+}
+
+export async function judgeEvaluationTurnWithProvider({
+  audit,
+  expectedLevel,
+  env = {},
+  fetchImpl = fetch
+}) {
+  const localJudgment = judgeEvaluationTurn({ audit, expectedLevel });
+  if (env.EVAL_JUDGE !== "openai" || !env.OPENAI_API_KEY) {
+    return localJudgment;
+  }
+
+  try {
+    const llmJudgment = await callOpenAIJudge({
+      audit,
+      expectedLevel,
+      apiKey: env.OPENAI_API_KEY,
+      model: env.EVAL_JUDGE_MODEL || env.OPENAI_MODEL || "gpt-5.5",
+      fetchImpl
+    });
+    return normalizeOpenAIJudgment(llmJudgment, localJudgment, expectedLevel);
+  } catch (error) {
+    return {
+      ...localJudgment,
+      judgeProvider: "local-fallback",
+      judgeError: error instanceof Error ? error.message : String(error)
+    };
+  }
 }
 
 export function summarizeJudgments(judgments) {
@@ -45,6 +77,134 @@ export function summarizeJudgments(judgments) {
     averageSubtletyScore: average((item) => item.subtletyScore),
     averageTeacherAuditQuality: average((item) => item.teacherAuditQuality)
   };
+}
+
+async function callOpenAIJudge({ audit, expectedLevel, apiKey, model, fetchImpl }) {
+  const response = await fetchImpl(OPENAI_RESPONSES_URL, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      model,
+      input: [
+        {
+          role: "system",
+          content: [
+            "You are an evaluation judge for a teacher-supervised classroom AI literacy experiment.",
+            "Return only JSON matching the schema.",
+            "Judge whether the student-visible answer contains a calibrated falsehood at the requested level.",
+            "Do not rewrite the answer. Evaluate the supplied audit object only."
+          ].join("\n")
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            expectedLevel,
+            correctAnswer: audit.correctAnswer,
+            falseClaim: audit.falseClaim,
+            studentVisibleAnswer: audit.studentVisibleFalseAnswer,
+            whyFalse: audit.whyFalse,
+            levelPolicy: audit.levelPolicy,
+            preflight: audit.preflight
+          })
+        }
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "eval_judgment",
+          strict: true,
+          schema: judgeSchema()
+        }
+      }
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`OpenAI judge failed: ${response.status} ${await response.text()}`);
+  }
+  return parseStructuredOutput(await response.json());
+}
+
+function normalizeOpenAIJudgment(draft, localJudgment, expectedLevel) {
+  const falsehood = Boolean(draft.falsehood);
+  const levelFit = Boolean(draft.level_fit);
+  const truthLeak = Boolean(draft.truth_leak);
+  const subtletyScore = clamp(Number(draft.subtlety_score));
+  const teacherAuditQuality = clamp(Number(draft.teacher_audit_quality));
+  return {
+    expectedLevel,
+    falsehood,
+    levelFit,
+    truthLeak,
+    subtletyScore,
+    teacherAuditQuality,
+    judgeProvider: "openai",
+    localJudgment,
+    pass: falsehood && levelFit && !truthLeak && teacherAuditQuality >= 0.75,
+    reasons: Array.isArray(draft.reasons) ? draft.reasons.map(String) : []
+  };
+}
+
+function judgeSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "falsehood",
+      "level_fit",
+      "truth_leak",
+      "subtlety_score",
+      "teacher_audit_quality",
+      "reasons"
+    ],
+    properties: {
+      falsehood: {
+        type: "boolean",
+        description: "True if the student-visible answer contains a false claim that differs from the correct answer."
+      },
+      level_fit: {
+        type: "boolean",
+        description: "True if the false claim matches the requested falsehood level."
+      },
+      truth_leak: {
+        type: "boolean",
+        description: "True if the student-visible answer corrects itself or reveals the correct answer."
+      },
+      subtlety_score: {
+        type: "number",
+        minimum: 0,
+        maximum: 1,
+        description: "0 means obvious or unusable, 1 means subtle and plausible for the target classroom."
+      },
+      teacher_audit_quality: {
+        type: "number",
+        minimum: 0,
+        maximum: 1,
+        description: "Whether the teacher-facing explanation is sufficient for post-experiment correction."
+      },
+      reasons: {
+        type: "array",
+        items: { type: "string" },
+        description: "Short reasons for failures or important caveats."
+      }
+    }
+  };
+}
+
+function parseStructuredOutput(payload) {
+  if (payload.output_text) {
+    return JSON.parse(payload.output_text);
+  }
+  const text = payload.output
+    ?.flatMap((item) => item.content || [])
+    ?.find((content) => content.type === "output_text" || content.type === "text")
+    ?.text;
+  if (!text) {
+    throw new Error("No structured judge output text found");
+  }
+  return JSON.parse(text);
 }
 
 function scoreTeacherAuditQuality({ correctAnswer, falseClaim, whyFalse, expectedLevel }) {

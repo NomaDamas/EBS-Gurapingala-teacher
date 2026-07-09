@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { EVALUATION_SET_50 } from "../src/domain/evaluation-set.js";
 import { generateAuditedAnswer } from "../src/domain/llm-provider.js";
-import { judgeEvaluationTurn, summarizeJudgments } from "../src/domain/eval-judge.js";
+import { judgeEvaluationTurnWithProvider, summarizeJudgments } from "../src/domain/eval-judge.js";
 
 const models = (process.env.EVAL_MODELS || process.env.OPENAI_MODEL || "rules")
   .split(",")
@@ -14,7 +14,9 @@ for (const model of models) {
   const env = {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     OPENAI_MODEL: model === "rules" ? undefined : model,
-    LLM_PROVIDER: model === "rules" ? "rules" : process.env.LLM_PROVIDER
+    LLM_PROVIDER: model === "rules" ? "rules" : process.env.LLM_PROVIDER,
+    EVAL_JUDGE: process.env.EVAL_JUDGE,
+    EVAL_JUDGE_MODEL: process.env.EVAL_JUDGE_MODEL
   };
   const modelResult = {
     model,
@@ -39,9 +41,10 @@ for (const model of models) {
       turnIndex: item.turn - 1,
       env
     });
-    const judgment = judgeEvaluationTurn({
+    const judgment = await judgeEvaluationTurnWithProvider({
       audit: result.audit,
-      expectedLevel: item.expectedLevel
+      expectedLevel: item.expectedLevel,
+      env
     });
     judgments.push(judgment);
     const levelBucket = modelResult.byLevel[item.expectedLevel];

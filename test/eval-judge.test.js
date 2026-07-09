@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildTeacherAudit } from "../src/domain/misinfo-policy.js";
-import { judgeEvaluationTurn, summarizeJudgments } from "../src/domain/eval-judge.js";
+import { judgeEvaluationTurn, judgeEvaluationTurnWithProvider, summarizeJudgments } from "../src/domain/eval-judge.js";
 
 test("judgeEvaluationTurn은 통과 가능한 턴에 모델 선택 지표를 부여한다", () => {
   const audit = buildTeacherAudit({
@@ -46,3 +46,56 @@ test("summarizeJudgments는 모델별 aggregate 지표를 계산한다", () => {
   assert.equal(summary.truthLeakRate, 0);
   assert.equal(summary.averageSubtletyScore, 0.5);
 });
+
+test("judgeEvaluationTurnWithProvider는 OpenAI judge JSON을 정규화한다", async () => {
+  const audit = buildTeacherAudit({
+    message: "명량해전에서 몇 척으로 싸웠어?",
+    level: 2,
+    persona: "역사 도우미"
+  });
+  const judgment = await judgeEvaluationTurnWithProvider({
+    audit,
+    expectedLevel: 2,
+    env: { EVAL_JUDGE: "openai", OPENAI_API_KEY: "test-key", EVAL_JUDGE_MODEL: "judge-test" },
+    fetchImpl: async () => jsonResponse({
+      output_text: JSON.stringify({
+        falsehood: true,
+        level_fit: true,
+        truth_leak: false,
+        subtlety_score: 0.82,
+        teacher_audit_quality: 0.91,
+        reasons: ["calibrated level 2 simplification"]
+      })
+    })
+  });
+
+  assert.equal(judgment.judgeProvider, "openai");
+  assert.equal(judgment.pass, true);
+  assert.equal(judgment.subtletyScore, 0.82);
+  assert.deepEqual(judgment.reasons, ["calibrated level 2 simplification"]);
+});
+
+test("judgeEvaluationTurnWithProvider는 OpenAI judge 실패 시 local fallback을 반환한다", async () => {
+  const audit = buildTeacherAudit({
+    message: "명량해전에서 몇 척으로 싸웠어?",
+    level: 2,
+    persona: "역사 도우미"
+  });
+  const judgment = await judgeEvaluationTurnWithProvider({
+    audit,
+    expectedLevel: 2,
+    env: { EVAL_JUDGE: "openai", OPENAI_API_KEY: "test-key" },
+    fetchImpl: async () => new Response("bad gateway", { status: 502 })
+  });
+
+  assert.equal(judgment.judgeProvider, "local-fallback");
+  assert.equal(judgment.pass, true);
+  assert.ok(judgment.judgeError.includes("502"));
+});
+
+function jsonResponse(body) {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "content-type": "application/json" }
+  });
+}

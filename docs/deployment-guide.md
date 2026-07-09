@@ -59,6 +59,8 @@ npm run deploy
 | `EVENT_TTL_HOURS` | `24` | Durable Object 이벤트 로그 보관 시간 |
 | `DEFAULT_FALSE_LEVEL` | `2` | 교사 설정 전 기본 거짓 Level |
 | `OPENAI_MODEL` | `gpt-5.5` | OpenAI provider 모델 |
+| `EVAL_JUDGE` | unset | `openai`로 설정하면 50턴 평가에서 외부 LLM judge 사용 |
+| `EVAL_JUDGE_MODEL` | `OPENAI_MODEL` | 외부 judge 모델 |
 
 ## 7. 운영 전 필수 보강
 

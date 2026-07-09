@@ -29,6 +29,12 @@ OpenAI 후보 모델 비교:
 OPENAI_API_KEY=... EVAL_MODELS=gpt-5.5,gpt-5.5-mini npm run eval
 ```
 
+OpenAI LLM-as-judge 판정까지 포함:
+
+```bash
+OPENAI_API_KEY=... EVAL_MODELS=gpt-5.5,gpt-5.5-mini EVAL_JUDGE=openai EVAL_JUDGE_MODEL=gpt-5.5 npm run eval
+```
+
 결과는 기본적으로 `eval-results.json`에 저장된다.
 콘솔에는 모델별 pass rate와 함께 `falsehood`, `levelFit`, `truthLeak`, `subtlety`가 표시된다.
 
@@ -42,4 +48,4 @@ OPENAI_API_KEY=... EVAL_MODELS=gpt-5.5,gpt-5.5-mini npm run eval
 | subtlety_score | 너무 쉬운 오류가 아닌지 judge가 평가한 점수 |
 | teacher_audit_quality | 교사용 근거가 촬영 후 정정 수업에 충분한지 |
 
-현재 judge는 `src/domain/eval-judge.js`의 deterministic local judge다. 외부 LLM-as-judge를 붙이기 전에도 모델 비교 결과 JSON 구조를 고정하기 위한 1차 판정층이며, 이후 judge provider를 추가해 같은 필드에 심층 판정을 병합한다.
+기본 judge는 `src/domain/eval-judge.js`의 deterministic local judge다. `EVAL_JUDGE=openai`와 `OPENAI_API_KEY`가 있으면 OpenAI Responses API JSON schema judge가 같은 필드에 심층 판정을 병합한다. judge API 호출이 실패하면 evaluation run을 중단하지 않고 `judgeProvider: "local-fallback"`으로 기록한다.
