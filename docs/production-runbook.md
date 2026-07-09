@@ -31,7 +31,7 @@
    - `openaiModel`이 촬영에 사용할 모델과 일치하는지 확인한다.
    - `openaiTimeoutMs`가 촬영에 사용할 timeout과 일치하는지 확인한다.
    - `chatRateLimitPerMinute`, `eventTtlHours`가 촬영 규모에 맞는지 확인한다.
-   - 응답 헤더의 `cache-control: no-store`, `x-content-type-options: nosniff`, `referrer-policy: no-referrer`, `content-security-policy`, `permissions-policy`를 확인한다.
+   - 응답 헤더의 `cache-control: no-store`, `x-content-type-options: nosniff`, `x-robots-tag: noindex, nofollow`, `referrer-policy: no-referrer`, `content-security-policy`, `permissions-policy`를 확인한다.
 7. 배포 URL 전체 검증을 실행한다.
    - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run verify:deploy`
    - 학생 페이지와 관찰 고지, health, OpenAI provider 설정, 평가 세트, 학생 join/chat, 교사용 보호, token 접속, export telemetry, purge 정리가 모두 통과해야 한다.

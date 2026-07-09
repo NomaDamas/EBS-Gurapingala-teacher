@@ -88,6 +88,7 @@ const checks = [
       body.endpoints.debriefCsv === "/api/debrief.csv" &&
       res.headers.get("cache-control") === "no-store" &&
       res.headers.get("x-content-type-options") === "nosniff" &&
+      res.headers.get("x-robots-tag") === "noindex, nofollow" &&
       res.headers.get("referrer-policy") === "no-referrer" &&
       res.headers.get("content-security-policy")?.includes("frame-ancestors 'none'") &&
       res.headers.get("permissions-policy") === "camera=(), microphone=(), geolocation=()";
@@ -98,7 +99,9 @@ const checks = [
     return notFound.status === 404 &&
       unauthorized.status === 401 &&
       notFound.headers.get("cache-control") === "no-store" &&
+      notFound.headers.get("x-robots-tag") === "noindex, nofollow" &&
       unauthorized.headers.get("cache-control") === "no-store" &&
+      unauthorized.headers.get("x-robots-tag") === "noindex, nofollow" &&
       notFound.headers.get("content-security-policy")?.includes("frame-ancestors 'none'") &&
       unauthorized.headers.get("content-security-policy")?.includes("frame-ancestors 'none'");
   }],

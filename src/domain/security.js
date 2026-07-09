@@ -1,6 +1,7 @@
 export const SECURITY_HEADERS = {
   "cache-control": "no-store",
   "x-content-type-options": "nosniff",
+  "x-robots-tag": "noindex, nofollow",
   "referrer-policy": "no-referrer",
   "content-security-policy": [
     "default-src 'self'",

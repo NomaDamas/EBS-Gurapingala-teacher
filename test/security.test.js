@@ -47,6 +47,7 @@ test("unauthorized 응답은 공통 보안 헤더를 포함한다", () => {
 
   assert.equal(response.status, 401);
   assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow");
   assert.match(response.headers.get("content-security-policy"), /frame-ancestors 'none'/);
   assert.equal(response.headers.get("permissions-policy"), "camera=(), microphone=(), geolocation=()");
 });

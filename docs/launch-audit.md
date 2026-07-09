@@ -11,7 +11,7 @@
 | 학생은 로그인 없이 URL과 이름만으로 입장 | `src/ui/student.js`, `/api/join`, `README.md` | `node scripts/smoke-worker.js`, `student-entry-no-login` readiness |
 | 교사는 별도 대시보드 URL을 사용 | `src/ui/teacher.js`, `/teacher`, `TEACHER_TOKEN` | `teacher page requires token`, `teacher page accepts token` smoke |
 | production 배포는 교사용 token 보호를 강제 | `REQUIRE_TEACHER_TOKEN=true`, `/api/health.teacherProtected` | `verify-deploy`, GitHub Deploy workflow |
-| 민감 응답이 브라우저/프록시에 캐시되지 않음 | `cache-control: no-store`, `nosniff`, `no-referrer` | smoke, worker health test |
+| 민감 응답이 브라우저/프록시에 캐시되지 않고 임시 촬영 URL이 검색 색인에 노출되지 않음 | `cache-control: no-store`, `x-robots-tag: noindex, nofollow`, `nosniff`, `no-referrer` | smoke, worker health test |
 | 교사는 학생 카드별 online/offline과 채팅 진행 상태를 실시간 관찰 | `src/ui/teacher.js`, `/ws/teacher`, Durable Object broadcast | `teacher-realtime-dashboard` readiness, `teacher-config-sync` test |
 | 교사 Level/persona 설정이 실제 학생 답변 생성과 export 타임라인에 반영 | `/api/config`, Durable Object config, `teacherAudit.input`, `teacher_config_updated` raw event | smoke, `verify-deploy` |
 | 학생 화면에는 Level에 맞춘 거짓 답변만 표시 | `src/domain/llm-provider.js`, `src/domain/misinfo-policy.js`, `/api/chat` | `teacher-audit-json-contract`, `preflight-and-regeneration`, `node scripts/run-eval.js` |

@@ -56,6 +56,7 @@ const checks = [
       body.openaiTimeoutMs <= 60000 &&
       typeof body.teacherProtected === "boolean" &&
       res.headers.get("cache-control") === "no-store" &&
+      res.headers.get("x-robots-tag") === "noindex, nofollow" &&
       res.headers.get("content-security-policy")?.includes("frame-ancestors 'none'") &&
       res.headers.get("permissions-policy") === "camera=(), microphone=(), geolocation=()" &&
       JSON.stringify(body).includes("OPENAI_API_KEY") === false &&

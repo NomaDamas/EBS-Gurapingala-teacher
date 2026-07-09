@@ -33,6 +33,7 @@ test("/api/health returns safe deployment metadata without secrets", async () =>
   assert.equal(body.endpoints.debriefCsv, "/api/debrief.csv");
   assert.equal(res.headers.get("cache-control"), "no-store");
   assert.equal(res.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(res.headers.get("x-robots-tag"), "noindex, nofollow");
   assert.equal(res.headers.get("referrer-policy"), "no-referrer");
   assert.match(res.headers.get("content-security-policy"), /frame-ancestors 'none'/);
   assert.match(res.headers.get("content-security-policy"), /object-src 'none'/);
@@ -50,5 +51,6 @@ test("not found responses include common security headers", async () => {
   assert.equal(res.status, 404);
   assert.equal(res.headers.get("content-type"), "text/plain; charset=utf-8");
   assert.equal(res.headers.get("cache-control"), "no-store");
+  assert.equal(res.headers.get("x-robots-tag"), "noindex, nofollow");
   assert.match(res.headers.get("content-security-policy"), /frame-ancestors 'none'/);
 });

@@ -286,6 +286,7 @@ function json(res, body) {
 
 function setSecurityHeaders(res) {
   res.setHeader("cache-control", "no-store");
+  res.setHeader("x-robots-tag", "noindex, nofollow");
   res.setHeader("content-security-policy", "default-src 'self'; frame-ancestors 'none'; object-src 'none'");
   res.setHeader("permissions-policy", "camera=(), microphone=(), geolocation=()");
 }

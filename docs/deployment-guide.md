@@ -148,7 +148,7 @@ GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 ## 7. 운영 전 필수 보강
 
 - 배포 직후 `/api/health`에서 `ok`, `provider`, `teacherProtected`, `openaiTimeoutMs`, `chatRateLimitPerMinute`, `eventTtlHours`를 확인
-- 응답 헤더: `/api/health`, export, debrief 응답에 `cache-control: no-store`, `x-content-type-options: nosniff`, `referrer-policy: no-referrer`, `content-security-policy`, `permissions-policy`가 있는지 확인
+- 응답 헤더: `/api/health`, export, debrief 응답에 `cache-control: no-store`, `x-content-type-options: nosniff`, `x-robots-tag: noindex, nofollow`, `referrer-policy: no-referrer`, `content-security-policy`, `permissions-policy`가 있는지 확인
 - `/teacher` 보호: `TEACHER_TOKEN` 또는 Cloudflare Access 설정
 - rate limit: `CHAT_RATE_LIMIT_PER_MINUTE`를 촬영 규모에 맞게 조정
 - 데이터 보관: 촬영 종료 후 export하고 대시보드의 로그 삭제 버튼 또는 `/api/purge` 사용. 삭제 시 room 이름을 다시 입력하고, API 호출은 `x-purge-room: <room>` 헤더를 포함해야 한다.
