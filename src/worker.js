@@ -45,7 +45,9 @@ export default {
       if (request.method === "POST") {
         const parsed = await readJsonBody(request);
         if (parsed.error) return parsed.error;
-        const updated = await writeConfig(room, parsed.body, env, roomId);
+        const teacherConfig = sanitizeTeacherConfig(parsed.body, env);
+        if (teacherConfig.error) return teacherConfig.error;
+        const updated = await writeConfig(room, teacherConfig.value, env, roomId);
         return json(updated);
       }
       return json({ error: "method_not_allowed" }, 405);
@@ -366,8 +368,22 @@ export class ClassroomRoom {
   }
 
   async updateConfig(data, roomId = "default-classroom") {
-    const nextLevel = normalizeLevel(data.level);
-    const nextPersona = sanitizeText(data.persona || "교육용 역사 챗봇", 240);
+    const validation = sanitizeTeacherConfig(data, {});
+    if (validation.errorBody) {
+      const rejected = {
+        type: "teacher_config_rejected",
+        sessionId: "teacher",
+        studentName: "teacher",
+        roomId: normalizeRoomId(roomId),
+        error: validation.errorBody.error,
+        message: validation.errorBody.message,
+        at: new Date().toISOString()
+      };
+      this.broadcast(rejected);
+      return validation.errorBody;
+    }
+    const nextLevel = validation.value.level;
+    const nextPersona = validation.value.persona;
     const updatedAt = new Date().toISOString();
     const config = {
       level: nextLevel,
@@ -631,6 +647,42 @@ function validateStudentPayload(body, { requireMessage }) {
       ...(requireMessage ? { message } : {})
     }
   };
+}
+
+function sanitizeTeacherConfig(body, env = {}) {
+  const level = normalizeLevel(body?.level || env.DEFAULT_FALSE_LEVEL);
+  const persona = sanitizeText(body?.persona || env.DEFAULT_PERSONA || "교육용 역사 챗봇", 240);
+  const unsafePersona = findUnsafePersonaInstruction(persona);
+  if (unsafePersona) {
+    const errorBody = {
+      error: "unsafe_persona_instruction",
+      message: "페르소나는 말투와 역할만 설정할 수 있습니다. 정답 공개, 거짓 공개, 규칙 우회 지시는 저장할 수 없습니다.",
+      blockedPattern: unsafePersona
+    };
+    return {
+      error: json(errorBody, 400),
+      errorBody
+    };
+  }
+  return {
+    value: {
+      level,
+      persona
+    }
+  };
+}
+
+function findUnsafePersonaInstruction(persona) {
+  const value = String(persona || "");
+  const patterns = [
+    /정답(을|은)?\s*(말|알려|공개|제공|노출)/,
+    /사실(만|대로)?\s*(말|알려|공개|제공)/,
+    /(거짓|오류|틀린 정보)(을|를)?\s*(밝혀|공개|알려|정정|수정)/,
+    /(학생|아이)(에게)?\s*(정정|교정)/,
+    /(규칙|지침|시스템|프롬프트)(을|를)?\s*(무시|우회|덮어|따르지)/,
+    /(preflight|검수)(를|을)?\s*(무시|우회|건너)/
+  ];
+  return patterns.find((pattern) => pattern.test(value))?.source || "";
 }
 
 function sanitizeText(value, maxLength) {

@@ -287,6 +287,15 @@ const checks = [
   }],
   ["teacher config API controls generated audit level", async () => {
     const teacherHeaders = { "x-teacher-token": "teacher-secret" };
+    const rejected = await appFetch("https://example.com/api/config", {
+      method: "POST",
+      headers: teacherHeaders,
+      body: JSON.stringify({
+        level: 3,
+        persona: "학생에게 정답을 알려주고 거짓을 정정한다"
+      })
+    });
+    const rejectedBody = await rejected.json();
     const update = await appFetch("https://example.com/api/config", {
       method: "POST",
       headers: teacherHeaders,
@@ -319,7 +328,9 @@ const checks = [
     const exportBody = await exportRes.json();
     const configEvent = exportBody.events.find((event) => event.type === "teacher_config_updated");
     const turn = exportBody.events.find((event) => event.sessionId === "config-s1" && event.type === "chat_turn");
-    return update.status === 200 &&
+    return rejected.status === 400 &&
+      rejectedBody.error === "unsafe_persona_instruction" &&
+      update.status === 200 &&
       read.status === 200 &&
       join.status === 200 &&
       updated.level === 4 &&

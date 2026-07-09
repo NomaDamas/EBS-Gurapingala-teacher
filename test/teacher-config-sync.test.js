@@ -10,6 +10,10 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(worker, /type: "teacher_config_updated"/);
   assert.match(worker, /const updatedAt = new Date\(\)\.toISOString\(\)/);
   assert.match(worker, /async updateConfig\(data, roomId = "default-classroom"\)/);
+  assert.match(worker, /sanitizeTeacherConfig\(data, \{\}\)/);
+  assert.match(worker, /type: "teacher_config_rejected"/);
+  assert.match(worker, /unsafe_persona_instruction/);
+  assert.match(worker, /findUnsafePersonaInstruction/);
   assert.match(worker, /await this\.updateConfig\(data, normalizeRoomId\(url\.searchParams\.get\("room"\)\)\)/);
   assert.match(worker, /url\.pathname === "\/config" && request\.method === "POST"[\s\S]*this\.updateConfig\(await request\.json\(\), normalizeRoomId\(url\.searchParams\.get\("room"\)\)\)/);
   assert.match(worker, /const config = \{\s*level: nextLevel,\s*persona: nextPersona,\s*updatedAt\s*\}/s);
@@ -18,12 +22,13 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.equal(teacher.includes('updateSocketStatus("online");\n        sendTeacherConfig();'), false);
   assert.match(teacher, /if \(event\.config\) applyTeacherConfig\(event\.config\)/);
   assert.match(teacher, /if \(event\.type === "teacher_config_updated"\)[\s\S]*return;/);
+  assert.match(teacher, /if \(event\.type === "teacher_config_rejected"\)[\s\S]*return;/);
   assert.match(teacher, /function applyTeacherConfig\(config\)/);
   assert.match(teacher, /async function sendTeacherConfig\(\)/);
   assert.match(teacher, /await postTeacherConfig\(payload\)/);
   assert.match(teacher, /async function postTeacherConfig\(payload\)/);
   assert.match(teacher, /fetch\(withRoom\("\/api\/config"\)/);
-  assert.match(teacher, /저장 실패: 권한 또는 연결 확인/);
+  assert.match(teacher, /저장 실패: /);
   assert.match(teacher, /저장 실패: 네트워크 확인/);
   assert.match(teacher, /id="configStatus"/);
   assert.match(teacher, /configStatusEl\.value = "저장 중/);

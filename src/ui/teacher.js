@@ -304,6 +304,11 @@ export const teacherHtml = `<!doctype html>
         }, null, 2);
         return;
       }
+      if (event.type === "teacher_config_rejected") {
+        configStatusEl.value = "저장 실패: " + (event.message || event.error || "페르소나 검수 실패");
+        auditEl.textContent = JSON.stringify(event, null, 2);
+        return;
+      }
       if (event.type === "events_purged") {
         auditEl.textContent = JSON.stringify(event, null, 2);
         return;
@@ -469,7 +474,7 @@ export const teacherHtml = `<!doctype html>
         });
         const config = await readJsonSafely(res);
         if (!res.ok) {
-          configStatusEl.value = "저장 실패: 권한 또는 연결 확인";
+          configStatusEl.value = "저장 실패: " + (config.message || "권한 또는 연결 확인");
           return;
         }
         applyTeacherConfig(config);

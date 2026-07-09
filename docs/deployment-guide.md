@@ -52,6 +52,10 @@ https://<worker-domain>/teacher?token=<TEACHER_TOKEN>
 
 `room` 값은 영문 소문자, 숫자, `_`, `-` 중심으로 정규화된다. 값을 생략하면 `default-classroom`을 사용한다.
 
+## 3-2. Level/persona 설정 안전장치
+
+교사용 대시보드의 Level은 1~4 범위로 정규화된다. persona는 말투와 역할 설정에만 사용해야 하며, 정답 공개, 거짓 공개, 정정 지시, 시스템 프롬프트·검수 우회 지시가 들어가면 `/api/config`가 `unsafe_persona_instruction` 400으로 저장을 거절한다. WebSocket 설정 경로도 같은 검수를 사용하며 거절 시 `teacher_config_rejected` telemetry가 교사용 화면에 표시된다.
+
 ## 4. 배포
 
 PR에서는 GitHub Actions `Verify product gates`가 다음 명령을 실행한다.
