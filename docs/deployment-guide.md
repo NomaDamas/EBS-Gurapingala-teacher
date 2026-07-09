@@ -22,7 +22,7 @@ CLOUDFLARE_ACCOUNT_ID=<account-id> npx wrangler secret put OPENAI_API_KEY
 비용·안정성·촬영 리허설을 위해 강제로 룰 기반 provider만 쓰려면 `LLM_PROVIDER=rules`를 환경변수로 둔다.
 모델을 바꾸려면 Cloudflare 환경변수 `OPENAI_MODEL`을 설정한다. 기본값은 `gpt-5.5`다.
 OpenAI 요청 대기 시간을 제한하려면 `OPENAI_TIMEOUT_MS`를 설정한다. 기본값은 `15000`이고, Worker는 `1000`~`60000`ms 범위로 보정한다. 이 값은 `/api/health.openaiTimeoutMs`와 교사용 audit JSON의 `provider.timeoutMs`에 남는다.
-여러 학생이 동시에 접속해도 학생 브라우저는 API key를 받지 않고, Worker가 하나의 서버-side `OPENAI_API_KEY`로 학생별 `/api/chat` 요청을 처리한다. 학생별 telemetry 구분은 브라우저 계정이 아니라 `sessionId`, `studentName`, `room`으로 수행한다. 브라우저 localStorage의 `sessionSecret`은 Durable Object 내부 검증에만 쓰고 export하지 않는다. `sessionSecret`은 학생이 입력하지 않으며, 같은 `sessionId`를 다른 브라우저가 재사용하려 하면 Worker가 거부한다.
+여러 학생이 동시에 접속해도 학생 브라우저는 API key를 받지 않고, Worker가 하나의 서버-side `OPENAI_API_KEY`로 학생별 `/api/chat` 요청을 처리한다. 학생별 telemetry 구분은 브라우저 계정이 아니라 `sessionId`, `studentName`, `room`으로 수행한다. 브라우저 localStorage의 `sessionSecret`은 Durable Object 내부 검증에만 쓰고 export하지 않는다. `sessionSecret`은 학생이 입력하지 않으며, 같은 `sessionId`를 다른 브라우저가 재사용하려 하면 Worker가 거부한다. 전체 raw event export도 `sessionSecret`, OpenAI API key, authorization header, teacher token류의 민감 필드를 제거한 뒤 생성한다.
 
 ## 3. 교사용 접근 보호
 

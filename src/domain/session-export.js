@@ -126,7 +126,31 @@ export function pruneEventsByTtl(events, now = Date.now(), ttlHours = 24) {
 }
 
 function normalizeEvents(events) {
-  return Array.isArray(events) ? events.filter(Boolean) : [];
+  return Array.isArray(events) ? events.filter(Boolean).map(redactSensitiveFields) : [];
+}
+
+function redactSensitiveFields(value) {
+  if (Array.isArray(value)) return value.map(redactSensitiveFields);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !isSensitiveExportKey(key))
+      .map(([key, nestedValue]) => [key, redactSensitiveFields(nestedValue)])
+  );
+}
+
+function isSensitiveExportKey(key) {
+  const normalized = String(key || "").toLowerCase().replace(/[-_]/g, "");
+  return [
+    "sessionsecret",
+    "authorization",
+    "apikey",
+    "openaiapikey",
+    "teacherkey",
+    "teachertoken",
+    "xteachertoken",
+    "token"
+  ].includes(normalized);
 }
 
 function csvEscape(value) {
