@@ -19,6 +19,7 @@ test("review:evidence writes structured approval evidence tied to a PR head", as
     READINESS_STATUS: "pass",
     SMOKE_STATUS: "pass",
     VERIFY_DEPLOY_STATUS: "pass",
+    CLASSROOM_CONFIG_STATUS: "pass",
     RELEASE_AUDIT_STATUS: "not-run",
     NON_BLOCKING_RISKS: "실제 촬영 전 학생 기기 리허설 필요"
   });
@@ -31,6 +32,7 @@ test("review:evidence writes structured approval evidence tied to a PR head", as
   assert.equal(evidence.reviewer, "GPT-5.5 xhigh equivalent");
   assert.equal(evidence.prHeadSha, "abc123");
   assert.equal(evidence.evidenceChecked.ciStatus, "success");
+  assert.equal(evidence.evidenceChecked.classroomConfigStatus, "pass");
   assert.deepEqual(evidence.blockingFindings, []);
   assert.deepEqual(evidence.nonBlockingRisks, ["실제 촬영 전 학생 기기 리허설 필요"]);
 });
@@ -45,6 +47,7 @@ test("review:evidence rejects approval with blocking findings", async () => {
     EVAL_STATUS: "pass",
     READINESS_STATUS: "pass",
     SMOKE_STATUS: "pass",
+    CLASSROOM_CONFIG_STATUS: "pass",
     BLOCKING_FINDINGS: "src/worker.js:1 학생에게 정답 누출 가능"
   });
 
@@ -65,6 +68,7 @@ test("review:evidence fails closed when required verification statuses are missi
   assert.match(result.stderr, /EVAL_STATUS=pass or success is required/);
   assert.match(result.stderr, /READINESS_STATUS=pass or success is required/);
   assert.match(result.stderr, /SMOKE_STATUS=pass or success is required/);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_STATUS=pass or success is required/);
 });
 
 function runReviewEvidence(env) {

@@ -11,6 +11,7 @@ const evalStatus = normalizeStatus(process.env.EVAL_STATUS || process.env.NPM_EV
 const readinessStatus = normalizeStatus(process.env.READINESS_STATUS || process.env.NPM_READINESS_STATUS);
 const smokeStatus = normalizeStatus(process.env.SMOKE_STATUS || process.env.NPM_SMOKE_STATUS);
 const verifyDeployStatus = normalizeStatus(process.env.VERIFY_DEPLOY_STATUS || "not-run");
+const classroomConfigStatus = normalizeStatus(process.env.CLASSROOM_CONFIG_STATUS || process.env.REHEARSAL_CONFIG_STATUS);
 const releaseAuditStatus = normalizeStatus(process.env.RELEASE_AUDIT_STATUS || "not-run");
 const blockingFindings = parseList(process.env.BLOCKING_FINDINGS);
 const nonBlockingRisks = parseList(process.env.NON_BLOCKING_RISKS);
@@ -29,7 +30,8 @@ for (const [label, value] of [
   ["TESTS_STATUS", testsStatus],
   ["EVAL_STATUS", evalStatus],
   ["READINESS_STATUS", readinessStatus],
-  ["SMOKE_STATUS", smokeStatus]
+  ["SMOKE_STATUS", smokeStatus],
+  ["CLASSROOM_CONFIG_STATUS", classroomConfigStatus]
 ]) {
   if (!isPass(value)) failures.push(`${label}=pass or success is required for external review evidence`);
 }
@@ -53,6 +55,7 @@ const payload = {
     readinessStatus,
     smokeStatus,
     verifyDeployStatus,
+    classroomConfigStatus,
     releaseAuditStatus
   },
   blockingFindings,

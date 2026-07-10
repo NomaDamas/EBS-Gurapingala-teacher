@@ -105,6 +105,7 @@ Evidence checked:
 - npm run readiness: pass/fail
 - npm run smoke: pass/fail
 - verify:deploy against production/rehearsal URL: pass/fail/not-run
+- rehearsal:config against each filming room: pass/fail/not-run, room=<>, expectedLevel=<>, evidence=<classroom-config-evidence/v1>
 - npm run release:audit with latest commit evidence: pass/fail/not-run
 
 Blocking findings:
@@ -131,6 +132,7 @@ EVAL_STATUS=pass \
 READINESS_STATUS=pass \
 SMOKE_STATUS=pass \
 VERIFY_DEPLOY_STATUS=pass \
+CLASSROOM_CONFIG_STATUS=pass \
 EXTERNAL_REVIEW_FILE=artifacts/external-review.json \
 npm run review:evidence
 ```
