@@ -18,11 +18,11 @@ test("Deploy workflow verifies the real Worker with the same strict production g
   );
   const teacherSecretStep = workflow.slice(
     workflow.indexOf("- name: Sync teacher Worker secret"),
-    workflow.indexOf("- name: Deploy Worker")
+    workflow.indexOf("- name: Verify health endpoint")
   );
   const deployStep = workflow.slice(
     workflow.indexOf("- name: Deploy Worker"),
-    workflow.indexOf("- name: Verify health endpoint")
+    workflow.indexOf("- name: Sync OpenAI Worker secret")
   );
   const verifyStep = workflow.slice(
     workflow.indexOf("- name: Verify health endpoint"),
@@ -47,10 +47,16 @@ test("Deploy workflow verifies the real Worker with the same strict production g
   assert.match(openAiSecretStep, /OPENAI_API_KEY: \$\{\{ secrets\.OPENAI_API_KEY \}\}/);
   assert.match(teacherSecretStep, /run: printf '%s' "\$TEACHER_TOKEN" \| npx wrangler secret put TEACHER_TOKEN/);
   assert.match(teacherSecretStep, /TEACHER_TOKEN: \$\{\{ secrets\.TEACHER_TOKEN \}\}/);
+  assert.ok(workflow.indexOf("- name: Deploy Worker") < workflow.indexOf("- name: Sync OpenAI Worker secret"));
+  assert.ok(workflow.indexOf("- name: Sync teacher Worker secret") < workflow.indexOf("- name: Verify health endpoint"));
+  assert.match(deployStep, /--var "LLM_PROVIDER:\$LLM_PROVIDER"/);
+  assert.match(deployStep, /LLM_PROVIDER: openai/);
   assert.match(deployStep, /--var "OPENAI_MODEL:\$OPENAI_MODEL"/);
   assert.match(deployStep, /--var "OPENAI_VERIFIER_MODEL:\$OPENAI_VERIFIER_MODEL"/);
   assert.match(deployStep, /--var "OPENAI_TIMEOUT_MS:\$OPENAI_TIMEOUT_MS"/);
-  assert.match(verifyStep, /run: node scripts\/verify-deploy\.js/);
+  assert.match(verifyStep, /for attempt in 1 2 3 4 5/);
+  assert.match(verifyStep, /if node scripts\/verify-deploy\.js/);
+  assert.match(verifyStep, /sleep 5/);
   assert.match(verifyStep, /WORKER_URL: \$\{\{ vars\.WORKER_HEALTH_URL \}\}/);
   assert.match(verifyStep, /TEACHER_TOKEN: \$\{\{ secrets\.TEACHER_TOKEN \}\}/);
   assert.match(verifyStep, /VERIFY_ROOM: \$\{\{ vars\.VERIFY_ROOM \|\| 'deploy-verify' \}\}/);

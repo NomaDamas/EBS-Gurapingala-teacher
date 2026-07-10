@@ -97,6 +97,21 @@ jobs:
           EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
           EXPECTED_OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
 
+      - name: Deploy Worker
+        run: >-
+          npx wrangler deploy
+          --var "LLM_PROVIDER:$LLM_PROVIDER"
+          --var "OPENAI_MODEL:$OPENAI_MODEL"
+          --var "OPENAI_VERIFIER_MODEL:$OPENAI_VERIFIER_MODEL"
+          --var "OPENAI_TIMEOUT_MS:$OPENAI_TIMEOUT_MS"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          LLM_PROVIDER: openai
+          OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
+
       - name: Sync OpenAI Worker secret
         run: printf '%s' "$OPENAI_API_KEY" | npx wrangler secret put OPENAI_API_KEY
         env:
@@ -111,22 +126,17 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           TEACHER_TOKEN: ${{ secrets.TEACHER_TOKEN }}
 
-      - name: Deploy Worker
-        run: >-
-          npx wrangler deploy
-          --var "OPENAI_MODEL:$OPENAI_MODEL"
-          --var "OPENAI_VERIFIER_MODEL:$OPENAI_VERIFIER_MODEL"
-          --var "OPENAI_TIMEOUT_MS:$OPENAI_TIMEOUT_MS"
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
-          OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
-          OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
-
       - name: Verify health endpoint
         if: ${{ vars.WORKER_HEALTH_URL != '' }}
-        run: node scripts/verify-deploy.js
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if node scripts/verify-deploy.js; then
+              exit 0
+            fi
+            echo "Deploy verification attempt ${attempt}/5 failed; waiting for Worker secret propagation."
+            sleep 5
+          done
+          exit 1
         env:
           WORKER_URL: ${{ vars.WORKER_HEALTH_URL }}
           TEACHER_TOKEN: ${{ secrets.TEACHER_TOKEN }}
