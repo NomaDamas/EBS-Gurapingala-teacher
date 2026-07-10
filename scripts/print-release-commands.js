@@ -91,6 +91,7 @@ console.log([
   `PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
   `EXPECTED_PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
   "CI_STATUS=success",
+  `CI_HEAD_SHA=${shellQuote(prHeadSha)}`,
   "REQUIRE_OPENAI=true",
   "REQUIRE_TEACHER_TOKEN=true",
   "REQUIRE_CLASSROOM_CONFIG=true",

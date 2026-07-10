@@ -48,6 +48,7 @@
 9. 릴리즈 증거 명령을 한 번에 출력해 운영자가 같은 SHA/room/evidence path를 쓰는지 확인한다.
    - `WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> CLASSROOM_PLANS='2026-07-13-3-5:2:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:2:이순신 장군처럼 친절하게 설명한다.' npm run release:commands`
    - 출력된 명령은 `verify:deploy`, 각 촬영방 `rehearsal:config`, `review:evidence`, `release:audit` 순서로 실행한다.
+   - 최종 `release:audit` 명령의 `CI_HEAD_SHA`는 GitHub CI가 통과한 최신 PR head와 같아야 한다.
    - `release:commands`는 `deploy-verify`를 촬영방으로 쓰는 계획을 거절한다.
 10. 외부 리뷰 요청문을 최신 PR SHA로 생성한다.
    - `PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 PR_HEAD_SHA=<latest-sha> WORKER_URL=https://<worker-domain> EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run review:packet`

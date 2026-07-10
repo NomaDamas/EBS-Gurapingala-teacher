@@ -9,6 +9,7 @@ const workerUrl = String(process.env.WORKER_URL || process.env.WORKER_HEALTH_URL
 const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "").trim();
 const expectedHeadSha = String(process.env.EXPECTED_PR_HEAD_SHA || "").trim();
 const ciStatus = normalizeStatus(process.env.CI_STATUS || process.env.GITHUB_CI_STATUS);
+const ciHeadSha = String(process.env.CI_HEAD_SHA || "").trim();
 const requireOpenAI = process.env.REQUIRE_OPENAI !== "false";
 const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN !== "false";
 const requireClassroomConfig = process.env.REQUIRE_CLASSROOM_CONFIG !== "false";
@@ -41,6 +42,12 @@ if (expectedHeadSha && prHeadSha && expectedHeadSha !== prHeadSha) {
 
 if (ciStatus !== "pass" && ciStatus !== "success") {
   failures.push("CI_STATUS=pass or CI_STATUS=success is required for the latest PR head");
+}
+
+if (!ciHeadSha) {
+  failures.push("CI_HEAD_SHA is required so CI success is tied to the latest PR head");
+} else if (prHeadSha && ciHeadSha !== prHeadSha) {
+  failures.push("CI_HEAD_SHA must match PR_HEAD_SHA; rerun CI on the latest PR head");
 }
 
 if (requireOpenAI && process.env.REQUIRE_OPENAI !== "true") {
@@ -183,6 +190,7 @@ if (failures.length) {
 
 console.log("release audit passed");
 console.log(`prHeadSha=${prHeadSha}`);
+console.log(`ciHeadSha=${ciHeadSha}`);
 console.log(`workerUrl=${workerUrl}`);
 console.log(`externalReviewDecision=${externalReviewDecision}`);
 console.log(`verifyDeployStatus=${verifyDeployStatus}`);

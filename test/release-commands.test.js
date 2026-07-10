@@ -28,6 +28,7 @@ test("release:commands prints commit-bound deploy, classroom, review, and releas
   assert.match(result.stdout, /CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts\/2026-07-13-3-5-config\.json,artifacts\/2026-07-16-3-1-config\.json/);
   assert.match(result.stdout, /EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1/);
   assert.match(result.stdout, /npm run release:audit/);
+  assert.match(result.stdout, /CI_HEAD_SHA=abc123/);
 });
 
 test("release:commands rejects missing room plan and deploy-verify classroom room", async () => {
