@@ -257,6 +257,17 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.equal(evidence.checks.length, 19);
     assert.equal(evidence.requireCloudflareEdge, false);
     assert.equal(evidence.cloudflareEdge.present, true);
+    assert.deepEqual(evidence.health, {
+      status: 200,
+      ok: true,
+      provider: "rules",
+      openaiConfigured: false,
+      openaiModel: "gpt-5.5",
+      openaiTimeoutMs: 15000,
+      teacherProtected: true,
+      chatRateLimitPerMinute: null,
+      eventTtlHours: null
+    });
 
     const strictResult = await runNode(["scripts/verify-deploy.js"], {
       WORKER_URL: workerUrl,

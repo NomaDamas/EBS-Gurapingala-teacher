@@ -123,6 +123,12 @@ if (!verifyDeployEvidenceFile) {
   if (requireCloudflareEdge && deployEvidence.cloudflareEdge?.present !== true) {
     failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must prove Cloudflare edge headers were present");
   }
+  if (requireCloudflareEdge && !hasCloudflareEdgeHeaderEvidence(deployEvidence.cloudflareEdge?.headers)) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE cloudflareEdge.headers must include Cloudflare response header evidence");
+  }
+  if (!hasValidDeployHealthEvidence(deployEvidence.health)) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must include a sanitized /api/health evidence snapshot");
+  }
   if (!Number.isFinite(deployEvidence.totalChecks) || deployEvidence.totalChecks < 18) {
     failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must include all deploy verification checks");
   }
@@ -186,6 +192,29 @@ function isValidExternalReviewSource(source) {
   if (source.url && isHttpsUrl(source.url)) return true;
   if (typeof source.transcriptSha256 === "string" && /^[a-f0-9]{64}$/.test(source.transcriptSha256) && Number(source.transcriptBytes) > 0) return true;
   return false;
+}
+
+function hasCloudflareEdgeHeaderEvidence(headers) {
+  if (!headers || typeof headers !== "object") return false;
+  const values = [
+    headers.cfRay,
+    headers.cfCacheStatus,
+    headers.server,
+    headers.reportTo
+  ].map((value) => String(value || "").toLowerCase());
+  return Boolean(values[0]) || values.some((value) => value.includes("cloudflare"));
+}
+
+function hasValidDeployHealthEvidence(health) {
+  if (!health || typeof health !== "object") return false;
+  if (Number(health.status) !== 200) return false;
+  if (health.ok !== true) return false;
+  if (requireOpenAI && health.provider !== "openai") return false;
+  if (requireOpenAI && health.openaiConfigured !== true) return false;
+  if (requireTeacherToken && health.teacherProtected !== true) return false;
+  if (typeof health.openaiModel !== "string") return false;
+  if (!Number.isFinite(health.openaiTimeoutMs)) return false;
+  return JSON.stringify(health).includes("OPENAI_API_KEY") === false;
 }
 
 function normalizeBaseUrl(value) {

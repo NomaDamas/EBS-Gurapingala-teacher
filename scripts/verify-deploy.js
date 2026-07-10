@@ -395,6 +395,7 @@ if (failed) {
 
 async function writeDeployEvidence(file, passed, results) {
   const cloudflareEdge = await getCloudflareEdgeMetadata();
+  const health = await getHealthEvidence();
   const payload = {
     schemaVersion: "deploy-verification-evidence/v1",
     generatedAt: new Date().toISOString(),
@@ -406,6 +407,7 @@ async function writeDeployEvidence(file, passed, results) {
     requireTeacherToken,
     requireCloudflareEdge,
     cloudflareEdge,
+    health,
     expectedOpenAIModel,
     expectedOpenAITimeoutMs: expectedOpenAITimeoutMs || null,
     passedChecks: results.filter((result) => result.passed).length,
@@ -430,6 +432,34 @@ async function getCloudflareEdgeMetadata() {
     present: Boolean(headers.cfRay || serialized.includes("cloudflare")),
     headers
   };
+}
+
+async function getHealthEvidence() {
+  try {
+    const res = await fetchUrl("/api/health");
+    const body = await res.json();
+    return {
+      status: res.status,
+      ok: body.ok === true,
+      provider: safeString(body.provider),
+      openaiConfigured: body.openaiConfigured === true,
+      openaiModel: safeString(body.openaiModel),
+      openaiTimeoutMs: Number.isFinite(body.openaiTimeoutMs) ? body.openaiTimeoutMs : null,
+      teacherProtected: body.teacherProtected === true,
+      chatRateLimitPerMinute: Number.isFinite(body.chatRateLimitPerMinute) ? body.chatRateLimitPerMinute : null,
+      eventTtlHours: Number.isFinite(body.eventTtlHours) ? body.eventTtlHours : null
+    };
+  } catch (error) {
+    return {
+      status: 0,
+      ok: false,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+function safeString(value) {
+  return typeof value === "string" ? value : "";
 }
 
 function fetchUrl(path, query = {}, init) {

@@ -213,6 +213,67 @@ test("release audit rejects deploy evidence without Cloudflare edge proof when r
   assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE must prove Cloudflare edge headers were present/);
 });
 
+test("release audit rejects Cloudflare edge proof without response headers", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    deployOverrides: {
+      cloudflareEdge: {
+        present: true,
+        headers: {}
+      }
+    }
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    REQUIRE_CLOUDFLARE_EDGE: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /cloudflareEdge\.headers must include Cloudflare response header evidence/);
+});
+
+test("release audit rejects deploy evidence without sanitized health snapshot", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    deployOverrides: {
+      health: undefined
+    }
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    REQUIRE_CLOUDFLARE_EDGE: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /sanitized \/api\/health evidence snapshot/);
+});
+
 test("release audit rejects classroom config evidence from deploy-verify room", async () => {
   const evidence = await writeEvidenceFiles({
     prHeadSha: "abc123",
@@ -391,6 +452,17 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
       headers: {
         cfRay: "test-ray"
       }
+    },
+    health: {
+      status: 200,
+      ok: true,
+      provider: "openai",
+      openaiConfigured: true,
+      openaiModel: "gpt-5.5",
+      openaiTimeoutMs: 15000,
+      teacherProtected: true,
+      chatRateLimitPerMinute: 60,
+      eventTtlHours: 24
     },
     passedChecks: 19,
     totalChecks: 19,
