@@ -80,7 +80,7 @@ export const teacherHtml = `<!doctype html>
     .student.active { outline: 3px solid rgba(182,75,43,.24); }
     .classSummary {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 8px;
       padding: 10px;
       border-radius: 18px;
@@ -342,6 +342,7 @@ export const teacherHtml = `<!doctype html>
         current.blockedForStudent = Boolean(event.blockedForStudent);
         current.chatTurns = (current.chatTurns || 0) + 1;
         if (event.blockedForStudent) current.blockedTurns = (current.blockedTurns || 0) + 1;
+        if (!event.blockedForStudent) current.debriefRequiredTurns = (current.debriefRequiredTurns || 0) + 1;
       }
       sessions.set(event.sessionId, current);
       if (!selected) selected = event.sessionId;
@@ -354,11 +355,13 @@ export const teacherHtml = `<!doctype html>
       let onlineCount = 0;
       let chatTurns = 0;
       let blockedTurns = 0;
+      let debriefRequiredTurns = 0;
       for (const [id, session] of sessions) {
         session.online = Date.now() - (session.lastSeenMs || 0) < 35000;
         if (session.online) onlineCount += 1;
         chatTurns += session.chatTurns || 0;
         blockedTurns += session.blockedTurns || 0;
+        debriefRequiredTurns += session.debriefRequiredTurns || 0;
         const el = document.createElement("article");
         el.className = "student" + (id === selected ? " active" : "");
         const dotClass = session.online ? "dot" : "dot offline";
@@ -375,6 +378,12 @@ export const teacherHtml = `<!doctype html>
           blocked.textContent = session.blockedTurns ? "blocked " + session.blockedTurns : "blocked";
           title.appendChild(blocked);
         }
+        if (session.debriefRequiredTurns) {
+          const debrief = document.createElement("span");
+          debrief.className = "flag";
+          debrief.textContent = "정정 " + session.debriefRequiredTurns;
+          title.appendChild(debrief);
+        }
         const meta = document.createElement("small");
         meta.textContent = state + " · " + session.updatedAt + " · " + session.lastEvent + latency;
         el.appendChild(title);
@@ -386,15 +395,16 @@ export const teacherHtml = `<!doctype html>
         });
         studentsEl.appendChild(el);
       }
-      renderClassSummary({ total: sessions.size, online: onlineCount, chatTurns, blockedTurns });
+      renderClassSummary({ total: sessions.size, online: onlineCount, chatTurns, blockedTurns, debriefRequiredTurns });
     }
 
-    function renderClassSummary({ total, online, chatTurns, blockedTurns }) {
+    function renderClassSummary({ total, online, chatTurns, blockedTurns, debriefRequiredTurns }) {
       classSummaryEl.replaceChildren(
         summaryMetric("전체", total),
         summaryMetric("온라인", online),
         summaryMetric("채팅턴", chatTurns),
-        summaryMetric("차단턴", blockedTurns)
+        summaryMetric("차단턴", blockedTurns),
+        summaryMetric("정정필요", debriefRequiredTurns)
       );
     }
 

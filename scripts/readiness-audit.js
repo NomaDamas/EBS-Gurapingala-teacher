@@ -15,7 +15,7 @@ const checks = [
     id: "teacher-realtime-dashboard",
     evidence: ["src/ui/teacher.js", "src/worker.js"],
     run: async (files) =>
-      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot", "previousSelected", "sessions.clear()", "if (previousSelected && sessions.has(previousSelected)) selected = previousSelected", "events_purged", "촬영 로그가 삭제되었습니다.", "실시간 연결 재시도", "reconnectAttempts", "roomId", "withRoom", "applyTeacherConfig", "postTeacherConfig", "/api/config", "저장 실패:", "저장 실패: 네트워크 확인", "teacher_config_updated", "teacher_config_rejected", "학생 URL 복사", "교사용 URL 복사", "감사 JSON 복사", "copyAuditJson", "audit json", "history.replaceState", "latencyMs", "blockedForStudent", "blockedTurns", "blockedMsg", "document.createTextNode(session.name)", "설정 적용 상태", "configStatus", "classSummary", "summaryMetric", "renderEmptyChat", "replaceChildren", "repeat(4, 1fr)", "채팅턴", "차단턴"]) &&
+      includesAll(files["src/ui/teacher.js"], ["/ws/teacher", "학생 카드", "teacher_config", "snapshot", "previousSelected", "sessions.clear()", "if (previousSelected && sessions.has(previousSelected)) selected = previousSelected", "events_purged", "촬영 로그가 삭제되었습니다.", "실시간 연결 재시도", "reconnectAttempts", "roomId", "withRoom", "applyTeacherConfig", "postTeacherConfig", "/api/config", "저장 실패:", "저장 실패: 네트워크 확인", "teacher_config_updated", "teacher_config_rejected", "학생 URL 복사", "교사용 URL 복사", "감사 JSON 복사", "copyAuditJson", "audit json", "history.replaceState", "latencyMs", "blockedForStudent", "blockedTurns", "debriefRequiredTurns", "blockedMsg", "document.createTextNode(session.name)", "설정 적용 상태", "configStatus", "classSummary", "summaryMetric", "renderEmptyChat", "replaceChildren", "repeat(5, 1fr)", "채팅턴", "차단턴", "정정필요"]) &&
       !files["src/ui/teacher.js"].includes(".innerHTML") &&
       includesAll(files["src/worker.js"], ["WebSocketPair", "sendSnapshot", "broadcast", "getRoom(env, roomId)", "config"])
   },
@@ -104,7 +104,7 @@ const checks = [
     id: "debrief-export-after-experiment",
     evidence: ["src/domain/session-export.js", "src/ui/teacher.js", "docs/experiment-policy.md", "docs/production-runbook.md"],
     run: async (files) =>
-      includesAll(files["src/domain/session-export.js"], ["buildDebriefRows", "buildDebriefCsv", "correctAnswer", "whyFalse", "roomId", "latencyMs", "blockedForStudent", "debriefRequired", "blockedTurns", "averageLatencyMs", "lastChatAt", "lastLevel", "verificationPrompt", "debriefNote", "formulaSafe", "redactSensitiveFields", "isSensitiveExportKey", "sessionsecret", "openaiapikey", "xteachertoken"]) &&
+      includesAll(files["src/domain/session-export.js"], ["buildDebriefRows", "buildDebriefCsv", "correctAnswer", "whyFalse", "roomId", "latencyMs", "blockedForStudent", "debriefRequired", "debriefRequiredTurns", "blockedTurns", "averageLatencyMs", "lastChatAt", "lastLevel", "verificationPrompt", "debriefNote", "formulaSafe", "redactSensitiveFields", "isSensitiveExportKey", "sessionsecret", "openaiapikey", "xteachertoken"]) &&
       includesAll(files["src/ui/teacher.js"], ["/api/debrief", "/api/debrief.csv", "정정 수업 오류표", "exportFilename"]) &&
       includesAll(files["docs/experiment-policy.md"], ["정정 수업", "debriefRequired=true", "blockedForStudent=true"]) &&
       includesAll(files["docs/production-runbook.md"], ["formula injection"])

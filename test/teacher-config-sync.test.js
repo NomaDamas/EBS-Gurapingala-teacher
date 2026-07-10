@@ -45,6 +45,7 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /strong\.textContent = String\(value\)/);
   assert.match(teacher, /current\.chatTurns = \(current\.chatTurns \|\| 0\) \+ 1/);
   assert.match(teacher, /current\.blockedTurns = \(current\.blockedTurns \|\| 0\) \+ 1/);
+  assert.match(teacher, /current\.debriefRequiredTurns = \(current\.debriefRequiredTurns \|\| 0\) \+ 1/);
   assert.match(teacher, /history\.replaceState/);
   assert.match(teacher, /encodeTeacherWebSocketProtocol\(teacherToken\)/);
   assert.match(teacher, /new WebSocket\([^,]+, protocols\)/);
@@ -55,8 +56,11 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /current\.latencyMs = event\.latencyMs/);
   assert.match(teacher, /current\.blockedForStudent = Boolean\(event\.blockedForStudent\)/);
   assert.match(teacher, /blockedTurns \+= session\.blockedTurns \|\| 0/);
+  assert.match(teacher, /debriefRequiredTurns \+= session\.debriefRequiredTurns \|\| 0/);
   assert.match(teacher, /summaryMetric\("차단턴", blockedTurns\)/);
+  assert.match(teacher, /summaryMetric\("정정필요", debriefRequiredTurns\)/);
   assert.match(teacher, /blocked\.textContent = session\.blockedTurns \? "blocked " \+ session\.blockedTurns : "blocked"/);
+  assert.match(teacher, /debrief\.textContent = "정정 " \+ session\.debriefRequiredTurns/);
   assert.match(teacher, /document\.createTextNode\(session\.name\)/);
   assert.doesNotMatch(teacher, /\.innerHTML/);
   assert.match(teacher, /studentsEl\.replaceChildren\(\)/);
