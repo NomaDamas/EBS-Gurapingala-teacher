@@ -115,6 +115,7 @@ function validateApprovalEvidenceArtifacts(artifacts) {
     schemaVersion: "ci-evidence/v1",
     requireRoom: false
   });
+  validateCiEvidenceArtifact(artifacts.ci);
   validateArtifact(artifacts.deployVerification, {
     label: "VERIFY_DEPLOY_EVIDENCE_FILE",
     schemaVersion: "deploy-verification-evidence/v1",
@@ -151,6 +152,35 @@ function validateArtifact(artifact, { label, schemaVersion, requireRoom }) {
   }
 }
 
+function validateCiEvidenceArtifact(artifact) {
+  if (!artifact || typeof artifact !== "object") return;
+  if (!artifact.checkRun || typeof artifact.checkRun !== "object") {
+    failures.push("CI_EVIDENCE_FILE checkRun is required");
+    return;
+  }
+  if (artifact.checkRun.name !== "Verify product gates") {
+    failures.push("CI_EVIDENCE_FILE checkRun.name must be Verify product gates");
+  }
+  if (artifact.checkRun.status !== "completed" || artifact.checkRun.conclusion !== "success") {
+    failures.push("CI_EVIDENCE_FILE checkRun must be completed with conclusion=success");
+  }
+  const generatedAt = parseEvidenceTimestamp(artifact.generatedAt);
+  const startedAt = parseEvidenceTimestamp(artifact.checkRun.startedAt);
+  const completedAt = parseEvidenceTimestamp(artifact.checkRun.completedAt);
+  if (!startedAt) {
+    failures.push("CI_EVIDENCE_FILE checkRun.startedAt must be a valid timestamp");
+  }
+  if (!completedAt) {
+    failures.push("CI_EVIDENCE_FILE checkRun.completedAt must be a valid timestamp");
+  }
+  if (startedAt && completedAt && completedAt < startedAt) {
+    failures.push("CI_EVIDENCE_FILE checkRun.completedAt must be after checkRun.startedAt");
+  }
+  if (generatedAt && completedAt && generatedAt < completedAt) {
+    failures.push("CI_EVIDENCE_FILE generatedAt must be after checkRun.completedAt");
+  }
+}
+
 async function hashEvidenceFile(file) {
   let bytes;
   try {
@@ -171,6 +201,7 @@ async function hashEvidenceFile(file) {
     artifact.generatedAt = json.generatedAt;
     artifact.prHeadSha = json.prHeadSha;
     artifact.status = json.status;
+    if (json.checkRun) artifact.checkRun = json.checkRun;
     if (json.roomId) artifact.roomId = json.roomId;
   } catch {
     artifact.schemaVersion = "unreadable-json";
@@ -220,6 +251,11 @@ function isHttpsUrl(value) {
 
 function isIsoTimestamp(value) {
   return typeof value === "string" && !Number.isNaN(Date.parse(value));
+}
+
+function parseEvidenceTimestamp(value) {
+  const timestamp = Date.parse(String(value || ""));
+  return Number.isFinite(timestamp) ? timestamp : null;
 }
 
 function isFilmingRoom(value) {

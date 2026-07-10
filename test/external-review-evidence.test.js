@@ -13,7 +13,7 @@ test("review:evidence writes structured approval evidence tied to a PR head", as
   const deployEvidence = join(dir, "deploy-evidence.json");
   const classroomEvidence = join(dir, "classroom-config.json");
   await writeFile(transcript, "Review decision: APPROVE\nEvidence checked: all gates pass\n");
-  await writeFile(ciEvidence, JSON.stringify({ schemaVersion: "ci-evidence/v1", generatedAt: "2026-07-10T00:00:30.000Z", status: "pass", prHeadSha: "abc123" }));
+  await writeFile(ciEvidence, JSON.stringify(buildCiEvidence()));
   await writeFile(deployEvidence, JSON.stringify({ schemaVersion: "deploy-verification-evidence/v1", generatedAt: "2026-07-10T00:01:00.000Z", status: "pass", prHeadSha: "abc123" }));
   await writeFile(classroomEvidence, JSON.stringify({ schemaVersion: "classroom-config-evidence/v1", generatedAt: "2026-07-10T00:02:00.000Z", status: "pass", prHeadSha: "abc123", roomId: "2026-07-13-3-5" }));
   const result = await runReviewEvidence({
@@ -196,6 +196,26 @@ test("review:evidence rejects approval when CI evidence did not pass", async () 
   assert.match(result.stderr, /CI_EVIDENCE_FILE status must be pass/);
 });
 
+test("review:evidence rejects approval when CI evidence timestamps are invalid", async () => {
+  const artifacts = await writeGateArtifacts({
+    ci: {
+      generatedAt: "2026-07-10T00:00:10.000Z",
+      checkRun: {
+        id: 101,
+        name: "Verify product gates",
+        status: "completed",
+        conclusion: "success",
+        startedAt: "2026-07-10T00:00:00Z",
+        completedAt: "2026-07-10T00:00:20Z"
+      }
+    }
+  });
+  const result = await runReviewEvidence(validApprovalEnv(artifacts));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /CI_EVIDENCE_FILE generatedAt must be after checkRun\.completedAt/);
+});
+
 test("review:evidence rejects approval when deployed evidence is from a different PR head", async () => {
   const artifacts = await writeGateArtifacts({
     deploy: { prHeadSha: "old123" }
@@ -261,8 +281,26 @@ async function writeGateArtifacts(overrides = {}) {
   const ciEvidence = join(dir, "ci-evidence.json");
   const deployEvidence = join(dir, "deploy-evidence.json");
   const classroomEvidence = join(dir, "classroom-config.json");
-  await writeFile(ciEvidence, JSON.stringify({ schemaVersion: "ci-evidence/v1", generatedAt: "2026-07-10T00:00:30.000Z", status: "pass", prHeadSha: "abc123", ...(overrides.ci || {}) }));
+  await writeFile(ciEvidence, JSON.stringify(buildCiEvidence(overrides.ci)));
   await writeFile(deployEvidence, JSON.stringify({ schemaVersion: "deploy-verification-evidence/v1", generatedAt: "2026-07-10T00:01:00.000Z", status: "pass", prHeadSha: "abc123", ...(overrides.deploy || {}) }));
   await writeFile(classroomEvidence, JSON.stringify({ schemaVersion: "classroom-config-evidence/v1", generatedAt: "2026-07-10T00:02:00.000Z", status: "pass", prHeadSha: "abc123", roomId: "2026-07-13-3-5", ...(overrides.classroom || {}) }));
   return { ciEvidence, deployEvidence, classroomEvidence };
+}
+
+function buildCiEvidence(overrides = {}) {
+  return {
+    schemaVersion: "ci-evidence/v1",
+    generatedAt: "2026-07-10T00:00:30.000Z",
+    status: "pass",
+    prHeadSha: "abc123",
+    checkRun: {
+      id: 101,
+      name: "Verify product gates",
+      status: "completed",
+      conclusion: "success",
+      startedAt: "2026-07-10T00:00:00Z",
+      completedAt: "2026-07-10T00:00:20Z"
+    },
+    ...overrides
+  };
 }
