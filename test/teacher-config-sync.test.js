@@ -55,6 +55,7 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /function exportFilename\(kind, extension\)/);
   assert.match(teacher, /roomId \+ "-" \+ kind/);
   assert.match(teacher, /current\.latencyMs = event\.latencyMs/);
+  assert.match(teacher, /current\.lastQuestion = event\.studentMessage/);
   assert.match(teacher, /current\.blockedForStudent = Boolean\(event\.blockedForStudent\)/);
   assert.match(teacher, /blockedTurns \+= session\.blockedTurns \|\| 0/);
   assert.match(teacher, /debriefRequiredTurns \+= session\.debriefRequiredTurns \|\| 0/);
@@ -69,6 +70,9 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /function renderEmptyChat\(message\)/);
   assert.match(teacher, /blockedMsg/);
   assert.match(teacher, /session\.latencyMs/);
+  assert.match(teacher, /질문: " \+ trimCardText\(session\.lastQuestion\)/);
+  assert.match(teacher, /function trimCardText\(value\)/);
+  assert.match(teacher, /text\.length > 34/);
   assert.match(teacher, /copyStudentUrlEl\.addEventListener/);
   assert.match(teacher, /copyTeacherUrlEl\.addEventListener/);
   assert.match(teacher, /id="copyAuditJson"/);

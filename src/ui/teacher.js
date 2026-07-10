@@ -339,6 +339,7 @@ export const teacherHtml = `<!doctype html>
         current.messages.push({ role: "bot", text: event.studentVisibleAnswer, blockedForStudent: Boolean(event.blockedForStudent) });
         current.audit = event.teacherAudit;
         current.latencyMs = event.latencyMs;
+        current.lastQuestion = event.studentMessage;
         current.blockedForStudent = Boolean(event.blockedForStudent);
         current.chatTurns = (current.chatTurns || 0) + 1;
         if (event.blockedForStudent) current.blockedTurns = (current.blockedTurns || 0) + 1;
@@ -385,7 +386,8 @@ export const teacherHtml = `<!doctype html>
           title.appendChild(debrief);
         }
         const meta = document.createElement("small");
-        meta.textContent = state + " · " + session.updatedAt + " · " + session.lastEvent + latency;
+        const recentQuestion = session.lastQuestion ? " · 질문: " + trimCardText(session.lastQuestion) : "";
+        meta.textContent = state + " · " + session.updatedAt + " · " + session.lastEvent + latency + recentQuestion;
         el.appendChild(title);
         el.appendChild(meta);
         el.addEventListener("click", () => {
@@ -569,6 +571,11 @@ export const teacherHtml = `<!doctype html>
         .replace(/[^a-z0-9_-]+/g, "-")
         .replace(/^-+|-+$/g, "")
         .slice(0, 80) || "default-classroom";
+    }
+
+    function trimCardText(value) {
+      const text = String(value || "").replace(/\\s+/g, " ").trim();
+      return text.length > 34 ? text.slice(0, 34) + "..." : text;
     }
 
     connect();
