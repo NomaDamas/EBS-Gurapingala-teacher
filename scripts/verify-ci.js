@@ -29,11 +29,30 @@ if (!successfulRun) {
   failures.push(`GitHub check-run "${expectedCheckName}" must be completed with conclusion=success for PR_HEAD_SHA`);
 }
 
+const generatedAt = new Date().toISOString();
+if (successfulRun) {
+  const startedAt = parseEvidenceTimestamp(successfulRun.started_at);
+  const completedAt = parseEvidenceTimestamp(successfulRun.completed_at);
+  const generatedAtMs = parseEvidenceTimestamp(generatedAt);
+  if (!startedAt) {
+    failures.push(`GitHub check-run "${expectedCheckName}" started_at must be a valid timestamp`);
+  }
+  if (!completedAt) {
+    failures.push(`GitHub check-run "${expectedCheckName}" completed_at must be a valid timestamp`);
+  }
+  if (startedAt && completedAt && completedAt < startedAt) {
+    failures.push(`GitHub check-run "${expectedCheckName}" completed_at must be after started_at`);
+  }
+  if (completedAt && generatedAtMs && generatedAtMs < completedAt) {
+    failures.push("CI_EVIDENCE_FILE generatedAt must be after GitHub check-run completed_at");
+  }
+}
+
 if (failures.length) fail(failures);
 
 const evidence = {
   schemaVersion: "ci-evidence/v1",
-  generatedAt: new Date().toISOString(),
+  generatedAt,
   status: "pass",
   prUrl,
   repository: `${target.owner}/${target.repo}`,
@@ -84,6 +103,11 @@ function parsePullRequestUrl(value) {
   } catch {
     return null;
   }
+}
+
+function parseEvidenceTimestamp(value) {
+  const timestamp = Date.parse(String(value || ""));
+  return Number.isFinite(timestamp) ? timestamp : null;
 }
 
 function fail(items) {

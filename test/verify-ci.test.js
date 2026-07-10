@@ -65,6 +65,56 @@ test("verify:ci fails when PR head or check run does not match", async () => {
   assert.match(result.stderr, /conclusion=success/);
 });
 
+test("verify:ci fails when successful check run timestamps are invalid", async () => {
+  const server = await startGithubMock({
+    headSha: "abc123",
+    checkRuns: [
+      {
+        id: 101,
+        name: "Verify product gates",
+        status: "completed",
+        conclusion: "success",
+        started_at: "2026-07-10T00:02:00Z",
+        completed_at: "2026-07-10T00:01:00Z"
+      }
+    ]
+  });
+  const result = await runVerifyCi({
+    GITHUB_API_BASE_URL: server.url,
+    PR_URL: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1",
+    PR_HEAD_SHA: "abc123"
+  });
+  await server.close();
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /completed_at must be after started_at/);
+});
+
+test("verify:ci fails when evidence would predate GitHub check completion", async () => {
+  const server = await startGithubMock({
+    headSha: "abc123",
+    checkRuns: [
+      {
+        id: 101,
+        name: "Verify product gates",
+        status: "completed",
+        conclusion: "success",
+        started_at: "2099-07-10T00:00:00Z",
+        completed_at: "2099-07-10T00:01:00Z"
+      }
+    ]
+  });
+  const result = await runVerifyCi({
+    GITHUB_API_BASE_URL: server.url,
+    PR_URL: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1",
+    PR_HEAD_SHA: "abc123"
+  });
+  await server.close();
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /generatedAt must be after GitHub check-run completed_at/);
+});
+
 function runVerifyCi(env) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, ["scripts/verify-ci.js"], {

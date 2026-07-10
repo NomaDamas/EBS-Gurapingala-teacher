@@ -78,6 +78,7 @@ if (!ciEvidenceFile) {
   if (ciEvidence.checkRun?.status !== "completed" || ciEvidence.checkRun?.conclusion !== "success") {
     failures.push("CI_EVIDENCE_FILE checkRun must be completed with conclusion=success");
   }
+  validateCiCheckRunTimestamps(ciEvidence, ciEvidenceGeneratedAt);
 }
 
 if (requireOpenAI && process.env.REQUIRE_OPENAI !== "true") {
@@ -434,6 +435,23 @@ function validateClassroomConfigEvidence(classroomConfigEvidence, file, seenRoom
   }
   if (!Array.isArray(classroomConfigEvidence.checks) || classroomConfigEvidence.checks.some((check) => check?.passed !== true)) {
     failures.push(`${label} checks must all pass`);
+  }
+}
+
+function validateCiCheckRunTimestamps(ciEvidence, ciGeneratedAt) {
+  const startedAt = parseEvidenceTimestamp(ciEvidence.checkRun?.startedAt);
+  const completedAt = parseEvidenceTimestamp(ciEvidence.checkRun?.completedAt);
+  if (!startedAt) {
+    failures.push("CI_EVIDENCE_FILE checkRun.startedAt must be a valid timestamp");
+  }
+  if (!completedAt) {
+    failures.push("CI_EVIDENCE_FILE checkRun.completedAt must be a valid timestamp");
+  }
+  if (startedAt && completedAt && completedAt < startedAt) {
+    failures.push("CI_EVIDENCE_FILE checkRun.completedAt must be after checkRun.startedAt");
+  }
+  if (ciGeneratedAt && completedAt && ciGeneratedAt < completedAt) {
+    failures.push("CI_EVIDENCE_FILE generatedAt must be after checkRun.completedAt");
   }
 }
 

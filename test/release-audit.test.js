@@ -193,6 +193,81 @@ test("release audit rejects review evidence generated before CI evidence", async
   assert.match(result.stderr, /EXTERNAL_REVIEW_FILE generatedAt must be after CI_EVIDENCE_FILE generatedAt/);
 });
 
+test("release audit rejects CI evidence with invalid check-run timestamps", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    ciOverrides: {
+      checkRun: {
+        id: 101,
+        name: "Verify product gates",
+        status: "completed",
+        conclusion: "success",
+        htmlUrl: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/actions/runs/1",
+        detailsUrl: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/actions/runs/1/job/2",
+        startedAt: "2026-07-10T00:00:20Z",
+        completedAt: "2026-07-10T00:00:10Z"
+      }
+    }
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /CI_EVIDENCE_FILE checkRun\.completedAt must be after checkRun\.startedAt/);
+});
+
+test("release audit rejects CI evidence generated before check-run completion", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    ciOverrides: {
+      generatedAt: "2026-07-10T00:00:10.000Z",
+      checkRun: {
+        id: 101,
+        name: "Verify product gates",
+        status: "completed",
+        conclusion: "success",
+        htmlUrl: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/actions/runs/1",
+        detailsUrl: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/actions/runs/1/job/2",
+        startedAt: "2026-07-10T00:00:00Z",
+        completedAt: "2026-07-10T00:00:20Z"
+      }
+    }
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /CI_EVIDENCE_FILE generatedAt must be after checkRun\.completedAt/);
+});
+
 test("release audit rejects unstructured external review evidence", async () => {
   const evidence = await writeEvidenceFiles({
     prHeadSha: "abc123",
