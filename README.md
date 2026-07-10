@@ -65,7 +65,7 @@ npm run smoke
 배포 preflight:
 
 ```bash
-CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> WORKER_HEALTH_URL=https://<worker-domain> TEACHER_TOKEN=<token> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run preflight:deploy
+CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> OPENAI_API_KEY=<openai-key> WORKER_HEALTH_URL=https://<worker-domain> TEACHER_TOKEN=<token> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run preflight:deploy
 ```
 
 배포 URL 검증:
@@ -151,6 +151,18 @@ OPENAI_API_KEY=... EVAL_MODELS=gpt-5.5,gpt-5.5-mini EVAL_JUDGE=openai EVAL_JUDGE
 ```
 
 ## Cloudflare 설정
+
+GitHub Actions `Deploy` workflow를 사용할 경우 저장소 secret/variable을 먼저 설정한다. workflow는 `OPENAI_API_KEY`와 `TEACHER_TOKEN`을 Cloudflare Worker secret으로 동기화한 뒤 배포한다.
+
+```bash
+gh secret set CLOUDFLARE_ACCOUNT_ID
+gh secret set CLOUDFLARE_API_TOKEN
+gh secret set OPENAI_API_KEY
+gh secret set TEACHER_TOKEN
+gh variable set WORKER_HEALTH_URL --body https://<worker-domain>
+```
+
+로컬에서 직접 배포할 때는 Cloudflare Worker secret을 직접 설정한다.
 
 ```bash
 CLOUDFLARE_ACCOUNT_ID=<account-id> npx wrangler secret put OPENAI_API_KEY

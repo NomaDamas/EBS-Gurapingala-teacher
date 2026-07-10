@@ -13,6 +13,7 @@
 3. Cloudflare secret을 설정한다.
    - `OPENAI_API_KEY`: 서버에서만 사용하는 단일 OpenAI API 키다.
    - `TEACHER_TOKEN`: 교사용 대시보드와 export API 보호용 token이다.
+   - GitHub Actions 배포를 쓰면 `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `OPENAI_API_KEY`, `TEACHER_TOKEN` secret과 `WORKER_HEALTH_URL`, `EXPECTED_OPENAI_MODEL`, `EXPECTED_OPENAI_TIMEOUT_MS` variable을 먼저 설정한다.
 4. 배포 전 로컬 게이트를 실행한다.
    - Node.js 22 이상을 사용한다.
    - `npm ci`
@@ -20,9 +21,10 @@
    - `npm run eval`
    - `npm run readiness`
    - `npm run smoke`
-   - `CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> WORKER_HEALTH_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run preflight:deploy`
+   - `CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> OPENAI_API_KEY=<openai-key> WORKER_HEALTH_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run preflight:deploy`
 5. GitHub Actions `Deploy` workflow를 사용할 경우 environment를 선택하고 실행한다.
-   - `CLOUDFLARE_API_TOKEN`과 `CLOUDFLARE_ACCOUNT_ID`가 설정되어 있어야 한다.
+   - `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `OPENAI_API_KEY`, `TEACHER_TOKEN`이 GitHub secret으로 설정되어 있어야 한다.
+   - workflow는 `OPENAI_API_KEY`와 `TEACHER_TOKEN`을 Cloudflare Worker secret으로 동기화한 뒤 `wrangler deploy`를 실행한다.
    - Cloudflare 계정이 여러 개이면 `CLOUDFLARE_ACCOUNT_ID`가 없을 때 Wrangler가 계정을 고르지 못해 배포가 실패한다.
    - production environment에는 `WORKER_HEALTH_URL`이 반드시 설정되어 있어야 한다. 비어 있으면 workflow가 배포 전에 실패한다.
    - workflow의 배포 후 검증은 기본 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`로 실행된다.

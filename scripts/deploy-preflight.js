@@ -14,6 +14,9 @@ if (isProduction) {
 if (process.env.REQUIRE_TEACHER_TOKEN !== "false") {
   required.push("TEACHER_TOKEN");
 }
+if ((process.env.REQUIRE_OPENAI || "true") === "true") {
+  required.push("OPENAI_API_KEY");
+}
 
 const failures = [];
 
@@ -56,7 +59,7 @@ if ((process.env.REQUIRE_OPENAI || "true") === "true" && !process.env.EXPECTED_O
   failures.push("EXPECTED_OPENAI_MODEL is required when REQUIRE_OPENAI=true");
 }
 
-for (const name of ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN", "TEACHER_TOKEN"]) {
+for (const name of ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN", "OPENAI_API_KEY", "TEACHER_TOKEN"]) {
   if (process.env[name] && isPlaceholderValue(process.env[name])) {
     failures.push(`${name} must be the real value, not a placeholder`);
   }

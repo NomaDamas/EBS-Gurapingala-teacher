@@ -3,6 +3,7 @@ const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || ""
 const expectedOpenAIModel = String(process.env.EXPECTED_OPENAI_MODEL || "gpt-5.5").trim();
 const expectedOpenAITimeoutMs = String(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "15000").trim();
 const classroomChatProof = process.env.CLASSROOM_CHAT_PROOF === "true";
+const openAiApiKey = process.env.OPENAI_API_KEY ? "$OPENAI_API_KEY" : "<OPENAI_API_KEY>";
 const teacherToken = process.env.TEACHER_TOKEN ? "$TEACHER_TOKEN" : "<TEACHER_TOKEN>";
 const cloudflareAccountId = process.env.CLOUDFLARE_ACCOUNT_ID ? "$CLOUDFLARE_ACCOUNT_ID" : "<CLOUDFLARE_ACCOUNT_ID>";
 const cloudflareApiToken = process.env.CLOUDFLARE_API_TOKEN ? "$CLOUDFLARE_API_TOKEN" : "<CLOUDFLARE_API_TOKEN>";
@@ -38,6 +39,7 @@ console.log([
   "DEPLOY_ENVIRONMENT=production",
   `CLOUDFLARE_ACCOUNT_ID=${cloudflareAccountId}`,
   `CLOUDFLARE_API_TOKEN=${cloudflareApiToken}`,
+  `OPENAI_API_KEY=${openAiApiKey}`,
   `WORKER_HEALTH_URL=${shellQuote(workerUrl)}`,
   `TEACHER_TOKEN=${teacherToken}`,
   "VERIFY_ROOM=deploy-verify",

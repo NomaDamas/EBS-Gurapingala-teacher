@@ -7,6 +7,7 @@ test("deploy preflight passes with production deployment requirements", async ()
     DEPLOY_ENVIRONMENT: "production",
     CLOUDFLARE_ACCOUNT_ID: "account-id",
     CLOUDFLARE_API_TOKEN: "api-token",
+    OPENAI_API_KEY: "openai-key",
     WORKER_HEALTH_URL: "https://worker.example.com",
     TEACHER_TOKEN: "teacher-token",
     VERIFY_ROOM: "deploy-verify",
@@ -33,6 +34,7 @@ test("deploy preflight fails closed when production secrets are missing", async 
   assert.notEqual(result.code, 0);
   assert.match(result.stderr, /CLOUDFLARE_ACCOUNT_ID is required/);
   assert.match(result.stderr, /CLOUDFLARE_API_TOKEN is required/);
+  assert.match(result.stderr, /OPENAI_API_KEY is required/);
   assert.match(result.stderr, /WORKER_HEALTH_URL is required/);
   assert.match(result.stderr, /TEACHER_TOKEN is required/);
   assert.match(result.stderr, /REQUIRE_TEACHER_TOKEN=true is required/);
@@ -45,6 +47,7 @@ test("deploy preflight rejects unsafe production verification settings", async (
     DEPLOY_ENVIRONMENT: "production",
     CLOUDFLARE_ACCOUNT_ID: "account-id",
     CLOUDFLARE_API_TOKEN: "api-token",
+    OPENAI_API_KEY: "<OPENAI_API_KEY>",
     WORKER_HEALTH_URL: "http://worker.example.com",
     TEACHER_TOKEN: "<TEACHER_TOKEN>",
     VERIFY_ROOM: "deploy-verify",
@@ -61,6 +64,7 @@ test("deploy preflight rejects unsafe production verification settings", async (
   assert.match(result.stderr, /REQUIRE_CLOUDFLARE_EDGE=true is required/);
   assert.match(result.stderr, /WORKER_HEALTH_URL must be an https Cloudflare Worker URL/);
   assert.match(result.stderr, /TEACHER_TOKEN must be the real value/);
+  assert.match(result.stderr, /OPENAI_API_KEY must be the real value/);
 });
 
 test("deploy preflight rejects Cloudflare placeholder credentials", async () => {
@@ -68,6 +72,7 @@ test("deploy preflight rejects Cloudflare placeholder credentials", async () => 
     DEPLOY_ENVIRONMENT: "production",
     CLOUDFLARE_ACCOUNT_ID: "<account-id>",
     CLOUDFLARE_API_TOKEN: "your-token",
+    OPENAI_API_KEY: "openai-key",
     WORKER_HEALTH_URL: "https://worker.example.com",
     TEACHER_TOKEN: "teacher-token",
     VERIFY_ROOM: "deploy-verify",
