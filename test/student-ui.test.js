@@ -8,12 +8,15 @@ test("student UI only enters class after successful join and handles network fai
   assert.match(student, /let heartbeatTimer = null/);
   assert.match(student, /let joining = false/);
   assert.match(student, /const sessionSecretKey = "ebs-session-secret:" \+ roomId/);
+  assert.match(student, /const studentNameKey = "ebs-student-name:" \+ roomId/);
   assert.match(student, /let sessionSecret = localStorage\.getItem\(sessionSecretKey\) \|\| crypto\.randomUUID\(\)/);
+  assert.match(student, /let studentName = localStorage\.getItem\(studentNameKey\) \|\| ""/);
   assert.match(student, /localStorage\.setItem\(sessionSecretKey, sessionSecret\)/);
   assert.match(student, /if \(joining\) return/);
   assert.match(student, /joinBtn\.disabled = true/);
   assert.match(student, /const res = await fetch\(withRoom\("\/api\/join"\)/);
   assert.match(student, /JSON\.stringify\(\{ sessionId, sessionSecret, studentName: nextStudentName \}\)/);
+  assert.match(student, /localStorage\.setItem\(studentNameKey, studentName\)/);
   assert.match(student, /const data = await readJsonSafely\(res\)/);
   assert.match(student, /if \(!res\.ok\)[\s\S]*입장 실패/);
   assert.match(student, /if \(heartbeatTimer\) clearInterval\(heartbeatTimer\)/);

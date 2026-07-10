@@ -146,10 +146,11 @@ export const studentHtml = `<!doctype html>
     const roomId = normalizeRoomId(params.get("room") || "default-classroom");
     const sessionKey = "ebs-session-id:" + roomId;
     const sessionSecretKey = "ebs-session-secret:" + roomId;
+    const studentNameKey = "ebs-student-name:" + roomId;
     roomStatus.textContent = "room: " + roomId;
     let sessionId = localStorage.getItem(sessionKey) || crypto.randomUUID();
     let sessionSecret = localStorage.getItem(sessionSecretKey) || crypto.randomUUID();
-    let studentName = localStorage.getItem("ebs-student-name") || "";
+    let studentName = localStorage.getItem(studentNameKey) || "";
     let heartbeatTimer = null;
     let joining = false;
     localStorage.setItem(sessionKey, sessionId);
@@ -183,7 +184,7 @@ export const studentHtml = `<!doctype html>
           return;
         }
         studentName = nextStudentName;
-        localStorage.setItem("ebs-student-name", studentName);
+        localStorage.setItem(studentNameKey, studentName);
         sendHeartbeat();
         if (heartbeatTimer) clearInterval(heartbeatTimer);
         heartbeatTimer = setInterval(sendHeartbeat, 15000);
