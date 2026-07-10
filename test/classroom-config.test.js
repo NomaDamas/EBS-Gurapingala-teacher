@@ -108,6 +108,7 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       CLASSROOM_ROOM: "2026-07-13-3-5",
       EXPECTED_FALSE_LEVEL: "2",
       EXPECTED_PERSONA: "이순신 장군처럼 친절하게 설명한다.",
+      GITHUB_SHA: "",
       CLASSROOM_CONFIG_EVIDENCE_FILE: evidenceFile
     });
 
