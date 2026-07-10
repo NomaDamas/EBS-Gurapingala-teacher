@@ -472,6 +472,9 @@ function validateClassroomEvidenceArtifact(artifact, expectedWorkerUrl) {
   if (!String(artifact.expectedPersona || "").trim()) {
     failures.push(`${label} expectedPersona is required`);
   }
+  if (!["experiment", "truth"].includes(artifact.expectedResponseMode)) {
+    failures.push(`${label} expectedResponseMode must be experiment or truth`);
+  }
   if (!hasValidClassroomHealthEvidence(artifact.observedHealth)) {
     failures.push(`${label} must include a sanitized /api/health evidence snapshot`);
   }
@@ -491,8 +494,9 @@ function validateClassroomEvidenceArtifact(artifact, expectedWorkerUrl) {
     failures.push(`${label} observedHealth.openaiTimeoutMs must match expectedOpenAITimeoutMs`);
   }
   if (Number(artifact.observedConfig?.level) !== artifact.expectedLevel ||
-    artifact.observedConfig?.persona !== artifact.expectedPersona) {
-    failures.push(`${label} observedConfig must match expected Level/persona`);
+    artifact.observedConfig?.persona !== artifact.expectedPersona ||
+    artifact.observedConfig?.responseMode !== artifact.expectedResponseMode) {
+    failures.push(`${label} observedConfig must match expected Level/persona/response mode`);
   }
   if (!hasValidClassroomSharingUrls(artifact.sharingUrls, artifact.roomId, artifact.workerUrl)) {
     failures.push(`${label} must include student/teacher sharing URL evidence with no student token`);
@@ -588,6 +592,7 @@ async function hashEvidenceFile(file) {
     if (json.verifyRoom) artifact.verifyRoom = json.verifyRoom;
     if (json.expectedLevel !== undefined) artifact.expectedLevel = json.expectedLevel;
     if (json.expectedPersona !== undefined) artifact.expectedPersona = json.expectedPersona;
+    if (json.expectedResponseMode !== undefined) artifact.expectedResponseMode = json.expectedResponseMode;
     if (json.expectedOpenAIModel !== undefined) artifact.expectedOpenAIModel = json.expectedOpenAIModel;
     if (json.expectedOpenAIVerifierModel !== undefined) artifact.expectedOpenAIVerifierModel = json.expectedOpenAIVerifierModel;
     if (json.expectedOpenAITimeoutMs !== undefined) artifact.expectedOpenAITimeoutMs = json.expectedOpenAITimeoutMs;

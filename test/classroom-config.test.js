@@ -8,8 +8,8 @@ import { join } from "node:path";
 
 test("rehearsal:config verifies classroom room config and writes evidence", async () => {
   const configs = new Map([
-    ["2026-07-13-3-5", { level: 2, persona: "이순신 장군처럼 친절하게 설명한다." }],
-    ["2026-07-16-3-1", { level: 1, persona: "초기값" }]
+    ["2026-07-13-3-5", { level: 2, persona: "이순신 장군처럼 친절하게 설명한다.", responseMode: "experiment" }],
+    ["2026-07-16-3-1", { level: 1, persona: "초기값", responseMode: "truth" }]
   ]);
   const events = [];
   let teacherPageAuthAttempts = 0;
@@ -40,7 +40,11 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       if (teacherApiAuthAttempts === 1) return text(res, "Teacher token propagation pending", 401);
       if (req.method === "POST") {
         const body = JSON.parse(await readBody(req));
-        configs.set(room, { level: body.level, persona: body.persona });
+        configs.set(room, {
+          level: body.level,
+          persona: body.persona,
+          ...(body.responseMode ? { responseMode: body.responseMode } : {})
+        });
         return json(res, configs.get(room));
       }
       return json(res, configs.get(room) || {});
@@ -116,6 +120,7 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       CLASSROOM_ROOM: "2026-07-13-3-5",
       EXPECTED_FALSE_LEVEL: "2",
       EXPECTED_PERSONA: "이순신 장군처럼 친절하게 설명한다.",
+      EXPECTED_RESPONSE_MODE: "experiment",
       VERIFY_CLASSROOM_CHAT: "true",
       EXPECTED_OPENAI_MODEL: "gpt-5.5",
       EXPECTED_OPENAI_TIMEOUT_MS: "15000",
@@ -125,7 +130,7 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
     });
 
     assert.equal(result.code, 0, result.stdout + result.stderr);
-    assert.match(result.stdout, /PASS classroom Level\/persona matches expected config/);
+    assert.match(result.stdout, /PASS classroom Level\/persona\/response mode matches expected config/);
     assert.match(result.stdout, /classroom config verification passed/);
     const evidence = JSON.parse(await readFile(evidenceFile, "utf8"));
     assert.equal(evidence.schemaVersion, "classroom-config-evidence/v1");
@@ -133,6 +138,7 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
     assert.equal(evidence.roomId, "2026-07-13-3-5");
     assert.equal(evidence.prHeadSha, "abc123");
     assert.equal(evidence.expectedLevel, 2);
+    assert.equal(evidence.expectedResponseMode, "experiment");
     assert.deepEqual(evidence.observedHealth, {
       status: 200,
       ok: true,
@@ -162,6 +168,7 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
     });
     assert.equal(JSON.stringify(evidence).includes("teacher-secret"), false);
     assert.equal(evidence.observedConfig.persona, "이순신 장군처럼 친절하게 설명한다.");
+    assert.equal(evidence.observedConfig.responseMode, "experiment");
     assert.equal(teacherPageAuthAttempts, 2);
     assert.equal(teacherApiAuthAttempts >= 2, true);
 
@@ -171,6 +178,7 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       CLASSROOM_ROOM: "2026-07-16-3-1",
       EXPECTED_FALSE_LEVEL: "3",
       EXPECTED_PERSONA: "관점 왜곡 실험용 역사 도우미",
+      EXPECTED_RESPONSE_MODE: "truth",
       APPLY_CLASSROOM_CONFIG: "true",
       REQUIRE_OPENAI: "true",
       EXPECTED_OPENAI_MODEL: "gpt-5.5",
@@ -178,11 +186,26 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
     });
 
     assert.equal(applyResult.code, 0, applyResult.stdout + applyResult.stderr);
-    assert.match(applyResult.stdout, /PASS expected classroom Level\/persona can be applied/);
+    assert.match(applyResult.stdout, /PASS expected classroom Level\/persona\/response mode can be applied/);
     assert.deepEqual(configs.get("2026-07-16-3-1"), {
       level: 3,
-      persona: "관점 왜곡 실험용 역사 도우미"
+      persona: "관점 왜곡 실험용 역사 도우미",
+      responseMode: "truth"
     });
+
+    const invalidModeResult = await runNode(["scripts/verify-classroom-config.js"], {
+      WORKER_URL: workerUrl,
+      TEACHER_TOKEN: "teacher-secret",
+      CLASSROOM_ROOM: "2026-07-13-3-5",
+      EXPECTED_FALSE_LEVEL: "2",
+      EXPECTED_PERSONA: "검증",
+      EXPECTED_RESPONSE_MODE: "mixed",
+      EXPECTED_OPENAI_MODEL: "gpt-5.5",
+      EXPECTED_OPENAI_TIMEOUT_MS: "15000"
+    });
+
+    assert.notEqual(invalidModeResult.code, 0);
+    assert.match(invalidModeResult.stderr, /EXPECTED_RESPONSE_MODE must be experiment or truth/);
 
     const unsafeRoomResult = await runNode(["scripts/verify-classroom-config.js"], {
       WORKER_URL: workerUrl,

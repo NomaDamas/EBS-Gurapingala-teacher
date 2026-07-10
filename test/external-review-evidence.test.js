@@ -941,6 +941,7 @@ function buildClassroomEvidence(roomId, overrides = {}) {
     roomId,
     expectedLevel: 2,
     expectedPersona: "이순신 장군처럼 친절하게 설명한다.",
+    expectedResponseMode: "experiment",
     applyExpectedConfig: false,
     requireOpenAI: true,
     requireTeacherToken: true,
@@ -964,7 +965,8 @@ function buildClassroomEvidence(roomId, overrides = {}) {
     },
     observedConfig: {
       level: 2,
-      persona: "이순신 장군처럼 친절하게 설명한다."
+      persona: "이순신 장군처럼 친절하게 설명한다.",
+      responseMode: "experiment"
     },
     checks: [
       { name: "student URL loads for classroom room", passed: true },

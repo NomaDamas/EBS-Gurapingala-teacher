@@ -28,6 +28,10 @@ test("Deploy workflow verifies the real Worker with the same strict production g
     workflow.indexOf("- name: Verify health endpoint"),
     workflow.indexOf("- name: Upload deploy verification evidence")
   );
+  const classroomSteps = workflow.slice(
+    workflow.indexOf("- name: Configure July 13 filming classroom"),
+    workflow.indexOf("- name: Upload deploy verification evidence")
+  );
 
   assert.match(evaluationStep, /OPENAI_API_KEY: \$\{\{ secrets\.OPENAI_API_KEY \}\}/);
   assert.match(evaluationStep, /LLM_PROVIDER: openai/);
@@ -67,4 +71,15 @@ test("Deploy workflow verifies the real Worker with the same strict production g
   assert.match(verifyStep, /EXPECTED_OPENAI_VERIFIER_MODEL:/);
   assert.match(verifyStep, /EXPECTED_OPENAI_TIMEOUT_MS: \$\{\{ vars\.EXPECTED_OPENAI_TIMEOUT_MS \|\| '15000' \}\}/);
   assert.match(verifyStep, /VERIFY_DEPLOY_EVIDENCE_FILE: artifacts\/deploy-evidence\.json/);
+  assert.match(classroomSteps, /CLASSROOM_ROOM: 2026-07-13-3-5/);
+  assert.match(classroomSteps, /CLASSROOM_ROOM: 2026-07-16-3-1/);
+  assert.equal((classroomSteps.match(/EXPECTED_FALSE_LEVEL: "2"/g) || []).length, 2);
+  assert.equal((classroomSteps.match(/EXPECTED_PERSONA: "이순신 장군처럼 친절하게 설명한다\."/g) || []).length, 2);
+  assert.equal((classroomSteps.match(/EXPECTED_RESPONSE_MODE: experiment/g) || []).length, 2);
+  assert.equal((classroomSteps.match(/APPLY_CLASSROOM_CONFIG: "true"/g) || []).length, 2);
+  assert.equal(classroomSteps.includes("VERIFY_CLASSROOM_CHAT"), false);
+  assert.match(classroomSteps, /CLASSROOM_CONFIG_EVIDENCE_FILE: artifacts\/2026-07-13-3-5-config\.json/);
+  assert.match(classroomSteps, /CLASSROOM_CONFIG_EVIDENCE_FILE: artifacts\/2026-07-16-3-1-config\.json/);
+  assert.match(classroomSteps, /name: classroom-config-evidence/);
+  assert.match(classroomSteps, /path: artifacts\/2026-07-\*-config\.json/);
 });

@@ -150,6 +150,52 @@ jobs:
           PR_HEAD_SHA: ${{ github.sha }}
           VERIFY_DEPLOY_EVIDENCE_FILE: artifacts/deploy-evidence.json
 
+      - name: Configure July 13 filming classroom
+        if: ${{ vars.WORKER_HEALTH_URL != '' }}
+        run: node scripts/verify-classroom-config.js
+        env:
+          WORKER_URL: ${{ vars.WORKER_HEALTH_URL }}
+          TEACHER_TOKEN: ${{ secrets.TEACHER_TOKEN }}
+          CLASSROOM_ROOM: 2026-07-13-3-5
+          EXPECTED_FALSE_LEVEL: "2"
+          EXPECTED_PERSONA: "이순신 장군처럼 친절하게 설명한다."
+          EXPECTED_RESPONSE_MODE: experiment
+          APPLY_CLASSROOM_CONFIG: "true"
+          REQUIRE_OPENAI: ${{ vars.REQUIRE_OPENAI || 'true' }}
+          REQUIRE_TEACHER_TOKEN: ${{ vars.REQUIRE_TEACHER_TOKEN || 'true' }}
+          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
+          PR_HEAD_SHA: ${{ github.sha }}
+          CLASSROOM_CONFIG_EVIDENCE_FILE: artifacts/2026-07-13-3-5-config.json
+
+      - name: Configure July 16 filming classroom
+        if: ${{ vars.WORKER_HEALTH_URL != '' }}
+        run: node scripts/verify-classroom-config.js
+        env:
+          WORKER_URL: ${{ vars.WORKER_HEALTH_URL }}
+          TEACHER_TOKEN: ${{ secrets.TEACHER_TOKEN }}
+          CLASSROOM_ROOM: 2026-07-16-3-1
+          EXPECTED_FALSE_LEVEL: "2"
+          EXPECTED_PERSONA: "이순신 장군처럼 친절하게 설명한다."
+          EXPECTED_RESPONSE_MODE: experiment
+          APPLY_CLASSROOM_CONFIG: "true"
+          REQUIRE_OPENAI: ${{ vars.REQUIRE_OPENAI || 'true' }}
+          REQUIRE_TEACHER_TOKEN: ${{ vars.REQUIRE_TEACHER_TOKEN || 'true' }}
+          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
+          PR_HEAD_SHA: ${{ github.sha }}
+          CLASSROOM_CONFIG_EVIDENCE_FILE: artifacts/2026-07-16-3-1-config.json
+
+      - name: Upload classroom configuration evidence
+        if: ${{ vars.WORKER_HEALTH_URL != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: classroom-config-evidence
+          path: artifacts/2026-07-*-config.json
+          if-no-files-found: error
+
       - name: Upload deploy verification evidence
         if: ${{ vars.WORKER_HEALTH_URL != '' }}
         uses: actions/upload-artifact@v4
