@@ -57,6 +57,7 @@ for (const [index, plan] of plans.entries()) {
     "REQUIRE_OPENAI=true",
     "REQUIRE_TEACHER_TOKEN=true",
     `EXPECTED_OPENAI_MODEL=${shellQuote(expectedOpenAIModel)}`,
+    `EXPECTED_OPENAI_TIMEOUT_MS=${shellQuote(expectedOpenAITimeoutMs)}`,
     `PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
     `CLASSROOM_CONFIG_EVIDENCE_FILE=${shellQuote(classroomEvidenceFiles[index])}`,
     "npm run rehearsal:config"

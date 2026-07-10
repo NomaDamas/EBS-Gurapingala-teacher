@@ -18,8 +18,10 @@ test("release:commands prints commit-bound deploy, classroom, review, and releas
   assert.match(result.stdout, /REQUIRE_CLOUDFLARE_EDGE=true/);
   assert.match(result.stdout, /WORKER_URL=https:\/\/worker\.example\.com\//);
   assert.match(result.stdout, /PR_HEAD_SHA=abc123/);
+  assert.match(result.stdout, /EXPECTED_OPENAI_TIMEOUT_MS=15000/);
   assert.match(result.stdout, /CLASSROOM_ROOM=2026-07-13-3-5/);
   assert.match(result.stdout, /EXPECTED_FALSE_LEVEL=2/);
+  assert.match(result.stdout, /CLASSROOM_ROOM=2026-07-13-3-5[\s\S]*EXPECTED_OPENAI_TIMEOUT_MS=15000[\s\S]*npm run rehearsal:config/);
   assert.match(result.stdout, /CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts\/2026-07-16-3-1-config\.json/);
   assert.match(result.stdout, /npm run review:evidence/);
   assert.match(result.stdout, /EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts\/external-review-transcript\.md/);
