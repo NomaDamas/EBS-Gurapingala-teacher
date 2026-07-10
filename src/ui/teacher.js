@@ -308,7 +308,7 @@ export const teacherHtml = `<!doctype html>
       .controls { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
       .panes { grid-template-columns: minmax(280px, .7fr) minmax(400px, 1.3fr); }
     }
-    @media (max-width: 900px) {
+    @media (max-width: 1080px) {
       main { height: auto; min-height: 100vh; grid-template-columns: 1fr; overflow: visible; }
       aside { max-height: 48vh; }
       .layout { min-height: 100vh; }
@@ -474,6 +474,7 @@ export const teacherHtml = `<!doctype html>
     let reviewPinned = false;
     let studentFilter = "all";
     let processingSnapshot = false;
+    let liveTelemetrySinceConnect = false;
 
     function connect(manual = false) {
       if (reconnectTimer) clearTimeout(reconnectTimer);
@@ -486,6 +487,7 @@ export const teacherHtml = `<!doctype html>
       const protocols = teacherToken ? [encodeTeacherWebSocketProtocol(teacherToken)] : [];
       const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/teacher?" + query.toString(), protocols);
       socket = ws;
+      liveTelemetrySinceConnect = false;
       updateSocketStatus("connecting");
       ws.addEventListener("open", () => {
         if (socket !== ws) return;
@@ -505,7 +507,10 @@ export const teacherHtml = `<!doctype html>
         lastTelemetryAt = new Date();
         updateSocketStatus("online");
         const telemetry = parseTelemetry(event.data);
-        if (telemetry) handleTelemetry(telemetry);
+        if (telemetry) {
+          if (telemetry.type !== "snapshot") liveTelemetrySinceConnect = true;
+          handleTelemetry(telemetry);
+        }
       });
     }
 
@@ -556,8 +561,10 @@ export const teacherHtml = `<!doctype html>
         const previousSelected = selected;
         const previousSelectedTurn = selectedTurn;
         const previousReviewPinned = reviewPinned;
-        sessions.clear();
-        selected = null;
+        if (!liveTelemetrySinceConnect) {
+          sessions.clear();
+          selected = null;
+        }
         if (event.config) applyTeacherConfig(event.config);
         processingSnapshot = true;
         try {

@@ -889,8 +889,9 @@ export const studentHtml = `<!doctype html>
     const studentNameKey = "ebs-student-name:" + roomId;
     roomStatus.textContent = "수업 코드 " + roomId;
     roomStatus.title = roomId;
-    let sessionId = localStorage.getItem(sessionKey) || crypto.randomUUID();
-    let sessionSecret = localStorage.getItem(sessionSecretKey) || crypto.randomUUID();
+    // A reload starts a new visible conversation so server context cannot outlive the UI transcript.
+    let sessionId = crypto.randomUUID();
+    let sessionSecret = crypto.randomUUID();
     let studentName = localStorage.getItem(studentNameKey) || "";
     let heartbeatTimer = null;
     let heartbeatFailures = 0;
@@ -898,7 +899,7 @@ export const studentHtml = `<!doctype html>
     let submitting = false;
     let completedTurns = 0;
     const joinTimeoutMs = 15000;
-    const chatTimeoutMs = 45000;
+    const chatTimeoutMs = 105000;
     localStorage.setItem(sessionKey, sessionId);
     localStorage.setItem(sessionSecretKey, sessionSecret);
     nameInput.value = studentName;
@@ -1075,6 +1076,11 @@ export const studentHtml = `<!doctype html>
       messageInput.style.height = Math.min(messageInput.scrollHeight, 150) + "px";
     }
 
+    function setSessionControlsDisabled(disabled) {
+      resetSessionBtn.disabled = disabled;
+      newStudentBtn.disabled = disabled;
+    }
+
     joinBtn.addEventListener("click", joinClass);
     resetSessionBtn.addEventListener("click", resetStudentSession);
     newStudentBtn.addEventListener("click", resetStudentSession);
@@ -1094,6 +1100,7 @@ export const studentHtml = `<!doctype html>
     }
 
     function resetStudentSession() {
+      if (submitting) return;
       rotateSessionIdentity();
       nameInput.value = "";
       resetSessionBtn.classList.add("hidden");
@@ -1135,6 +1142,7 @@ export const studentHtml = `<!doctype html>
       if (!message) return;
 
       submitting = true;
+      setSessionControlsDisabled(true);
       sendBtn.disabled = true;
       form.setAttribute("aria-busy", "true");
       chat.setAttribute("aria-busy", "true");
@@ -1178,6 +1186,7 @@ export const studentHtml = `<!doctype html>
         setConnectionState("연결 확인 필요", "error");
       } finally {
         submitting = false;
+        setSessionControlsDisabled(false);
         form.setAttribute("aria-busy", "false");
         chat.setAttribute("aria-busy", "false");
         updateComposer();

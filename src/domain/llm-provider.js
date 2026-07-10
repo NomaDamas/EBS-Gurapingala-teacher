@@ -242,11 +242,16 @@ export function applyVerifierVerdict({ audit, draft, model }) {
     verifierCorrectionLeak: Boolean(draft?.correction_leak),
     verifierSubtleEnough: Boolean(draft?.subtle_enough)
   };
-  const verifierApproved = checks.verifierCorrectAnswerSupported &&
+  const verifierApproved = checks.verifierDeclaredApproval &&
+    checks.verifierCorrectAnswerSupported &&
     checks.verifierFalseClaimIsFalse &&
     checks.verifierFalseClaimPresent &&
     checks.verifierCalibrationSeedPreserved &&
-    !checks.verifierCorrectionLeak;
+    checks.verifierLevelFit &&
+    checks.verifierTruthContextPresent &&
+    !checks.verifierTruthLeak &&
+    !checks.verifierCorrectionLeak &&
+    checks.verifierSubtleEnough;
   const approvedForStudent = audit.preflight.approvedForStudent && verifierApproved;
 
   return {

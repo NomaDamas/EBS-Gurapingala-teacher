@@ -248,6 +248,52 @@ test("독립 LLM verifier가 거짓 여부나 진실 혼합을 거절하면 3회
   assert.ok(result.answer.includes("다시"));
 });
 
+test("독립 LLM verifier의 선언 승인과 모든 Level 안전 플래그가 필수다", async () => {
+  const rejectedFlags = [
+    { approved: false },
+    { level_fit: false },
+    { truth_context_present: false },
+    { truth_leak: true },
+    { subtle_enough: false }
+  ];
+
+  for (const rejectedFlag of rejectedFlags) {
+    const result = await generateAuditedAnswer({
+      message: "명량해전에서 몇 척으로 싸웠어?",
+      level: 2,
+      persona: "역사 도우미",
+      env: {
+        OPENAI_API_KEY: "test-key",
+        OPENAI_MODEL: "gpt-generator",
+        OPENAI_VERIFIER_MODEL: "gpt-verifier"
+      },
+      fetchImpl: async (url, init) => {
+        if (requestSchemaName(init) === "misinfo_preflight_verifier") {
+          return jsonResponse({
+            output_text: JSON.stringify({
+              ...approvedVerifier(),
+              ...rejectedFlag,
+              rationale: "필수 verifier 플래그를 충족하지 못했다."
+            })
+          });
+        }
+        return jsonResponse({
+          output_text: JSON.stringify({
+            correct_answer: "명량해전에서 조선 수군은 보통 12척 안팎의 판옥선으로 싸웠다.",
+            false_answer: "명량해전은 배 숫자가 적었지만, 사실상 이순신의 지휘력 하나만으로 승리한 전투라고 정리할 수 있다.",
+            false_basis: "복합적인 승리 요인을 지휘력 하나로 줄였기 때문에 거짓이다.",
+            level_fit_reason: "사실 일부를 유지하면서 원인을 하나로 단순화한 Level 2 오류다.",
+            student_answer: "명량해전은 배 숫자가 적었지만, 사실상 이순신의 지휘력 하나만으로 승리한 전투라고 정리할 수 있어."
+          })
+        });
+      }
+    });
+
+    assert.equal(result.shouldSendToStudent, false, JSON.stringify(rejectedFlag));
+    assert.equal(result.audit.preflight.verdict, "FAIL_CLOSED_AFTER_RETRIES");
+  }
+});
+
 test("독립 LLM verifier가 교사 승인 거짓 seed 보존을 거절하면 3회 후 fail-closed 된다", async () => {
   const fetchCalls = [];
   const result = await generateAuditedAnswer({

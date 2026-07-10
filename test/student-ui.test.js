@@ -9,7 +9,7 @@ test("student UI only enters class after successful join and handles network fai
   assert.match(student, /let joining = false/);
   assert.match(student, /const sessionSecretKey = "ebs-session-secret:" \+ roomId/);
   assert.match(student, /const studentNameKey = "ebs-student-name:" \+ roomId/);
-  assert.match(student, /let sessionSecret = localStorage\.getItem\(sessionSecretKey\) \|\| crypto\.randomUUID\(\)/);
+  assert.match(student, /let sessionSecret = crypto\.randomUUID\(\)/);
   assert.match(student, /let studentName = localStorage\.getItem\(studentNameKey\) \|\| ""/);
   assert.match(student, /localStorage\.setItem\(sessionSecretKey, sessionSecret\)/);
   assert.match(student, /if \(joining\) return/);
@@ -48,11 +48,13 @@ test("student chat submit reports failed or malformed responses without breaking
   assert.match(student, /초 뒤에 다시 물어봐/);
   assert.match(student, /질문이 너무 빠르게 이어졌어/);
   assert.match(student, /const joinTimeoutMs = 15000/);
-  assert.match(student, /const chatTimeoutMs = 45000/);
+  assert.match(student, /const chatTimeoutMs = 105000/);
   assert.match(student, /async function fetchWithTimeout\(url, options, timeoutMs\)/);
   assert.match(student, /controller\.abort\(\)/);
   assert.match(student, /form\.setAttribute\("aria-busy", "true"\)/);
   assert.match(student, /chat\.setAttribute\("aria-busy", "false"\)/);
+  assert.match(student, /setSessionControlsDisabled\(true\)/);
+  assert.match(student, /setSessionControlsDisabled\(false\)/);
   assert.match(student, /typeof data\.answer !== "string" \|\| !data\.answer\.trim\(\)/);
   assert.match(student, /답변 형식을 확인하지 못했어/);
 });
@@ -86,6 +88,8 @@ test("student UI keeps required privacy copy and accessible composer limits", as
   assert.match(student, /공용 기기라면 새 학생으로 시작/);
   assert.match(student, /nextStudentName !== studentName\) rotateSessionIdentity\(\)/);
   assert.match(student, /function resetStudentSession\(\)/);
+  assert.match(student, /function resetStudentSession\(\) \{\s*if \(submitting\) return;/);
+  assert.match(student, /let sessionId = crypto\.randomUUID\(\)/);
   assert.match(student, /chat\.replaceChildren\(\)/);
   assert.match(student, /conversationStage\.scrollHeight/);
   assert.match(student, /target\.offsetTop - 24/);
