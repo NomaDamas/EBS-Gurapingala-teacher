@@ -138,6 +138,7 @@ CLASSROOM_CONFIG_STATUS=pass \
 CI_EVIDENCE_FILE=artifacts/ci-evidence.json \
 VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json \
 CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json \
+EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 \
 EXTERNAL_REVIEW_FILE=artifacts/external-review.json \
 npm run review:evidence
 ```

@@ -88,6 +88,7 @@ console.log([
   "CI_EVIDENCE_FILE=artifacts/ci-evidence.json",
   "VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json",
   `CLASSROOM_CONFIG_EVIDENCE_FILES=${shellQuote(classroomEvidenceFiles.join(","))}`,
+  `EXPECTED_CLASSROOM_ROOMS=${shellQuote(expectedRooms)}`,
   "EXTERNAL_REVIEW_FILE=artifacts/external-review.json",
   "npm run review:evidence"
 ].join(" "));

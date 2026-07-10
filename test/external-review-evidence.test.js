@@ -11,11 +11,13 @@ test("review:evidence writes structured approval evidence tied to a PR head", as
   const transcript = join(dir, "review.md");
   const ciEvidence = join(dir, "ci-evidence.json");
   const deployEvidence = join(dir, "deploy-evidence.json");
-  const classroomEvidence = join(dir, "classroom-config.json");
+  const classroomEvidence = join(dir, "classroom-config-1.json");
+  const secondClassroomEvidence = join(dir, "classroom-config-2.json");
   await writeFile(transcript, "Review decision: APPROVE\nEvidence checked: all gates pass\n");
   await writeFile(ciEvidence, JSON.stringify(buildCiEvidence()));
   await writeFile(deployEvidence, JSON.stringify({ schemaVersion: "deploy-verification-evidence/v1", generatedAt: "2026-07-10T00:01:00.000Z", status: "pass", prHeadSha: "abc123" }));
-  await writeFile(classroomEvidence, JSON.stringify({ schemaVersion: "classroom-config-evidence/v1", generatedAt: "2026-07-10T00:02:00.000Z", status: "pass", prHeadSha: "abc123", roomId: "2026-07-13-3-5" }));
+  await writeFile(classroomEvidence, JSON.stringify(buildClassroomEvidence("2026-07-13-3-5")));
+  await writeFile(secondClassroomEvidence, JSON.stringify(buildClassroomEvidence("2026-07-16-3-1", { generatedAt: "2026-07-10T00:02:30.000Z" })));
   const result = await runReviewEvidence({
     EXTERNAL_REVIEW_FILE: file,
     EXTERNAL_REVIEW_DECISION: "APPROVE",
@@ -31,7 +33,8 @@ test("review:evidence writes structured approval evidence tied to a PR head", as
     CLASSROOM_CONFIG_STATUS: "pass",
     CI_EVIDENCE_FILE: ciEvidence,
     VERIFY_DEPLOY_EVIDENCE_FILE: deployEvidence,
-    CLASSROOM_CONFIG_EVIDENCE_FILES: classroomEvidence,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: `${classroomEvidence},${secondClassroomEvidence}`,
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1",
     RELEASE_AUDIT_STATUS: "not-run",
     NON_BLOCKING_RISKS: "실제 촬영 전 학생 기기 리허설 필요"
   });
@@ -52,6 +55,8 @@ test("review:evidence writes structured approval evidence tied to a PR head", as
   assert.match(evidence.evidenceArtifacts.deployVerification.sha256, /^[a-f0-9]{64}$/);
   assert.equal(evidence.evidenceArtifacts.classroomConfigs[0].file, classroomEvidence);
   assert.equal(evidence.evidenceArtifacts.classroomConfigs[0].roomId, "2026-07-13-3-5");
+  assert.equal(evidence.evidenceArtifacts.classroomConfigs[1].file, secondClassroomEvidence);
+  assert.equal(evidence.evidenceArtifacts.classroomConfigs[1].roomId, "2026-07-16-3-1");
   assert.equal(evidence.evidenceChecked.ciStatus, "success");
   assert.equal(evidence.evidenceChecked.classroomConfigStatus, "pass");
   assert.deepEqual(evidence.blockingFindings, []);
@@ -236,6 +241,38 @@ test("review:evidence rejects approval when classroom evidence points to deploy 
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* roomId must be a filming\/rehearsal room/);
 });
 
+test("review:evidence rejects approval when expected classroom room evidence is missing", async () => {
+  const artifacts = await writeGateArtifacts();
+  const result = await runReviewEvidence({
+    ...validApprovalEnv(artifacts),
+    CLASSROOM_CONFIG_EVIDENCE_FILES: artifacts.classroomEvidence,
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILES missing expected filming room 2026-07-16-3-1/);
+});
+
+test("review:evidence rejects approval when classroom room evidence is unexpected or duplicate", async () => {
+  const unexpectedArtifacts = await writeGateArtifacts({
+    classroomTwo: { roomId: "2026-07-18-extra" }
+  });
+  const unexpected = await runReviewEvidence(validApprovalEnv(unexpectedArtifacts));
+
+  assert.notEqual(unexpected.code, 0);
+  assert.match(unexpected.stderr, /missing expected filming room 2026-07-16-3-1/);
+  assert.match(unexpected.stderr, /contains unexpected filming room 2026-07-18-extra/);
+
+  const duplicateArtifacts = await writeGateArtifacts({
+    classroomTwo: { roomId: "2026-07-13-3-5" }
+  });
+  const duplicate = await runReviewEvidence(validApprovalEnv(duplicateArtifacts));
+
+  assert.notEqual(duplicate.code, 0);
+  assert.match(duplicate.stderr, /contains duplicate filming room 2026-07-13-3-5/);
+  assert.match(duplicate.stderr, /missing expected filming room 2026-07-16-3-1/);
+});
+
 function runReviewEvidence(env) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, ["scripts/write-external-review-evidence.js"], {
@@ -272,7 +309,8 @@ function validApprovalEnv(artifacts) {
     CLASSROOM_CONFIG_STATUS: "pass",
     CI_EVIDENCE_FILE: artifacts.ciEvidence,
     VERIFY_DEPLOY_EVIDENCE_FILE: artifacts.deployEvidence,
-    CLASSROOM_CONFIG_EVIDENCE_FILES: artifacts.classroomEvidence
+    CLASSROOM_CONFIG_EVIDENCE_FILES: artifacts.classroomEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
   };
 }
 
@@ -280,11 +318,19 @@ async function writeGateArtifacts(overrides = {}) {
   const dir = await mkdtemp(join(tmpdir(), "external-review-gates-"));
   const ciEvidence = join(dir, "ci-evidence.json");
   const deployEvidence = join(dir, "deploy-evidence.json");
-  const classroomEvidence = join(dir, "classroom-config.json");
+  const classroomEvidence = join(dir, "classroom-config-1.json");
+  const secondClassroomEvidence = join(dir, "classroom-config-2.json");
   await writeFile(ciEvidence, JSON.stringify(buildCiEvidence(overrides.ci)));
   await writeFile(deployEvidence, JSON.stringify({ schemaVersion: "deploy-verification-evidence/v1", generatedAt: "2026-07-10T00:01:00.000Z", status: "pass", prHeadSha: "abc123", ...(overrides.deploy || {}) }));
-  await writeFile(classroomEvidence, JSON.stringify({ schemaVersion: "classroom-config-evidence/v1", generatedAt: "2026-07-10T00:02:00.000Z", status: "pass", prHeadSha: "abc123", roomId: "2026-07-13-3-5", ...(overrides.classroom || {}) }));
-  return { ciEvidence, deployEvidence, classroomEvidence };
+  await writeFile(classroomEvidence, JSON.stringify(buildClassroomEvidence("2026-07-13-3-5", overrides.classroom)));
+  await writeFile(secondClassroomEvidence, JSON.stringify(buildClassroomEvidence("2026-07-16-3-1", { generatedAt: "2026-07-10T00:02:30.000Z", ...(overrides.classroomTwo || {}) })));
+  return {
+    ciEvidence,
+    deployEvidence,
+    classroomEvidence,
+    secondClassroomEvidence,
+    classroomEvidenceFiles: [classroomEvidence, secondClassroomEvidence]
+  };
 }
 
 function buildCiEvidence(overrides = {}) {
@@ -301,6 +347,17 @@ function buildCiEvidence(overrides = {}) {
       startedAt: "2026-07-10T00:00:00Z",
       completedAt: "2026-07-10T00:00:20Z"
     },
+    ...overrides
+  };
+}
+
+function buildClassroomEvidence(roomId, overrides = {}) {
+  return {
+    schemaVersion: "classroom-config-evidence/v1",
+    generatedAt: "2026-07-10T00:02:00.000Z",
+    status: "pass",
+    prHeadSha: "abc123",
+    roomId,
     ...overrides
   };
 }

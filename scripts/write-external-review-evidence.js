@@ -19,6 +19,7 @@ const releaseAuditStatus = normalizeStatus(process.env.RELEASE_AUDIT_STATUS || "
 const ciEvidenceFile = String(process.env.CI_EVIDENCE_FILE || "").trim();
 const verifyDeployEvidenceFile = String(process.env.VERIFY_DEPLOY_EVIDENCE_FILE || "").trim();
 const classroomConfigEvidenceFiles = parseFileList(process.env.CLASSROOM_CONFIG_EVIDENCE_FILES || process.env.CLASSROOM_CONFIG_EVIDENCE_FILE);
+const expectedClassroomRooms = parseFileList(process.env.EXPECTED_CLASSROOM_ROOMS);
 const blockingFindings = parseList(process.env.BLOCKING_FINDINGS);
 const nonBlockingRisks = parseList(process.env.NON_BLOCKING_RISKS);
 
@@ -45,6 +46,9 @@ if (decision === "approve" && !ciEvidenceFile) {
 }
 if (decision === "approve" && classroomConfigEvidenceFiles.length === 0) {
   failures.push("CLASSROOM_CONFIG_EVIDENCE_FILES or CLASSROOM_CONFIG_EVIDENCE_FILE is required for APPROVE evidence so the review is tied to every filming room");
+}
+if (decision === "approve" && expectedClassroomRooms.length === 0) {
+  failures.push("EXPECTED_CLASSROOM_ROOMS is required for APPROVE evidence so every filming room is reviewed");
 }
 for (const [label, value] of [
   ["CI_STATUS", ciStatus],
@@ -128,6 +132,7 @@ function validateApprovalEvidenceArtifacts(artifacts) {
       requireRoom: true
     });
   }
+  validateExpectedClassroomRooms(artifacts.classroomConfigs);
 }
 
 function validateArtifact(artifact, { label, schemaVersion, requireRoom }) {
@@ -178,6 +183,31 @@ function validateCiEvidenceArtifact(artifact) {
   }
   if (generatedAt && completedAt && generatedAt < completedAt) {
     failures.push("CI_EVIDENCE_FILE generatedAt must be after checkRun.completedAt");
+  }
+}
+
+function validateExpectedClassroomRooms(classroomArtifacts) {
+  const seenRooms = new Set();
+  for (const artifact of classroomArtifacts) {
+    if (!artifact?.roomId || !isFilmingRoom(artifact.roomId)) continue;
+    if (seenRooms.has(artifact.roomId)) {
+      failures.push(`CLASSROOM_CONFIG_EVIDENCE_FILES contains duplicate filming room ${artifact.roomId}`);
+    }
+    seenRooms.add(artifact.roomId);
+  }
+  const expectedRooms = new Set(expectedClassroomRooms);
+  for (const room of expectedRooms) {
+    if (!isFilmingRoom(room)) {
+      failures.push(`EXPECTED_CLASSROOM_ROOMS contains non-filming room ${room}`);
+    }
+    if (!seenRooms.has(room)) {
+      failures.push(`CLASSROOM_CONFIG_EVIDENCE_FILES missing expected filming room ${room}`);
+    }
+  }
+  for (const room of seenRooms) {
+    if (!expectedRooms.has(room)) {
+      failures.push(`CLASSROOM_CONFIG_EVIDENCE_FILES contains unexpected filming room ${room}`);
+    }
   }
 }
 
