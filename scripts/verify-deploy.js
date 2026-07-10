@@ -30,6 +30,11 @@ if (requireTeacherToken && !teacherToken) {
   process.exit(1);
 }
 
+if (requireOpenAI && !expectedOpenAIModel) {
+  console.error("EXPECTED_OPENAI_MODEL is required when REQUIRE_OPENAI=true.");
+  process.exit(1);
+}
+
 if (!verifyRoomId) {
   console.error("VERIFY_ROOM must resolve to a non-empty deploy verification room.");
   process.exit(1);

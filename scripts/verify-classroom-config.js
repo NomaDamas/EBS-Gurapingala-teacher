@@ -27,6 +27,7 @@ if (roomId === "deploy-verify" || roomId.startsWith("deploy-verify-")) {
 }
 if (!expectedLevel) failures.push("EXPECTED_FALSE_LEVEL must be 1, 2, 3, or 4");
 if (!expectedPersona) failures.push("EXPECTED_PERSONA is required");
+if (requireOpenAI && !expectedOpenAIModel) failures.push("EXPECTED_OPENAI_MODEL is required when REQUIRE_OPENAI=true");
 
 if (failures.length) exitWithFailures(failures);
 

@@ -92,7 +92,8 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       EXPECTED_FALSE_LEVEL: "3",
       EXPECTED_PERSONA: "관점 왜곡 실험용 역사 도우미",
       APPLY_CLASSROOM_CONFIG: "true",
-      REQUIRE_OPENAI: "true"
+      REQUIRE_OPENAI: "true",
+      EXPECTED_OPENAI_MODEL: "gpt-5.5"
     });
 
     assert.equal(applyResult.code, 0, applyResult.stdout + applyResult.stderr);
@@ -119,12 +120,25 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       CLASSROOM_ROOM: "2026-07-13-3-5",
       EXPECTED_FALSE_LEVEL: "2",
       EXPECTED_PERSONA: "이순신 장군처럼 친절하게 설명한다.",
+      EXPECTED_OPENAI_MODEL: "gpt-5.5",
       GITHUB_SHA: "",
       CLASSROOM_CONFIG_EVIDENCE_FILE: evidenceFile
     });
 
     assert.notEqual(missingShaResult.code, 0);
     assert.match(missingShaResult.stderr, /PR_HEAD_SHA or GITHUB_SHA is required/);
+
+    const missingModelResult = await runNode(["scripts/verify-classroom-config.js"], {
+      WORKER_URL: workerUrl,
+      TEACHER_TOKEN: "teacher-secret",
+      CLASSROOM_ROOM: "2026-07-13-3-5",
+      EXPECTED_FALSE_LEVEL: "2",
+      EXPECTED_PERSONA: "이순신 장군처럼 친절하게 설명한다.",
+      REQUIRE_OPENAI: "true"
+    });
+
+    assert.notEqual(missingModelResult.code, 0);
+    assert.match(missingModelResult.stderr, /EXPECTED_OPENAI_MODEL is required when REQUIRE_OPENAI=true/);
   } finally {
     await close(server);
   }

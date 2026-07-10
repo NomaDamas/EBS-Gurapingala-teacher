@@ -273,11 +273,22 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
       WORKER_URL: workerUrl,
       TEACHER_TOKEN: "teacher-secret",
       WORKER_ROOM: "shoot-3-5",
-      REQUIRE_OPENAI: "true"
+      REQUIRE_OPENAI: "true",
+      EXPECTED_OPENAI_MODEL: "gpt-5.5"
     });
 
     assert.notEqual(strictResult.code, 0);
     assert.match(strictResult.stdout, /FAIL OpenAI provider is configured when required/);
+    assert.deepEqual(purgedRooms, ["deploy-verify", "deploy-verify"]);
+
+    const missingModelResult = await runNode(["scripts/verify-deploy.js"], {
+      WORKER_URL: workerUrl,
+      TEACHER_TOKEN: "teacher-secret",
+      REQUIRE_OPENAI: "true"
+    });
+
+    assert.notEqual(missingModelResult.code, 0);
+    assert.match(missingModelResult.stderr, /EXPECTED_OPENAI_MODEL is required when REQUIRE_OPENAI=true/);
     assert.deepEqual(purgedRooms, ["deploy-verify", "deploy-verify"]);
 
     const modelMismatchResult = await runNode(["scripts/verify-deploy.js"], {
