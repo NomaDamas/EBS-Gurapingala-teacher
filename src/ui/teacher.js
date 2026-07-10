@@ -216,6 +216,24 @@ export const teacherHtml = `<!doctype html>
     .conversationPanel { display: grid; grid-template-rows: auto 1fr; }
     .panelHeading, .reviewHeading { padding: 12px 14px; border-bottom: 1px solid var(--line); }
     .panelHeading h2, .reviewHeading h2 { margin: 0; font: 700 15px "IBM Plex Sans KR", sans-serif; }
+    .reviewHeading > div { min-width: 0; }
+    .reviewContext {
+      max-width: 100%;
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 10.5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .reviewHeadingActions { display: flex; align-items: center; gap: 6px; }
+    .latestTurnButton {
+      padding: 5px 8px;
+      color: #fff;
+      background: var(--warning);
+      font-size: 10px;
+    }
+    .hidden { display: none !important; }
     #chat { padding: 14px; overflow: auto; }
     .turnGroup { margin: 0 0 18px; }
     .turnLabel {
@@ -356,7 +374,7 @@ export const teacherHtml = `<!doctype html>
             <span class="fieldHelp" id="levelHelp" aria-live="polite">실험 모드에서 학생 응답에 적용됩니다.</span>
           </label>
           <label>연결 상태
-            <input id="socketStatus" value="connecting" readonly />
+            <input id="socketStatus" value="connecting" readonly aria-live="polite" />
             <span class="fieldHelp">마지막 텔레메트리 시각과 재시도 횟수를 표시합니다.</span>
           </label>
           <label>설정 적용 상태
@@ -381,17 +399,23 @@ export const teacherHtml = `<!doctype html>
         </div>
       </header>
       <div class="panes">
-        <section class="conversationPanel">
+        <section class="conversationPanel" id="conversationPanel">
           <div class="panelHeading">
             <h2>학생에게 보인 대화</h2>
             <span class="modePill">학생 노출</span>
           </div>
           <div id="chat"><div class="empty">학생 카드를 클릭하면 대화가 표시됩니다.</div></div>
         </section>
-        <section class="reviewPanel" aria-labelledby="teacherReviewTitle">
+        <section class="reviewPanel" id="reviewPanel" aria-labelledby="teacherReviewTitle">
           <div class="reviewHeading">
-            <h2 id="teacherReviewTitle">교사용 검수 영역</h2>
-            <span class="teacherOnly">교사 전용 · 학생 비노출</span>
+            <div>
+              <h2 id="teacherReviewTitle">교사용 검수 영역</h2>
+              <p class="reviewContext" id="teacherReviewContext" aria-live="polite">학생과 대화 턴을 선택하세요.</p>
+            </div>
+            <div class="reviewHeadingActions">
+              <button class="latestTurnButton hidden" id="latestTurnButton" type="button">새 턴 보기</button>
+              <span class="teacherOnly">교사 전용 · 학생 비노출</span>
+            </div>
           </div>
           <div id="teacherReview">
             <div class="empty">대화를 선택하면 정답·거짓·검수 근거가 표시됩니다.</div>
@@ -408,6 +432,7 @@ export const teacherHtml = `<!doctype html>
     const studentsEl = document.querySelector("#students");
     const classSummaryEl = document.querySelector("#classSummary");
     const chatEl = document.querySelector("#chat");
+    const conversationPanelEl = document.querySelector("#conversationPanel");
     const auditEl = document.querySelector("#audit");
     const statusEl = document.querySelector("#socketStatus");
     const configStatusEl = document.querySelector("#configStatus");
@@ -417,6 +442,9 @@ export const teacherHtml = `<!doctype html>
     const levelHelpEl = document.querySelector("#levelHelp");
     const personaEl = document.querySelector("#persona");
     const teacherReviewEl = document.querySelector("#teacherReview");
+    const reviewPanelEl = document.querySelector("#reviewPanel");
+    const teacherReviewContextEl = document.querySelector("#teacherReviewContext");
+    const latestTurnButtonEl = document.querySelector("#latestTurnButton");
     const downloadExportEl = document.querySelector("#downloadExport");
     const downloadDebriefEl = document.querySelector("#downloadDebrief");
     const downloadDebriefCsvEl = document.querySelector("#downloadDebriefCsv");
@@ -443,7 +471,9 @@ export const teacherHtml = `<!doctype html>
     let reconnectAttempts = 0;
     let lastTelemetryAt = null;
     let selectedTurn = null;
+    let reviewPinned = false;
     let studentFilter = "all";
+    let processingSnapshot = false;
 
     function connect(manual = false) {
       if (reconnectTimer) clearTimeout(reconnectTimer);
@@ -524,11 +554,21 @@ export const teacherHtml = `<!doctype html>
     function handleTelemetry(event) {
       if (event.type === "snapshot") {
         const previousSelected = selected;
+        const previousSelectedTurn = selectedTurn;
+        const previousReviewPinned = reviewPinned;
         sessions.clear();
         selected = null;
         if (event.config) applyTeacherConfig(event.config);
-        for (const item of event.events || []) handleTelemetry(item);
+        processingSnapshot = true;
+        try {
+          for (const item of event.events || []) handleTelemetry(item);
+        } finally {
+          processingSnapshot = false;
+        }
         if (previousSelected && sessions.has(previousSelected)) selected = previousSelected;
+        selectedTurn = selected && previousReviewPinned ? previousSelectedTurn : null;
+        reviewPinned = Boolean(selected && previousReviewPinned);
+        latestTurnButtonEl.classList.add("hidden");
         renderStudents();
         if (selected) renderSelected();
         else renderEmptyChat("학생 카드를 클릭하면 대화가 표시됩니다.");
@@ -579,9 +619,11 @@ export const teacherHtml = `<!doctype html>
         current.audit = event.teacherAudit;
         current.latencyMs = event.latencyMs;
         current.lastQuestion = event.studentMessage;
+        current.lastChatAtMs = current.lastSeenMs;
         current.blockedForStudent = Boolean(event.blockedForStudent);
         current.chatTurns = (current.chatTurns || 0) + 1;
         current.responseMode = event.teacherAudit?.input?.responseMode || current.responseMode || "experiment";
+        current.appliedLevel = event.teacherAudit?.input?.appliedLevel ?? current.appliedLevel ?? null;
         if (event.blockedForStudent) current.blockedTurns = (current.blockedTurns || 0) + 1;
         if (!event.blockedForStudent && event.teacherAudit?.input?.responseMode !== "truth") {
           current.debriefRequiredTurns = (current.debriefRequiredTurns || 0) + 1;
@@ -589,12 +631,25 @@ export const teacherHtml = `<!doctype html>
       }
       sessions.set(event.sessionId, current);
       if (!selected) selected = event.sessionId;
-      if (selected === event.sessionId && event.type === "chat_turn") selectedTurn = null;
+      const shouldFollowLatest = selected === event.sessionId && event.type === "chat_turn" && !reviewPinned;
+      if (shouldFollowLatest) selectedTurn = null;
+      if (selected === event.sessionId && event.type === "chat_turn" && reviewPinned) {
+        latestTurnButtonEl.classList.remove("hidden");
+      }
+      if (processingSnapshot) return;
       renderStudents();
-      renderSelected();
+      if (selected === event.sessionId) {
+        renderSelected();
+        if (shouldFollowLatest) {
+          requestAnimationFrame(() => {
+            chatEl.scrollTop = chatEl.scrollHeight;
+          });
+        }
+      }
     }
 
     function renderStudents() {
+      const focusedSessionId = document.activeElement?.dataset?.sessionId || null;
       studentsEl.replaceChildren();
       let onlineCount = 0;
       let chatTurns = 0;
@@ -620,10 +675,15 @@ export const teacherHtml = `<!doctype html>
           + (!session.online ? " stale" : "");
         const dotClass = session.online ? "dot" : "dot offline";
         const state = session.online ? "online" : "offline";
+        const needsAttentionLabel = needsAttention ? " · 주의 필요" : "";
+        const modeLevel = session.responseMode === "truth"
+          ? "truth · Level 비적용"
+          : "experiment · Level " + (session.appliedLevel || "확인 중");
         el.tabIndex = 0;
+        el.dataset.sessionId = id;
         el.setAttribute("role", "button");
         el.setAttribute("aria-current", String(id === selected));
-        el.setAttribute("aria-label", session.name + " 학생 대화 보기 · " + state);
+        el.setAttribute("aria-label", session.name + " 학생 대화 보기 · " + state + needsAttentionLabel + " · " + modeLevel);
         const latency = Number.isFinite(session.latencyMs) ? " · " + session.latencyMs + "ms" : "";
         const title = document.createElement("strong");
         const dot = document.createElement("span");
@@ -646,8 +706,7 @@ export const teacherHtml = `<!doctype html>
         metaRow.className = "studentMeta";
         const meta = document.createElement("small");
         const recentQuestion = session.lastQuestion ? " · 질문: " + trimCardText(session.lastQuestion) : "";
-        const mode = session.responseMode === "truth" ? "truth" : "experiment";
-        meta.textContent = mode + " · " + (session.chatTurns || 0) + "턴" + latency + recentQuestion;
+        meta.textContent = modeLevel + " · " + (session.chatTurns || 0) + "턴" + latency + recentQuestion;
         const freshness = document.createElement("small");
         freshness.textContent = telemetryAgeLabel(session.lastSeenMs);
         freshness.title = state + " · 마지막 이벤트 " + (session.updatedAt || "없음");
@@ -657,8 +716,13 @@ export const teacherHtml = `<!doctype html>
         el.addEventListener("click", () => {
           selected = id;
           selectedTurn = null;
+          reviewPinned = false;
+          latestTurnButtonEl.classList.add("hidden");
           renderStudents();
           renderSelected();
+          if (window.matchMedia("(max-width: 900px)").matches) {
+            conversationPanelEl.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
         });
         el.addEventListener("keydown", (event) => {
           if (event.key !== "Enter" && event.key !== " ") return;
@@ -676,6 +740,11 @@ export const teacherHtml = `<!doctype html>
         studentsEl.appendChild(empty);
       }
       renderClassSummary({ total: sessions.size, online: onlineCount, chatTurns, blockedTurns, debriefRequiredTurns });
+      if (focusedSessionId) {
+        const focusedCard = [...studentsEl.querySelectorAll("[data-session-id]")]
+          .find((item) => item.dataset.sessionId === focusedSessionId);
+        focusedCard?.focus({ preventScroll: true });
+      }
     }
 
     function renderClassSummary({ total, online, chatTurns, blockedTurns, debriefRequiredTurns }) {
@@ -722,7 +791,12 @@ export const teacherHtml = `<!doctype html>
             reviewButton.setAttribute("aria-pressed", String(selectedTurn === message.turn));
             reviewButton.addEventListener("click", () => {
               selectedTurn = message.turn;
+              reviewPinned = true;
+              latestTurnButtonEl.classList.add("hidden");
               renderSelected();
+              if (window.matchMedia("(max-width: 900px)").matches) {
+                reviewPanelEl.scrollIntoView({ behavior: "smooth", block: "start" });
+              }
             });
             group.appendChild(reviewButton);
           }
@@ -730,6 +804,13 @@ export const teacherHtml = `<!doctype html>
         chatEl.appendChild(group);
       }
       const selectedAudit = selectedBotMessage?.audit || session.audit;
+      const selectedMode = selectedAudit?.input?.responseMode || session.responseMode || "experiment";
+      const selectedLevel = selectedMode === "truth"
+        ? "Level 비적용"
+        : "Level " + (selectedAudit?.input?.appliedLevel || session.appliedLevel || "확인 중");
+      teacherReviewContextEl.textContent = session.name
+        + " · " + (selectedBotMessage ? selectedBotMessage.turn + "턴" : "입장 이벤트")
+        + " · " + selectedMode + " · " + selectedLevel;
       renderTeacherReview(selectedAudit, Boolean(selectedBotMessage?.blockedForStudent ?? session.blockedForStudent));
       auditEl.textContent = selectedAudit ? JSON.stringify(selectedAudit, null, 2) : "입장 이벤트만 수신됨";
     }
@@ -928,6 +1009,9 @@ export const teacherHtml = `<!doctype html>
       empty.className = "empty";
       empty.textContent = message;
       chatEl.replaceChildren(empty);
+      teacherReviewContextEl.textContent = "학생과 대화 턴을 선택하세요.";
+      reviewPinned = false;
+      latestTurnButtonEl.classList.add("hidden");
       renderTeacherReview(null);
     }
 
@@ -960,7 +1044,9 @@ export const teacherHtml = `<!doctype html>
       const rightAttention = Boolean(right.blockedTurns || right.debriefRequiredTurns);
       if (leftAttention !== rightAttention) return leftAttention ? -1 : 1;
       if (left.online !== right.online) return left.online ? -1 : 1;
-      return (right.lastSeenMs || 0) - (left.lastSeenMs || 0);
+      const chatActivity = (right.lastChatAtMs || 0) - (left.lastChatAtMs || 0);
+      if (chatActivity) return chatActivity;
+      return String(left.name || "").localeCompare(String(right.name || ""), "ko");
     }
 
     function telemetryAgeLabel(lastSeenMs) {
@@ -1013,6 +1099,15 @@ export const teacherHtml = `<!doctype html>
     });
     personaEl.addEventListener("change", sendTeacherConfig);
     reconnectSocketEl.addEventListener("click", () => connect(true));
+    latestTurnButtonEl.addEventListener("click", () => {
+      reviewPinned = false;
+      selectedTurn = null;
+      latestTurnButtonEl.classList.add("hidden");
+      renderSelected();
+      requestAnimationFrame(() => {
+        chatEl.scrollTop = chatEl.scrollHeight;
+      });
+    });
     copyStudentUrlEl.addEventListener("click", () => copyText(buildRoomUrl("/"), "student url"));
     copyTeacherUrlEl.addEventListener("click", () => copyText(buildRoomUrl("/teacher", true), "teacher url"));
     copyAuditJsonEl.addEventListener("click", () => copyText(auditEl.textContent, "audit json"));

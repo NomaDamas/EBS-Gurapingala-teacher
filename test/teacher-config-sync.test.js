@@ -37,6 +37,7 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /저장 실패: /);
   assert.match(teacher, /저장 실패: 네트워크 확인/);
   assert.match(teacher, /id="configStatus"/);
+  assert.match(teacher, /id="socketStatus"[^>]+aria-live="polite"/);
   assert.match(teacher, /configStatusEl\.value = "저장 중/);
   assert.match(teacher, /configStatusEl\.value = "적용됨/);
   assert.match(teacher, /id="classSummary"/);
@@ -119,6 +120,8 @@ test("teacher dashboard preserves response mode and separates teacher-only revie
   assert.match(teacher, /@media \(max-width: 900px\)/);
   assert.match(teacher, /el\.setAttribute\("role", "button"\)/);
   assert.match(teacher, /event\.key !== "Enter" && event\.key !== " "/);
+  assert.match(teacher, /id="teacherReviewContext" aria-live="polite"/);
+  assert.match(teacher, /id="latestTurnButton"/);
 });
 
 test("teacher dashboard prioritizes 35-student live telemetry and audits each conversation turn", async () => {
@@ -133,7 +136,12 @@ test("teacher dashboard prioritizes 35-student live telemetry and audits each co
   assert.match(teacher, /leftAttention !== rightAttention/);
   assert.match(teacher, /function telemetryAgeLabel\(lastSeenMs\)/);
   assert.match(teacher, /seconds \+ "초 전"/);
-  assert.match(teacher, /session\.responseMode === "truth" \? "truth" : "experiment"/);
+  assert.match(teacher, /session\.responseMode === "truth"[\s\S]*truth · Level 비적용/);
+  assert.match(teacher, /current\.appliedLevel = event\.teacherAudit\?\.input\?\.appliedLevel/);
+  assert.match(teacher, /truth · Level 비적용/);
+  assert.match(teacher, /experiment · Level /);
+  assert.match(teacher, /document\.activeElement\?\.dataset\?\.sessionId/);
+  assert.match(teacher, /focusedCard\?\.focus\(\{ preventScroll: true \}\)/);
   assert.match(teacher, /studentFilterEls\.forEach/);
 
   assert.match(teacher, /audit: event\.teacherAudit/);
@@ -144,4 +152,19 @@ test("teacher dashboard prioritizes 35-student live telemetry and audits each co
   assert.match(teacher, /selectedTurn = message\.turn/);
   assert.match(teacher, /renderTeacherReview\(selectedAudit/);
   assert.match(teacher, /auditEl\.textContent = selectedAudit \? JSON\.stringify\(selectedAudit/);
+  assert.match(teacher, /if \(selected === event\.sessionId\) \{[\s\S]*renderSelected\(\)/);
+  assert.match(teacher, /chatEl\.scrollTop = chatEl\.scrollHeight/);
+  assert.match(teacher, /teacherReviewContextEl\.textContent = session\.name/);
+  assert.match(teacher, /let processingSnapshot = false/);
+  assert.match(teacher, /processingSnapshot = true/);
+  assert.match(teacher, /if \(processingSnapshot\) return/);
+  assert.match(teacher, /let reviewPinned = false/);
+  assert.match(teacher, /event\.type === "chat_turn" && reviewPinned/);
+  assert.match(teacher, /latestTurnButtonEl\.classList\.remove\("hidden"\)/);
+  assert.match(teacher, /right\.lastChatAtMs/);
+  assert.match(teacher, /id="conversationPanel"/);
+  assert.match(teacher, /id="reviewPanel"/);
+  assert.match(teacher, /window\.matchMedia\("\(max-width: 900px\)"\)\.matches/);
+  assert.match(teacher, /conversationPanelEl\.scrollIntoView/);
+  assert.match(teacher, /reviewPanelEl\.scrollIntoView/);
 });

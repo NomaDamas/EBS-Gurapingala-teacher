@@ -382,6 +382,32 @@ export const studentHtml = `<!doctype html>
     .join-button:hover { background: var(--navy-800); transform: translateY(-1px); }
     .join-button:disabled { opacity: .55; cursor: wait; transform: none; }
 
+    .reset-session {
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px;
+      border: 0;
+      color: var(--muted);
+      background: transparent;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .reset-session:hover { color: var(--navy-950); }
+
+    .session-switch {
+      min-height: 30px;
+      padding: 5px 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--navy-800);
+      background: var(--surface);
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
     .join-error {
       min-height: 20px;
       margin: 10px 0 0;
@@ -696,7 +722,8 @@ export const studentHtml = `<!doctype html>
       .topbar { min-height: 62px; padding: 10px 16px; }
       .mobile-brand { display: flex; align-items: center; gap: 8px; color: var(--navy-950); font-size: 12px; font-weight: 850; }
       .mobile-brand .ebs-mark { width: 38px; height: 25px; font-size: 12px; }
-      .course-label, .room-pill { display: none; }
+      .course-label { display: none; }
+      .room-pill { max-width: 92px; padding: 5px 7px; }
       .turn-pill { min-width: 0; }
       .turn-pill span { display: none; }
       .status-pill { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
@@ -714,8 +741,9 @@ export const studentHtml = `<!doctype html>
       .avatar { width: 30px; height: 30px; border-radius: 8px; }
       .message-body { padding: 13px 14px; font-size: 14px; }
       .composer-wrap { padding: 9px 12px max(10px, env(safe-area-inset-bottom)); }
-      .composer-meta span:first-child { display: none; }
-      .composer-meta { justify-content: flex-end; }
+      .composer-meta { align-items: flex-start; gap: 8px; line-height: 1.35; }
+      .composer-meta > span:first-child { display: block; max-width: 250px; }
+      .composer-meta > span:last-child { flex: 0 0 auto; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -755,12 +783,13 @@ export const studentHtml = `<!doctype html>
         </div>
         <div class="course-label">임진왜란 탐구 수업</div>
         <div class="status-group">
+          <button class="session-switch hidden" id="newStudent" type="button">새 학생</button>
           <span class="room-pill" id="roomStatus">수업 코드 default-classroom</span>
           <span class="turn-pill hidden" id="turnStatus" aria-live="polite">
             <strong id="turnCount">0</strong>
             <span>번의 질문을 이어가는 중</span>
           </span>
-          <span class="status-pill" id="statusBadge" data-state="idle">
+          <span class="status-pill" id="statusBadge" data-state="idle" role="status" aria-live="polite" aria-atomic="true">
             <span class="status-dot" aria-hidden="true"></span>
             <span id="status">입장 전</span>
           </span>
@@ -779,6 +808,7 @@ export const studentHtml = `<!doctype html>
               <label class="field-label" for="name">수업에서 사용할 이름</label>
               <input class="name-input" id="name" maxlength="40" placeholder="이름을 입력하세요" autocomplete="name" />
               <button class="join-button" id="joinBtn" type="button">수업에 참여하기</button>
+              <button class="reset-session hidden" id="resetSession" type="button">공용 기기라면 새 학생으로 시작</button>
               <p class="join-error" id="joinError" role="alert"></p>
               <p class="privacy-notice">
                 <svg width="15" height="17" viewBox="0 0 15 17" fill="none" aria-hidden="true">
@@ -810,12 +840,12 @@ export const studentHtml = `<!doctype html>
             </div>
           </section>
 
-          <section class="message-list" id="chat" aria-live="polite" aria-label="수업 대화"></section>
+          <section class="message-list" id="chat" aria-live="polite" aria-label="수업 대화" aria-busy="false"></section>
         </div>
       </div>
 
       <div class="composer-wrap hidden" id="composerWrap">
-        <form class="composer" id="form">
+        <form class="composer" id="form" aria-busy="false">
           <textarea class="message-input" id="message" maxlength="600" rows="1" placeholder="역사적 사건이나 근거에 대해 질문해 보세요" aria-label="질문 입력"></textarea>
           <button class="send-button" id="sendBtn" type="submit" aria-label="질문 보내기" disabled>
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -837,6 +867,8 @@ export const studentHtml = `<!doctype html>
     const form = document.querySelector("#form");
     const join = document.querySelector("#join");
     const joinBtn = document.querySelector("#joinBtn");
+    const resetSessionBtn = document.querySelector("#resetSession");
+    const newStudentBtn = document.querySelector("#newStudent");
     const joinError = document.querySelector("#joinError");
     const status = document.querySelector("#status");
     const statusBadge = document.querySelector("#statusBadge");
@@ -861,12 +893,16 @@ export const studentHtml = `<!doctype html>
     let sessionSecret = localStorage.getItem(sessionSecretKey) || crypto.randomUUID();
     let studentName = localStorage.getItem(studentNameKey) || "";
     let heartbeatTimer = null;
+    let heartbeatFailures = 0;
     let joining = false;
     let submitting = false;
     let completedTurns = 0;
+    const joinTimeoutMs = 15000;
+    const chatTimeoutMs = 45000;
     localStorage.setItem(sessionKey, sessionId);
     localStorage.setItem(sessionSecretKey, sessionSecret);
     nameInput.value = studentName;
+    resetSessionBtn.classList.toggle("hidden", !studentName);
 
     function setConnectionState(label, state) {
       status.textContent = label;
@@ -930,7 +966,7 @@ export const studentHtml = `<!doctype html>
       }
 
       chat.appendChild(el);
-      scrollConversation();
+      scrollConversation(el, role !== "me");
       return el;
     }
 
@@ -940,7 +976,7 @@ export const studentHtml = `<!doctype html>
       el.setAttribute("aria-label", "답변 작성 중");
       el.innerHTML = '<div class="avatar" aria-hidden="true">EBS</div><div class="message-content"><p class="message-author">EBS 학습 도우미</p><div class="message-body typing" aria-hidden="true"><i></i><i></i><i></i></div></div>';
       chat.appendChild(el);
-      scrollConversation();
+      scrollConversation(el);
       return el;
     }
 
@@ -954,9 +990,12 @@ export const studentHtml = `<!doctype html>
       }
     }
 
-    function scrollConversation() {
+    function scrollConversation(target, alignToStart = false) {
       requestAnimationFrame(() => {
-        conversationStage.scrollTo({ top: conversationStage.scrollHeight, behavior: "smooth" });
+        const top = alignToStart && target
+          ? Math.max(0, target.offsetTop - 24)
+          : conversationStage.scrollHeight;
+        conversationStage.scrollTo({ top, behavior: "smooth" });
       });
     }
 
@@ -967,18 +1006,20 @@ export const studentHtml = `<!doctype html>
         joinError.textContent = "이름을 입력해야 수업에 참여할 수 있습니다.";
         return nameInput.focus();
       }
+      if (studentName && nextStudentName !== studentName) rotateSessionIdentity();
       joining = true;
       joinBtn.disabled = true;
+      joinBtn.setAttribute("aria-busy", "true");
       joinBtn.textContent = "수업에 연결하는 중...";
       joinError.textContent = "";
       status.textContent = "입장 중";
       statusBadge.dataset.state = "loading";
       try {
-        const res = await fetch(withRoom("/api/join"), {
+        const res = await fetchWithTimeout(withRoom("/api/join"), {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ sessionId, sessionSecret, studentName: nextStudentName })
-        });
+        }, joinTimeoutMs);
         const data = await readJsonSafely(res);
         if (!res.ok) {
           joinError.textContent = data.message || data.error || "입장 실패";
@@ -987,6 +1028,8 @@ export const studentHtml = `<!doctype html>
         }
         studentName = nextStudentName;
         localStorage.setItem(studentNameKey, studentName);
+        resetSessionBtn.classList.remove("hidden");
+        newStudentBtn.classList.remove("hidden");
         sendHeartbeat();
         if (heartbeatTimer) clearInterval(heartbeatTimer);
         heartbeatTimer = setInterval(sendHeartbeat, 15000);
@@ -1001,17 +1044,27 @@ export const studentHtml = `<!doctype html>
       } finally {
         joining = false;
         joinBtn.disabled = false;
+        joinBtn.setAttribute("aria-busy", "false");
         joinBtn.textContent = "수업에 참여하기";
       }
     }
 
-    function sendHeartbeat() {
+    async function sendHeartbeat() {
       if (!studentName) return;
-      fetch(withRoom("/api/heartbeat"), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessionId, sessionSecret, studentName })
-      }).catch(() => {});
+      try {
+        const res = await fetchWithTimeout(withRoom("/api/heartbeat"), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sessionId, sessionSecret, studentName })
+        }, joinTimeoutMs);
+        if (!res.ok) throw new Error("heartbeat failed");
+        const recovered = heartbeatFailures > 0;
+        heartbeatFailures = 0;
+        if (recovered && !submitting) setConnectionState(studentName + " · 접속 중", "online");
+      } catch (error) {
+        heartbeatFailures += 1;
+        if (heartbeatFailures >= 2 && !submitting) setConnectionState("연결 확인 필요", "error");
+      }
     }
 
     function updateComposer() {
@@ -1023,11 +1076,41 @@ export const studentHtml = `<!doctype html>
     }
 
     joinBtn.addEventListener("click", joinClass);
+    resetSessionBtn.addEventListener("click", resetStudentSession);
+    newStudentBtn.addEventListener("click", resetStudentSession);
+
+    function rotateSessionIdentity() {
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+      localStorage.removeItem(sessionKey);
+      localStorage.removeItem(sessionSecretKey);
+      localStorage.removeItem(studentNameKey);
+      sessionId = crypto.randomUUID();
+      sessionSecret = crypto.randomUUID();
+      studentName = "";
+      completedTurns = 0;
+      localStorage.setItem(sessionKey, sessionId);
+      localStorage.setItem(sessionSecretKey, sessionSecret);
+    }
+
+    function resetStudentSession() {
+      rotateSessionIdentity();
+      nameInput.value = "";
+      resetSessionBtn.classList.add("hidden");
+      newStudentBtn.classList.add("hidden");
+      join.classList.remove("hidden");
+      welcome.classList.add("hidden");
+      composerWrap.classList.add("hidden");
+      chat.replaceChildren();
+      updateConversationProgress();
+      setConnectionState("새 학생 입장 대기", "idle");
+      nameInput.focus();
+    }
     nameInput.addEventListener("input", () => {
       if (joinError.textContent) joinError.textContent = "";
     });
     nameInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") joinClass();
+      if (event.key === "Enter" && !event.isComposing) joinClass();
     });
     messageInput.addEventListener("input", updateComposer);
     messageInput.addEventListener("keydown", (event) => {
@@ -1053,6 +1136,8 @@ export const studentHtml = `<!doctype html>
 
       submitting = true;
       sendBtn.disabled = true;
+      form.setAttribute("aria-busy", "true");
+      chat.setAttribute("aria-busy", "true");
       messageInput.value = "";
       updateComposer();
       welcome.classList.add("hidden");
@@ -1062,11 +1147,11 @@ export const studentHtml = `<!doctype html>
       setConnectionState("답변 작성 중", "loading");
 
       try {
-        const res = await fetch(withRoom("/api/chat"), {
+        const res = await fetchWithTimeout(withRoom("/api/chat"), {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ sessionId, sessionSecret, studentName, message })
-        });
+        }, chatTimeoutMs);
         const data = await readJsonSafely(res);
         pendingMessage.remove();
         if (!res.ok) {
@@ -1074,7 +1159,16 @@ export const studentHtml = `<!doctype html>
           setConnectionState(studentName + " · 접속 중", "online");
           return;
         }
-        addMessage("bot", data.answer || "답변을 표시하지 못했습니다. 다시 질문해 주세요.", { turn: activeTurn });
+        if (typeof data.answer !== "string" || !data.answer.trim()) {
+          addMessage("bot", "답변 형식을 확인하지 못했어. 같은 질문을 다시 보내 줘.", {
+            error: true,
+            retryMessage: message,
+            turn: activeTurn
+          });
+          setConnectionState("응답 확인 필요", "error");
+          return;
+        }
+        addMessage("bot", data.answer, { turn: activeTurn });
         completedTurns = activeTurn;
         updateConversationProgress();
         setConnectionState("앞선 대화와 연결됨", "online");
@@ -1084,10 +1178,22 @@ export const studentHtml = `<!doctype html>
         setConnectionState("연결 확인 필요", "error");
       } finally {
         submitting = false;
+        form.setAttribute("aria-busy", "false");
+        chat.setAttribute("aria-busy", "false");
         updateComposer();
         messageInput.focus();
       }
     });
+
+    async function fetchWithTimeout(url, options, timeoutMs) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetch(url, { ...options, signal: controller.signal });
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
 
     async function readJsonSafely(res) {
       try {

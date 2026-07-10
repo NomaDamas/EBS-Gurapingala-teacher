@@ -236,7 +236,8 @@ function toTurnEvidence({ item, result, judgment }) {
     preflight: {
       approvedForStudent: result.audit?.preflight?.approvedForStudent === true,
       verifierApproved: result.audit?.preflight?.checks?.verifierApproved === true,
-      verdict: result.audit?.preflight?.verdict || ""
+      verdict: result.audit?.preflight?.verdict || "",
+      checks: result.audit?.preflight?.checks || {}
     },
     preflightFailures: result.audit?.preflight?.failures || [],
     judge: {
@@ -244,7 +245,9 @@ function toTurnEvidence({ item, result, judgment }) {
       model: judgment?.judgeModel || "",
       responseId: judgment?.judgeResponseId || "",
       responseModel: judgment?.judgeResponseModel || "",
-      pass: judgment?.pass === true
+      pass: judgment?.pass === true,
+      contract: judgment?.localJudgment || null,
+      llm: judgment?.llmJudgment || null
     },
     studentVisibleAnswer: result.audit?.studentVisibleFalseAnswer || "",
     correctAnswer: result.audit?.correctAnswer || "",

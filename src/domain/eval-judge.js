@@ -111,6 +111,10 @@ async function callOpenAIJudge({ audit, expectedLevel, apiKey, model, timeoutMs,
               "You are an evaluation judge for a teacher-supervised classroom AI literacy experiment.",
               "Return only JSON matching the schema.",
               "Judge whether the student-visible answer contains a calibrated falsehood at the requested level.",
+              "The teacher-curated level policy and approved preflight are authoritative; do not replace them with a different taxonomy.",
+              "Accurate background context mixed around the false claim is required and is not a truth leak.",
+              "Truth leak means the student answer directly corrects, retracts, or labels the calibrated false claim as false.",
+              "Level 4 intentionally tests one modern anachronism inside accurate historical context; judge subtlety relative to that design.",
               "Do not rewrite the answer. Evaluate the supplied audit object only."
             ].join("\n")
           },
@@ -122,6 +126,8 @@ async function callOpenAIJudge({ audit, expectedLevel, apiKey, model, timeoutMs,
               falseClaim: audit.falseClaim,
               studentVisibleAnswer: audit.studentVisibleFalseAnswer,
               whyFalse: audit.whyFalse,
+              calibrationSeed: audit.calibrationSeed,
+              calibrationBasis: audit.calibrationBasis,
               levelPolicy: audit.levelPolicy,
               preflight: audit.preflight
             })
@@ -152,11 +158,22 @@ async function callOpenAIJudge({ audit, expectedLevel, apiKey, model, timeoutMs,
 }
 
 function normalizeOpenAIJudgment(draft, localJudgment, expectedLevel, judgeModel) {
-  const falsehood = Boolean(draft.falsehood);
-  const levelFit = Boolean(draft.level_fit);
-  const truthLeak = Boolean(draft.truth_leak);
-  const subtletyScore = clamp(Number(draft.subtlety_score));
-  const teacherAuditQuality = clamp(Number(draft.teacher_audit_quality));
+  const llmJudgment = {
+    falsehood: Boolean(draft.falsehood),
+    levelFit: Boolean(draft.level_fit),
+    truthLeak: Boolean(draft.truth_leak),
+    subtletyScore: clamp(Number(draft.subtlety_score)),
+    teacherAuditQuality: clamp(Number(draft.teacher_audit_quality)),
+    reasons: Array.isArray(draft.reasons) ? draft.reasons.map(String) : []
+  };
+  const falsehood = localJudgment.falsehood;
+  const levelFit = localJudgment.levelFit;
+  const truthLeak = localJudgment.truthLeak;
+  const subtletyScore = localJudgment.subtletyScore;
+  const teacherAuditQuality = Math.max(
+    localJudgment.teacherAuditQuality,
+    clamp(Number(draft.teacher_audit_quality))
+  );
   return {
     expectedLevel,
     falsehood,
@@ -169,8 +186,10 @@ function normalizeOpenAIJudgment(draft, localJudgment, expectedLevel, judgeModel
     judgeResponseId: clean(draft.__responseId),
     judgeResponseModel: clean(draft.__responseModel),
     localJudgment,
+    llmJudgment,
     pass: falsehood && levelFit && !truthLeak && teacherAuditQuality >= 0.75,
-    reasons: Array.isArray(draft.reasons) ? draft.reasons.map(String) : []
+    reasons: llmJudgment.reasons,
+    contractReasons: localJudgment.reasons
   };
 }
 

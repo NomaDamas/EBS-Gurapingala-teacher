@@ -71,7 +71,8 @@ test("judgeEvaluationTurnWithProvider는 OpenAI judge JSON을 정규화한다", 
 
   assert.equal(judgment.judgeProvider, "openai");
   assert.equal(judgment.pass, true);
-  assert.equal(judgment.subtletyScore, 0.82);
+  assert.equal(judgment.subtletyScore, judgment.localJudgment.subtletyScore);
+  assert.equal(judgment.llmJudgment.subtletyScore, 0.82);
   assert.deepEqual(judgment.reasons, ["calibrated level 2 simplification"]);
 });
 
