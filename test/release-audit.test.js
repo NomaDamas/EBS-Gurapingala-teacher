@@ -162,6 +162,37 @@ test("release audit rejects review evidence generated before deploy or classroom
   assert.match(result.stderr, /EXTERNAL_REVIEW_FILE generatedAt must be after CLASSROOM_CONFIG_EVIDENCE_FILE .* generatedAt/);
 });
 
+test("release audit rejects review evidence generated before CI evidence", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    externalReviewOverrides: {
+      generatedAt: "2026-07-10T00:03:00.000Z"
+    },
+    ciOverrides: {
+      generatedAt: "2026-07-10T00:04:00.000Z"
+    }
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /EXTERNAL_REVIEW_FILE generatedAt must be after CI_EVIDENCE_FILE generatedAt/);
+});
+
 test("release audit rejects unstructured external review evidence", async () => {
   const evidence = await writeEvidenceFiles({
     prHeadSha: "abc123",
@@ -803,7 +834,7 @@ test("release audit rejects unexpected classroom room evidence", async () => {
   assert.match(result.stderr, /contains unexpected filming room 2026-07-16-3-1/);
 });
 
-async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverrides = {}, deployOverrides = {}, classroomOverrides = {}, classroomTwoOverrides = {} }) {
+async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverrides = {}, deployOverrides = {}, classroomOverrides = {}, classroomTwoOverrides = {}, ciOverrides = {} }) {
   const dir = await mkdtemp(join(tmpdir(), "release-audit-"));
   const externalReviewFile = join(dir, "external-review.json");
   const ciEvidenceFile = join(dir, "ci-evidence.json");
@@ -938,7 +969,8 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
       startedAt: "2026-07-10T00:00:00Z",
       completedAt: "2026-07-10T00:00:20Z"
     },
-    totalCheckRuns: 1
+    totalCheckRuns: 1,
+    ...ciOverrides
   }, null, 2);
   await writeFile(ciEvidenceFile, ciEvidenceJson);
   await writeFile(externalReviewFile, JSON.stringify({

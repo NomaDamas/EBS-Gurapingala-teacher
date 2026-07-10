@@ -137,7 +137,7 @@ Final verdict:
 
 ## 구조화된 승인 증거 생성
 
-리뷰어가 `APPROVE`를 주고 실제 Worker `verify:deploy`, 모든 촬영방 `rehearsal:config`가 같은 PR head에서 pass인 뒤에는 텍스트 판정만 보관하지 말고 `release:audit`가 읽을 JSON 증거를 생성한다. blocking finding이 있거나 `VERIFY_DEPLOY_STATUS=pass`, `CLASSROOM_CONFIG_STATUS=pass`가 아니면 `APPROVE` 증거 생성은 실패한다.
+리뷰어가 `APPROVE`를 주고 `verify:ci`, 실제 Worker `verify:deploy`, 모든 촬영방 `rehearsal:config`가 같은 PR head에서 pass인 뒤에는 텍스트 판정만 보관하지 말고 `release:audit`가 읽을 JSON 증거를 생성한다. blocking finding이 있거나 `CI_STATUS=success`, `VERIFY_DEPLOY_STATUS=pass`, `CLASSROOM_CONFIG_STATUS=pass`가 아니면 `APPROVE` 증거 생성은 실패한다. 최종 감사는 외부 리뷰 증거의 `generatedAt`이 CI/배포/촬영방 증거 생성 시각보다 늦은지도 확인한다.
 승인 증거는 실제 리뷰 산출물과 연결되어야 하므로 `EXTERNAL_REVIEW_SOURCE_URL` 또는 `EXTERNAL_REVIEW_TRANSCRIPT_FILE` 중 하나를 반드시 넣는다. transcript 파일을 쓰면 JSON에는 원문이 아니라 SHA-256 hash와 byte 수만 저장된다.
 
 ```bash
