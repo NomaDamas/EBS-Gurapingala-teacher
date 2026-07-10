@@ -286,6 +286,10 @@ function validateClassroomConfigEvidence(classroomConfigEvidence, file, seenRoom
     classroomConfigEvidence.observedHealth?.openaiModel !== classroomConfigEvidence.expectedOpenAIModel) {
     failures.push(`${label} observedHealth.openaiModel must match expectedOpenAIModel`);
   }
+  if (Number.isFinite(classroomConfigEvidence.expectedOpenAITimeoutMs) &&
+    classroomConfigEvidence.observedHealth?.openaiTimeoutMs !== classroomConfigEvidence.expectedOpenAITimeoutMs) {
+    failures.push(`${label} observedHealth.openaiTimeoutMs must match expectedOpenAITimeoutMs`);
+  }
   if (classroomConfigEvidence.observedConfig?.persona !== classroomConfigEvidence.expectedPersona ||
     Number(classroomConfigEvidence.observedConfig?.level) !== classroomConfigEvidence.expectedLevel) {
     failures.push(`${label} observedConfig must match expected Level/persona`);
@@ -327,6 +331,7 @@ function hasValidClassroomHealthEvidence(health) {
   if (requireOpenAI && health.openaiConfigured !== true) return false;
   if (requireTeacherToken && health.teacherProtected !== true) return false;
   if (typeof health.openaiModel !== "string") return false;
+  if (health.openaiTimeoutMs !== null && !Number.isFinite(health.openaiTimeoutMs)) return false;
   return JSON.stringify(health).includes("OPENAI_API_KEY") === false;
 }
 

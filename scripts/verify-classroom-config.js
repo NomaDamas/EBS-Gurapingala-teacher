@@ -10,6 +10,7 @@ const applyExpectedConfig = process.env.APPLY_CLASSROOM_CONFIG === "true";
 const requireOpenAI = process.env.REQUIRE_OPENAI !== "false";
 const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN !== "false";
 const expectedOpenAIModel = String(process.env.EXPECTED_OPENAI_MODEL || "").trim();
+const expectedOpenAITimeoutMs = normalizeExpectedTimeout(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "");
 const evidenceFile = String(process.env.CLASSROOM_CONFIG_EVIDENCE_FILE || "").trim();
 const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "").trim();
 
@@ -61,12 +62,14 @@ await check("health matches classroom requirements", async () => {
     ok: body.ok === true,
     openaiConfigured: body.openaiConfigured === true,
     openaiModel: safeString(body.openaiModel),
+    openaiTimeoutMs: Number.isFinite(body.openaiTimeoutMs) ? body.openaiTimeoutMs : null,
     teacherProtected: body.teacherProtected === true
   };
   return res.status === 200 &&
     body.ok === true &&
     (!requireOpenAI || body.openaiConfigured === true) &&
     (!expectedOpenAIModel || body.openaiModel === expectedOpenAIModel) &&
+    (!expectedOpenAITimeoutMs || body.openaiTimeoutMs === expectedOpenAITimeoutMs) &&
     (!requireTeacherToken || body.teacherProtected === true) &&
     res.headers.get("cache-control") === "no-store" &&
     res.headers.get("x-robots-tag") === "noindex, nofollow";
@@ -139,6 +142,7 @@ async function writeEvidence(passed) {
     requireOpenAI,
     requireTeacherToken,
     expectedOpenAIModel,
+    expectedOpenAITimeoutMs: expectedOpenAITimeoutMs || null,
     observedHealth,
     observedConfig,
     checks: results
@@ -187,6 +191,16 @@ function normalizeRoomId(value) {
 function normalizeExpectedLevel(value) {
   const level = Number(value);
   return Number.isInteger(level) && level >= 1 && level <= 4 ? level : 0;
+}
+
+function normalizeExpectedTimeout(value) {
+  if (!value) return 0;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 1000 || n > 60000) {
+    console.error("EXPECTED_OPENAI_TIMEOUT_MS must be between 1000 and 60000.");
+    process.exit(1);
+  }
+  return Math.round(n);
 }
 
 function safeString(value) {

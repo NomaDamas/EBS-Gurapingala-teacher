@@ -24,6 +24,7 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
         ok: true,
         openaiConfigured: true,
         openaiModel: "gpt-5.5",
+        openaiTimeoutMs: 15000,
         teacherProtected: true
       });
     }
@@ -52,6 +53,7 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       EXPECTED_FALSE_LEVEL: "2",
       EXPECTED_PERSONA: "이순신 장군처럼 친절하게 설명한다.",
       EXPECTED_OPENAI_MODEL: "gpt-5.5",
+      EXPECTED_OPENAI_TIMEOUT_MS: "15000",
       PR_HEAD_SHA: "abc123",
       CLASSROOM_CONFIG_EVIDENCE_FILE: evidenceFile
     });
@@ -70,8 +72,10 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       ok: true,
       openaiConfigured: true,
       openaiModel: "gpt-5.5",
+      openaiTimeoutMs: 15000,
       teacherProtected: true
     });
+    assert.equal(evidence.expectedOpenAITimeoutMs, 15000);
     assert.equal(evidence.observedConfig.persona, "이순신 장군처럼 친절하게 설명한다.");
 
     const applyResult = await runNode(["scripts/verify-classroom-config.js"], {
