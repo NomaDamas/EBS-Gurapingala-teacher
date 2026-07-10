@@ -442,6 +442,10 @@ function validateClassroomConfigEvidence(classroomConfigEvidence, file, seenRoom
   if (!Array.isArray(classroomConfigEvidence.checks) || classroomConfigEvidence.checks.some((check) => check?.passed !== true)) {
     failures.push(`${label} checks must all pass`);
   }
+  if (classroomConfigEvidence.verifyClassroomChat === true &&
+    !hasValidSampleClassroomChat(classroomConfigEvidence.sampleChat, classroomConfigEvidence.expectedLevel, classroomConfigEvidence.expectedPersona)) {
+    failures.push(`${label} sampleChat must prove /api/chat audit used expected Level/persona`);
+  }
 }
 
 function validateCiCheckRunTimestamps(ciEvidence, ciGeneratedAt) {
@@ -527,6 +531,16 @@ function hasValidSharingUrls(sharingUrls, roomId, expectedWorkerUrl) {
 
 function hasValidClassroomSharingUrls(sharingUrls, roomId, expectedWorkerUrl) {
   return hasValidSharingUrls(sharingUrls, roomId, expectedWorkerUrl);
+}
+
+function hasValidSampleClassroomChat(sampleChat, expectedLevel, expectedPersona) {
+  if (!sampleChat || typeof sampleChat !== "object") return false;
+  if (!String(sampleChat.sessionId || "").startsWith("classroom-config-")) return false;
+  if (!Number.isFinite(sampleChat.studentVisibleAnswerLength) || sampleChat.studentVisibleAnswerLength <= 0) return false;
+  if (sampleChat.auditInput?.appliedLevel !== expectedLevel) return false;
+  if (sampleChat.auditInput?.persona !== expectedPersona) return false;
+  if (typeof sampleChat.preflightVerdict !== "string" || !sampleChat.preflightVerdict) return false;
+  return sampleChat.debriefRequired === true;
 }
 
 function isFilmingRoom(value) {

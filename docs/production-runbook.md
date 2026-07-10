@@ -43,6 +43,7 @@
 8. 실제 촬영방 Level/persona 설정을 자동 검증한다.
    - 읽기 전용 확인: `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> CLASSROOM_ROOM=2026-07-13-3-5 EXPECTED_FALSE_LEVEL=2 EXPECTED_PERSONA="이순신 장군처럼 친절하게 설명한다." REQUIRE_OPENAI=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts/2026-07-13-3-5-config.json npm run rehearsal:config`
    - 설정까지 적용해야 할 때만 `APPLY_CLASSROOM_CONFIG=true`를 붙인다.
+   - 교사 설정이 실제 `/api/chat` 감사 JSON에 반영되는지까지 증거가 필요하면 `VERIFY_CLASSROOM_CHAT=true`를 붙인다. 이 경우 room에 검증 채팅 1턴이 남으므로 촬영 직전 실제 학생 로그와 섞이지 않게 운영자가 의도적으로만 사용한다.
    - `CLASSROOM_ROOM`은 실제 촬영/리허설 room이어야 하며 `deploy-verify` room은 거절된다.
    - 생성되는 `classroom-config-evidence/v1` JSON은 촬영 room, 기대 Level/persona, health 조건, 실제 적용 config를 기록한다.
 9. 릴리즈 증거 명령을 한 번에 출력해 운영자가 같은 SHA/room/evidence path를 쓰는지 확인한다.

@@ -279,6 +279,10 @@ function validateClassroomEvidenceArtifact(artifact, expectedWorkerUrl) {
   if (!Array.isArray(artifact.checks) || artifact.checks.length === 0 || artifact.checks.some((check) => check?.passed !== true)) {
     failures.push(`${label} checks must all pass`);
   }
+  if (artifact.verifyClassroomChat === true &&
+    !hasValidSampleClassroomChat(artifact.sampleChat, artifact.expectedLevel, artifact.expectedPersona)) {
+    failures.push(`${label} sampleChat must prove /api/chat audit used expected Level/persona`);
+  }
 }
 
 function validateExpectedClassroomRooms(classroomArtifacts) {
@@ -346,6 +350,8 @@ async function hashEvidenceFile(file) {
     if (json.sharingUrls) artifact.sharingUrls = json.sharingUrls;
     if (json.observedHealth) artifact.observedHealth = json.observedHealth;
     if (json.observedConfig) artifact.observedConfig = json.observedConfig;
+    if (json.verifyClassroomChat !== undefined) artifact.verifyClassroomChat = json.verifyClassroomChat;
+    if (json.sampleChat) artifact.sampleChat = json.sampleChat;
     if (json.checks) artifact.checks = json.checks;
   } catch {
     artifact.schemaVersion = "unreadable-json";
@@ -452,6 +458,16 @@ function hasValidClassroomSharingUrls(sharingUrls, roomId, expectedWorkerUrl) {
   if (teacherUrl.searchParams.get("room") !== roomId) return false;
   if (studentUrl.searchParams.has("token")) return false;
   return teacherUrl.searchParams.get("token") === "<TEACHER_TOKEN>";
+}
+
+function hasValidSampleClassroomChat(sampleChat, expectedLevel, expectedPersona) {
+  if (!sampleChat || typeof sampleChat !== "object") return false;
+  if (!String(sampleChat.sessionId || "").startsWith("classroom-config-")) return false;
+  if (!Number.isFinite(sampleChat.studentVisibleAnswerLength) || sampleChat.studentVisibleAnswerLength <= 0) return false;
+  if (sampleChat.auditInput?.appliedLevel !== expectedLevel) return false;
+  if (sampleChat.auditInput?.persona !== expectedPersona) return false;
+  if (typeof sampleChat.preflightVerdict !== "string" || !sampleChat.preflightVerdict) return false;
+  return sampleChat.debriefRequired === true;
 }
 
 function normalizeBaseUrl(value) {

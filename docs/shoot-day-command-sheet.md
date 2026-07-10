@@ -120,6 +120,7 @@ npm run rehearsal:config
 ```
 
 설정을 실제로 적용해야 할 때만 각 명령에 `APPLY_CLASSROOM_CONFIG=true`를 추가한다.
+교사 설정이 실제 학생 채팅 감사 JSON까지 반영되는지 리허설 증거가 필요하면 `VERIFY_CLASSROOM_CHAT=true`를 추가한다. 이 옵션은 해당 촬영방에 `설정검증` 학생의 검증 채팅 1턴을 남기므로, 실제 촬영방을 깨끗하게 유지해야 하는 시점에는 사용하지 않는다.
 
 ## 7. 승인 증거 생성
 

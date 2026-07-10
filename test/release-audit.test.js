@@ -712,6 +712,44 @@ test("release audit rejects classroom config evidence with mismatched observed c
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* observedConfig must match expected Level\/persona/);
 });
 
+test("release audit rejects classroom config evidence with invalid optional chat audit sample", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    classroomOverrides: {
+      verifyClassroomChat: true,
+      sampleChat: {
+        sessionId: "classroom-config-2026-07-13-3-5-test",
+        studentVisibleAnswerLength: 42,
+        auditInput: {
+          appliedLevel: 1,
+          persona: "다른 페르소나"
+        },
+        preflightVerdict: "PASS_LEVEL_CALIBRATED_FALSEHOOD",
+        debriefRequired: true
+      }
+    }
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* sampleChat must prove \/api\/chat audit used expected Level\/persona/);
+});
+
 test("release audit rejects classroom config evidence without sanitized health snapshot", async () => {
   const evidence = await writeEvidenceFiles({
     prHeadSha: "abc123",

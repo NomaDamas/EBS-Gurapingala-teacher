@@ -11,6 +11,7 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
     ["2026-07-13-3-5", { level: 2, persona: "이순신 장군처럼 친절하게 설명한다." }],
     ["2026-07-16-3-1", { level: 1, persona: "초기값" }]
   ]);
+  const events = [];
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, "http://127.0.0.1");
     const room = url.searchParams.get("room") || "default-classroom";
@@ -37,6 +38,54 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       }
       return json(res, configs.get(room) || {});
     }
+    if (url.pathname === "/api/join") {
+      const body = JSON.parse(await readBody(req));
+      events.push({
+        type: "student_joined",
+        roomId: room,
+        sessionId: body.sessionId,
+        studentName: body.studentName,
+        at: new Date().toISOString()
+      });
+      return json(res, { ok: true });
+    }
+    if (url.pathname === "/api/chat") {
+      const body = JSON.parse(await readBody(req));
+      const config = configs.get(room) || {};
+      const event = {
+        type: "chat_turn",
+        roomId: room,
+        sessionId: body.sessionId,
+        studentName: body.studentName,
+        studentMessage: body.message,
+        studentVisibleAnswer: "명량해전은 이순신 장군 한 사람의 지휘력만으로 이긴 전투라고 볼 수 있어.",
+        blockedForStudent: false,
+        teacherAudit: {
+          input: {
+            appliedLevel: config.level,
+            persona: config.persona
+          },
+          preflight: {
+            verdict: "PASS_LEVEL_CALIBRATED_FALSEHOOD"
+          },
+          debriefRequired: true
+        },
+        at: new Date().toISOString()
+      };
+      events.push(event);
+      return json(res, {
+        answer: event.studentVisibleAnswer,
+        roomId: room,
+        latencyMs: 12
+      });
+    }
+    if (url.pathname === "/api/export") {
+      if (req.headers["x-teacher-token"] !== "teacher-secret") return text(res, "Teacher token required", 401);
+      return json(res, {
+        roomId: room,
+        events: events.filter((event) => event.roomId === room)
+      });
+    }
     return text(res, "not found", 404);
   });
 
@@ -52,6 +101,7 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       CLASSROOM_ROOM: "2026-07-13-3-5",
       EXPECTED_FALSE_LEVEL: "2",
       EXPECTED_PERSONA: "이순신 장군처럼 친절하게 설명한다.",
+      VERIFY_CLASSROOM_CHAT: "true",
       EXPECTED_OPENAI_MODEL: "gpt-5.5",
       EXPECTED_OPENAI_TIMEOUT_MS: "15000",
       PR_HEAD_SHA: "abc123",
@@ -76,6 +126,11 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       teacherProtected: true
     });
     assert.equal(evidence.expectedOpenAITimeoutMs, 15000);
+    assert.equal(evidence.verifyClassroomChat, true);
+    assert.equal(evidence.sampleChat.auditInput.appliedLevel, 2);
+    assert.equal(evidence.sampleChat.auditInput.persona, "이순신 장군처럼 친절하게 설명한다.");
+    assert.equal(evidence.sampleChat.debriefRequired, true);
+    assert.match(evidence.sampleChat.preflightVerdict, /PASS_LEVEL_CALIBRATED_FALSEHOOD/);
     assert.deepEqual(evidence.sharingUrls, {
       studentUrl: `${workerUrl}/?room=2026-07-13-3-5`,
       teacherUrlTemplate: `${workerUrl}/teacher?room=2026-07-13-3-5&token=<TEACHER_TOKEN>`,

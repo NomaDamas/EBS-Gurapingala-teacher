@@ -11,12 +11,14 @@ const requireOpenAI = process.env.REQUIRE_OPENAI !== "false";
 const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN !== "false";
 const expectedOpenAIModel = String(process.env.EXPECTED_OPENAI_MODEL || "").trim();
 const expectedOpenAITimeoutMs = normalizeExpectedTimeout(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "");
+const verifyClassroomChat = process.env.VERIFY_CLASSROOM_CHAT === "true";
 const evidenceFile = String(process.env.CLASSROOM_CONFIG_EVIDENCE_FILE || "").trim();
 const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "").trim();
 
 const failures = [];
 if (!baseUrl) failures.push("WORKER_URL is required");
 if (!teacherToken && requireTeacherToken) failures.push("TEACHER_TOKEN is required when REQUIRE_TEACHER_TOKEN is not false");
+if (verifyClassroomChat && !teacherToken) failures.push("TEACHER_TOKEN is required when VERIFY_CLASSROOM_CHAT=true so chat audit can be exported");
 if (evidenceFile && !prHeadSha) failures.push("PR_HEAD_SHA or GITHUB_SHA is required when CLASSROOM_CONFIG_EVIDENCE_FILE is set");
 if (!roomId) failures.push("CLASSROOM_ROOM is required");
 if (roomId === "default-classroom" && process.env.ALLOW_DEFAULT_CLASSROOM !== "true") {
@@ -101,6 +103,52 @@ await check("classroom Level/persona matches expected config", async () => {
     observedConfig.persona === expectedPersona;
 });
 
+let sampleChat = null;
+if (verifyClassroomChat) {
+  await check("classroom chat audit uses expected Level/persona", async () => {
+    const sessionId = `classroom-config-${roomId}-${Date.now()}`;
+    const sessionSecret = `${sessionId}-secret`;
+    const studentName = "설정검증";
+    const message = "명량해전에서 이순신은 배 몇 척으로 싸웠어?";
+    const join = await fetchUrl("/api/join", {}, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sessionId, sessionSecret, studentName })
+    });
+    if (join.status !== 200) return false;
+    const chat = await fetchUrl("/api/chat", {}, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sessionId, sessionSecret, studentName, message })
+    });
+    const chatBody = await chat.json();
+    if (chat.status !== 200 || typeof chatBody.answer !== "string" || chatBody.roomId !== roomId) return false;
+    const exported = await fetchTeacherUrl("/api/export");
+    const exportBody = await exported.json();
+    const event = Array.isArray(exportBody.events)
+      ? exportBody.events.find((item) => item.type === "chat_turn" && item.sessionId === sessionId)
+      : null;
+    sampleChat = {
+      sessionId,
+      studentName,
+      message,
+      studentVisibleAnswerLength: String(event?.studentVisibleAnswer || chatBody.answer || "").length,
+      blockedForStudent: event?.blockedForStudent === true,
+      auditInput: {
+        appliedLevel: event?.teacherAudit?.input?.appliedLevel ?? null,
+        persona: event?.teacherAudit?.input?.persona || ""
+      },
+      preflightVerdict: event?.teacherAudit?.preflight?.verdict || "",
+      debriefRequired: event?.teacherAudit?.debriefRequired === true
+    };
+    return exported.status === 200 &&
+      sampleChat.studentVisibleAnswerLength > 0 &&
+      sampleChat.auditInput.appliedLevel === expectedLevel &&
+      sampleChat.auditInput.persona === expectedPersona &&
+      sampleChat.debriefRequired === true;
+  });
+}
+
 const passed = results.every((result) => result.passed);
 if (evidenceFile) await writeEvidence(passed);
 
@@ -146,9 +194,11 @@ async function writeEvidence(passed) {
     requireTeacherToken,
     expectedOpenAIModel,
     expectedOpenAITimeoutMs: expectedOpenAITimeoutMs || null,
+    verifyClassroomChat,
     sharingUrls,
     observedHealth,
     observedConfig,
+    sampleChat,
     checks: results
   };
   await mkdir(dirname(evidenceFile), { recursive: true });

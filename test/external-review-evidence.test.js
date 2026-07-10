@@ -369,6 +369,28 @@ test("review:evidence rejects approval when classroom Level persona or Worker UR
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* observedConfig must match expected Level\/persona/);
 });
 
+test("review:evidence rejects approval when optional classroom chat audit sample is invalid", async () => {
+  const artifacts = await writeGateArtifacts({
+    classroom: {
+      verifyClassroomChat: true,
+      sampleChat: {
+        sessionId: "classroom-config-2026-07-13-3-5-test",
+        studentVisibleAnswerLength: 42,
+        auditInput: {
+          appliedLevel: 1,
+          persona: "다른 페르소나"
+        },
+        preflightVerdict: "PASS_LEVEL_CALIBRATED_FALSEHOOD",
+        debriefRequired: true
+      }
+    }
+  });
+  const result = await runReviewEvidence(validApprovalEnv(artifacts));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* sampleChat must prove \/api\/chat audit used expected Level\/persona/);
+});
+
 test("review:evidence rejects approval when classroom OpenAI config mismatches health", async () => {
   const artifacts = await writeGateArtifacts({
     classroom: {
