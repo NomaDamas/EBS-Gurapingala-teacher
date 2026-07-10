@@ -282,6 +282,10 @@ function validateClassroomConfigEvidence(classroomConfigEvidence, file, seenRoom
   if (!hasValidClassroomHealthEvidence(classroomConfigEvidence.observedHealth)) {
     failures.push(`${label} must include a sanitized /api/health evidence snapshot`);
   }
+  if (String(classroomConfigEvidence.expectedOpenAIModel || "").trim() &&
+    classroomConfigEvidence.observedHealth?.openaiModel !== classroomConfigEvidence.expectedOpenAIModel) {
+    failures.push(`${label} observedHealth.openaiModel must match expectedOpenAIModel`);
+  }
   if (classroomConfigEvidence.observedConfig?.persona !== classroomConfigEvidence.expectedPersona ||
     Number(classroomConfigEvidence.observedConfig?.level) !== classroomConfigEvidence.expectedLevel) {
     failures.push(`${label} observedConfig must match expected Level/persona`);
