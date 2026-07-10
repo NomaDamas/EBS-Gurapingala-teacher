@@ -31,6 +31,7 @@ test("review:packet prints current PR target, review criteria, and evidence comm
   assert.match(result.stdout, /CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts\/2026-07-13-3-5-config\.json,artifacts\/2026-07-16-3-1-config\.json/);
   assert.match(result.stdout, /EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1/);
   assert.match(result.stdout, /npm run review:evidence/);
+  assert.doesNotMatch(result.stdout, /REQUIRE_CLASSROOM_CHAT_PROOF=true/);
 });
 
 test("review:packet derives classroom evidence files from expected rooms", async () => {
@@ -44,6 +45,22 @@ test("review:packet derives classroom evidence files from expected rooms", async
   assert.equal(result.code, 0, result.stdout + result.stderr);
   assert.match(result.stdout, /CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts\/2026-07-13-3-5-config\.json,artifacts\/2026-07-16-3-1-config\.json,artifacts\/2026-07-17-3-2-config\.json/);
   assert.match(result.stdout, /EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1,2026-07-17-3-2/);
+});
+
+test("review:packet carries classroom chat proof requirements into review evidence command", async () => {
+  const result = await runReviewPacket({
+    PR_URL: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1",
+    PR_HEAD_SHA: "proof123",
+    WORKER_URL: "https://worker.example.com",
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1",
+    CLASSROOM_CHAT_PROOF: "true"
+  });
+
+  assert.equal(result.code, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /Classroom chat proof mode: REQUIRED/);
+  assert.match(result.stdout, /verifyClassroomChat=true and sampleChat proving \/api\/chat used expected Level\/persona/);
+  assert.match(result.stdout, /Do not return APPROVE if classroom chat proof mode is required/);
+  assert.match(result.stdout, /REQUIRE_CLASSROOM_CHAT_PROOF=true[\s\S]*npm run review:evidence/);
 });
 
 test("review:packet fails closed without PR URL or SHA", async () => {

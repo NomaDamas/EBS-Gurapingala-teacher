@@ -18,6 +18,7 @@
 - [ ] Production verification used `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`, `REQUIRE_CLASSROOM_CONFIG=true`, and `REQUIRE_CLOUDFLARE_EDGE=true`.
 - [ ] `CLASSROOM_CONFIG_EVIDENCE_FILES` includes every filming/rehearsal room evidence file, and none point to `deploy-verify`.
 - [ ] `EXPECTED_CLASSROOM_ROOMS` matches the filming schedule and exactly matches the evidence `roomId` set.
+- [ ] If `CLASSROOM_CHAT_PROOF=true` is used, `review:evidence` and `release:audit` also use `REQUIRE_CLASSROOM_CHAT_PROOF=true`, and every room evidence includes valid `sampleChat`.
 - [ ] `npm run release:audit` passed with `PR_HEAD_SHA`, `EXPECTED_PR_HEAD_SHA`, and `CI_HEAD_SHA` set to the latest PR head.
 - [ ] Do not merge if any release gate is unchecked.
 

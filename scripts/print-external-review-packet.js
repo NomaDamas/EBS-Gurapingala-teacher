@@ -10,8 +10,32 @@ const classroomConfigStatus = String(process.env.CLASSROOM_CONFIG_STATUS || "not
 const releaseAuditStatus = String(process.env.RELEASE_AUDIT_STATUS || "not-run").trim();
 const workerUrl = String(process.env.WORKER_URL || process.env.WORKER_HEALTH_URL || "<not-yet-provided>").trim();
 const classroomRooms = String(process.env.EXPECTED_CLASSROOM_ROOMS || "2026-07-13-3-5,2026-07-16-3-1").trim();
+const requireClassroomChatProof = process.env.REQUIRE_CLASSROOM_CHAT_PROOF === "true" || process.env.CLASSROOM_CHAT_PROOF === "true";
 const classroomRoomList = parseRoomList(classroomRooms);
 const classroomConfigEvidenceFiles = classroomRoomList.map((room) => `artifacts/${room}-config.json`).join(",");
+const classroomChatProofEvidence = requireClassroomChatProof
+  ? "- Classroom chat proof mode: REQUIRED. Every classroom-config-evidence/v1 must have verifyClassroomChat=true and sampleChat proving /api/chat used expected Level/persona."
+  : "- Classroom chat proof mode: optional. If CLASSROOM_CHAT_PROOF=true was used for release:commands, require sampleChat evidence for every room.";
+const reviewEvidenceCommandParts = [
+  "EXTERNAL_REVIEW_DECISION=APPROVE",
+  'EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent"',
+  "EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts/external-review-transcript.md",
+  `PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
+  "CI_STATUS=success",
+  "TESTS_STATUS=pass",
+  "EVAL_STATUS=pass",
+  "READINESS_STATUS=pass",
+  "SMOKE_STATUS=pass",
+  "VERIFY_DEPLOY_STATUS=pass",
+  "CLASSROOM_CONFIG_STATUS=pass",
+  requireClassroomChatProof ? "REQUIRE_CLASSROOM_CHAT_PROOF=true" : "",
+  "CI_EVIDENCE_FILE=artifacts/ci-evidence.json",
+  "VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json",
+  `CLASSROOM_CONFIG_EVIDENCE_FILES=${shellQuote(classroomConfigEvidenceFiles)}`,
+  `EXPECTED_CLASSROOM_ROOMS=${shellQuote(classroomRoomList.join(","))}`,
+  "EXTERNAL_REVIEW_FILE=artifacts/external-review.json",
+  "npm run review:evidence"
+].filter(Boolean);
 
 const failures = [];
 if (!isUrl(prUrl)) failures.push("PR_URL is required");
@@ -70,10 +94,12 @@ Evidence checked before review request:
 - verify:deploy against production/rehearsal URL: ${verifyDeployStatus}
 - rehearsal:config against each filming room: ${classroomConfigStatus}
 - npm run release:audit with latest commit evidence: ${releaseAuditStatus}
+${classroomChatProofEvidence}
 
 Approval stop condition:
 - Do not return APPROVE if verify:deploy is not pass/success against the real Worker URL with REQUIRE_OPENAI=true, REQUIRE_TEACHER_TOKEN=true, REQUIRE_CLOUDFLARE_EDGE=true, EXPECTED_OPENAI_MODEL, and EXPECTED_OPENAI_TIMEOUT_MS.
 - Do not return APPROVE if rehearsal:config is not pass/success for every expected filming room.
+- Do not return APPROVE if classroom chat proof mode is required and any room lacks verifyClassroomChat=true or valid sampleChat audit evidence.
 - Do not generate external-review-evidence/v1 until those deploy and classroom statuses are pass/success for this exact PR head.
 
 Review checklist:
@@ -110,7 +136,7 @@ Final verdict:
 - 이 PR은 원래 실험 철학과 production 촬영 요구사항을 충족한다/충족하지 않는다.
 
 If and only if the final decision is APPROVE, structured evidence must be generated with:
-EXTERNAL_REVIEW_DECISION=APPROVE EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts/external-review-transcript.md PR_HEAD_SHA=${shellQuote(prHeadSha)} CI_STATUS=success TESTS_STATUS=pass EVAL_STATUS=pass READINESS_STATUS=pass SMOKE_STATUS=pass VERIFY_DEPLOY_STATUS=pass CLASSROOM_CONFIG_STATUS=pass CI_EVIDENCE_FILE=artifacts/ci-evidence.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=${shellQuote(classroomConfigEvidenceFiles)} EXPECTED_CLASSROOM_ROOMS=${shellQuote(classroomRoomList.join(","))} EXTERNAL_REVIEW_FILE=artifacts/external-review.json npm run review:evidence`);
+${reviewEvidenceCommandParts.join(" ")}`);
 
 function parseRoomList(value) {
   return String(value || "")
