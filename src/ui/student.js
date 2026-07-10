@@ -226,7 +226,7 @@ export const studentHtml = `<!doctype html>
         });
         const data = await readJsonSafely(res);
         if (!res.ok) {
-          addMessage("bot", data.message || data.error || "질문을 처리하지 못했어. 다시 입력해줘.");
+          addMessage("bot", studentErrorMessage(res, data));
           return;
         }
         addMessage("bot", data.answer);
@@ -241,6 +241,16 @@ export const studentHtml = `<!doctype html>
       } catch (error) {
         return {};
       }
+    }
+
+    function studentErrorMessage(res, data) {
+      if (res.status === 429 || data.error === "rate_limited") {
+        const retrySeconds = Math.ceil(Number(data.retryAfterMs || 0) / 1000);
+        return retrySeconds > 0
+          ? retrySeconds + "초 뒤에 다시 물어봐."
+          : "질문이 너무 빠르게 이어졌어. 잠시 후 다시 물어봐.";
+      }
+      return data.message || data.error || "질문을 처리하지 못했어. 다시 입력해줘.";
     }
 
     function withRoom(path) {

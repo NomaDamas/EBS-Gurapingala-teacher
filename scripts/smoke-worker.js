@@ -249,7 +249,9 @@ const checks = [
       })
     });
     const body = await res.json();
-    return res.status === 429 && body.error === "rate_limited";
+    return res.status === 429 &&
+      body.error === "rate_limited" &&
+      body.message.includes("잠시 후 다시");
   }],
   ["export and debrief require token", async () => {
     const exportRes = await appFetch("https://example.com/api/export");

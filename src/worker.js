@@ -153,6 +153,7 @@ export default {
       if (!rateLimit.allowed) {
         return json({
           error: "rate_limited",
+          message: "질문이 너무 빠르게 이어졌어. 잠시 후 다시 물어봐.",
           retryAfterMs: rateLimit.retryAfterMs
         }, 429);
       }

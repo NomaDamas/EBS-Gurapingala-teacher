@@ -28,9 +28,13 @@ test("student chat submit reports failed or malformed responses without breaking
   assert.match(student, /const res = await fetch\(withRoom\("\/api\/chat"\)/);
   assert.match(student, /JSON\.stringify\(\{ sessionId, sessionSecret, studentName, message \}\)/);
   assert.match(student, /const data = await readJsonSafely\(res\)/);
-  assert.match(student, /if \(!res\.ok\)[\s\S]*질문을 처리하지 못했어/);
+  assert.match(student, /if \(!res\.ok\)[\s\S]*studentErrorMessage\(res, data\)/);
   assert.match(student, /catch \(error\)[\s\S]*네트워크 문제로 답변을 받지 못했어/);
   assert.match(student, /async function readJsonSafely\(res\)/);
   assert.match(student, /return await res\.json\(\)/);
   assert.match(student, /return \{\}/);
+  assert.match(student, /function studentErrorMessage\(res, data\)/);
+  assert.match(student, /res\.status === 429 \|\| data\.error === "rate_limited"/);
+  assert.match(student, /초 뒤에 다시 물어봐/);
+  assert.match(student, /질문이 너무 빠르게 이어졌어/);
 });
