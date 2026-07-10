@@ -81,6 +81,41 @@ test("release audit rejects stale review or deploy evidence from an older commit
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* prHeadSha must match PR_HEAD_SHA/);
 });
 
+test("release audit rejects review evidence generated before deploy or classroom evidence", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    externalReviewOverrides: {
+      generatedAt: "2026-07-10T00:00:00.000Z"
+    },
+    deployOverrides: {
+      generatedAt: "2026-07-10T00:01:00.000Z"
+    },
+    classroomOverrides: {
+      generatedAt: "2026-07-10T00:02:00.000Z"
+    }
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /EXTERNAL_REVIEW_FILE generatedAt must be after VERIFY_DEPLOY_EVIDENCE_FILE generatedAt/);
+  assert.match(result.stderr, /EXTERNAL_REVIEW_FILE generatedAt must be after CLASSROOM_CONFIG_EVIDENCE_FILE .* generatedAt/);
+});
+
 test("release audit rejects unstructured external review evidence", async () => {
   const evidence = await writeEvidenceFiles({
     prHeadSha: "abc123",
@@ -659,6 +694,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
   const secondClassroomConfigEvidenceFile = join(dir, "classroom-config-2.json");
   await writeFile(externalReviewFile, JSON.stringify({
     schemaVersion: "external-review-evidence/v1",
+    generatedAt: "2026-07-10T00:03:00.000Z",
     decision: "APPROVE",
     reviewer: "GPT-5.5 xhigh equivalent",
     source: {
@@ -681,6 +717,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
   }, null, 2));
   await writeFile(deployEvidenceFile, JSON.stringify({
     schemaVersion: "deploy-verification-evidence/v1",
+    generatedAt: "2026-07-10T00:01:00.000Z",
     status: "pass",
     workerUrl,
     prHeadSha,
@@ -713,6 +750,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
   }, null, 2));
   await writeFile(classroomConfigEvidenceFile, JSON.stringify({
     schemaVersion: "classroom-config-evidence/v1",
+    generatedAt: "2026-07-10T00:02:00.000Z",
     status: "pass",
     workerUrl,
     roomId: "2026-07-13-3-5",
@@ -748,6 +786,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
   }, null, 2));
   await writeFile(secondClassroomConfigEvidenceFile, JSON.stringify({
     schemaVersion: "classroom-config-evidence/v1",
+    generatedAt: "2026-07-10T00:02:30.000Z",
     status: "pass",
     workerUrl,
     roomId: "2026-07-16-3-1",
