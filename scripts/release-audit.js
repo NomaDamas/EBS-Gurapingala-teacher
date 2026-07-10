@@ -294,6 +294,9 @@ function validateClassroomConfigEvidence(classroomConfigEvidence, file, seenRoom
     Number(classroomConfigEvidence.observedConfig?.level) !== classroomConfigEvidence.expectedLevel) {
     failures.push(`${label} observedConfig must match expected Level/persona`);
   }
+  if (!hasValidClassroomSharingUrls(classroomConfigEvidence.sharingUrls, classroomConfigEvidence.roomId, workerUrl)) {
+    failures.push(`${label} must include student/teacher sharing URL evidence with no student token`);
+  }
   if (!Array.isArray(classroomConfigEvidence.checks) || classroomConfigEvidence.checks.some((check) => check?.passed !== true)) {
     failures.push(`${label} checks must all pass`);
   }
@@ -333,6 +336,29 @@ function hasValidClassroomHealthEvidence(health) {
   if (typeof health.openaiModel !== "string") return false;
   if (health.openaiTimeoutMs !== null && !Number.isFinite(health.openaiTimeoutMs)) return false;
   return JSON.stringify(health).includes("OPENAI_API_KEY") === false;
+}
+
+function hasValidClassroomSharingUrls(sharingUrls, roomId, expectedWorkerUrl) {
+  if (!sharingUrls || typeof sharingUrls !== "object") return false;
+  if (sharingUrls.studentUrlHasToken !== false) return false;
+  if (sharingUrls.teacherUrlRequiresToken !== true) return false;
+  if (JSON.stringify(sharingUrls).includes("TEACHER_TOKEN=")) return false;
+  let studentUrl;
+  let teacherUrl;
+  try {
+    studentUrl = new URL(sharingUrls.studentUrl);
+    teacherUrl = new URL(sharingUrls.teacherUrlTemplate);
+  } catch {
+    return false;
+  }
+  if (normalizeBaseUrl(studentUrl.toString()) !== normalizeBaseUrl(expectedWorkerUrl)) return false;
+  if (normalizeBaseUrl(teacherUrl.toString()) !== normalizeBaseUrl(expectedWorkerUrl)) return false;
+  if (studentUrl.pathname !== "/") return false;
+  if (teacherUrl.pathname !== "/teacher") return false;
+  if (studentUrl.searchParams.get("room") !== roomId) return false;
+  if (teacherUrl.searchParams.get("room") !== roomId) return false;
+  if (studentUrl.searchParams.has("token")) return false;
+  return teacherUrl.searchParams.get("token") === "<TEACHER_TOKEN>";
 }
 
 function isFilmingRoom(value) {

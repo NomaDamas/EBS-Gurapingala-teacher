@@ -76,6 +76,13 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       teacherProtected: true
     });
     assert.equal(evidence.expectedOpenAITimeoutMs, 15000);
+    assert.deepEqual(evidence.sharingUrls, {
+      studentUrl: `${workerUrl}/?room=2026-07-13-3-5`,
+      teacherUrlTemplate: `${workerUrl}/teacher?room=2026-07-13-3-5&token=<TEACHER_TOKEN>`,
+      studentUrlHasToken: false,
+      teacherUrlRequiresToken: true
+    });
+    assert.equal(JSON.stringify(evidence).includes("teacher-secret"), false);
     assert.equal(evidence.observedConfig.persona, "이순신 장군처럼 친절하게 설명한다.");
 
     const applyResult = await runNode(["scripts/verify-classroom-config.js"], {

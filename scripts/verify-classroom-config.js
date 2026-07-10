@@ -32,6 +32,7 @@ if (failures.length) exitWithFailures(failures);
 
 const results = [];
 let observedHealth = null;
+const sharingUrls = buildSharingUrlEvidence();
 
 await check("student URL loads for classroom room", async () => {
   const res = await fetchUrl("/");
@@ -143,6 +144,7 @@ async function writeEvidence(passed) {
     requireTeacherToken,
     expectedOpenAIModel,
     expectedOpenAITimeoutMs: expectedOpenAITimeoutMs || null,
+    sharingUrls,
     observedHealth,
     observedConfig,
     checks: results
@@ -169,6 +171,27 @@ function fetchTeacherUrl(path, init = {}) {
       "x-teacher-token": teacherToken
     }
   });
+}
+
+function buildSharingUrlEvidence() {
+  const studentUrl = buildShareUrl("/", "");
+  const teacherUrlTemplate = buildShareUrl("/teacher", "<TEACHER_TOKEN>");
+  return {
+    studentUrl,
+    teacherUrlTemplate,
+    studentUrlHasToken: new URL(studentUrl).searchParams.has("token"),
+    teacherUrlRequiresToken: new URL(teacherUrlTemplate).searchParams.get("token") === "<TEACHER_TOKEN>"
+  };
+}
+
+function buildShareUrl(pathname, tokenPlaceholder) {
+  const url = new URL(baseUrl);
+  url.pathname = pathname;
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("room", roomId);
+  if (tokenPlaceholder) url.searchParams.set("token", tokenPlaceholder);
+  return url.toString().replace("%3CTEACHER_TOKEN%3E", "<TEACHER_TOKEN>");
 }
 
 function normalizeBaseUrl(value) {
