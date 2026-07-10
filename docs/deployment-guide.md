@@ -117,7 +117,7 @@ EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<w
 
 GitHub Actions `Deploy` workflow는 `PR_HEAD_SHA=${{ github.sha }}`와 `VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json`로 실제 URL 검증을 실행하고, 결과를 `deploy-verification-evidence` artifact로 업로드한다. 릴리즈 감사에는 이 artifact의 JSON을 그대로 사용한다.
 
-릴리즈 당일에는 `release:commands`로 같은 `WORKER_URL`, `PR_HEAD_SHA`, 촬영방 계획에서 증거 생성 명령을 출력한 뒤 순서대로 실행한다. 출력의 첫 단계는 `preflight:deploy`이며 production에서는 `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`, `REQUIRE_CLOUDFLARE_EDGE=true`, `EXPECTED_OPENAI_TIMEOUT_MS`, https `WORKER_HEALTH_URL`, 실제 `TEACHER_TOKEN` 값을 강제한다.
+릴리즈 당일에는 `release:commands`로 같은 `WORKER_URL`, `PR_HEAD_SHA`, 촬영방 계획에서 증거 생성 명령을 출력한 뒤 순서대로 실행한다. 출력의 첫 단계는 `preflight:deploy`이며 production에서는 `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`, `REQUIRE_CLOUDFLARE_EDGE=true`, `EXPECTED_OPENAI_TIMEOUT_MS`, https `WORKER_HEALTH_URL`, 실제 Cloudflare 계정/token과 `TEACHER_TOKEN` 값을 강제한다. `CLASSROOM_PLANS`에 같은 room이 두 번 들어가면 촬영방 증거 JSON이 덮어써질 수 있으므로 `release:commands`가 실패한다.
 
 ```bash
 WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> CLASSROOM_PLANS='2026-07-13-3-5:2:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:2:이순신 장군처럼 친절하게 설명한다.' npm run release:commands

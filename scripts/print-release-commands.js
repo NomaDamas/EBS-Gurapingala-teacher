@@ -9,7 +9,7 @@ const reviewer = shellQuote(process.env.EXTERNAL_REVIEWER || "GPT-5.5 xhigh equi
 const reviewSource = process.env.EXTERNAL_REVIEW_SOURCE_URL
   ? `EXTERNAL_REVIEW_SOURCE_URL=${shellQuote(process.env.EXTERNAL_REVIEW_SOURCE_URL)}`
   : "EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts/external-review-transcript.md";
-const plans = parseRoomPlans(process.env.CLASSROOM_PLANS || "");
+const plans = validateUniqueRoomPlans(parseRoomPlans(process.env.CLASSROOM_PLANS || ""));
 
 if (!workerUrl) {
   console.error("FAIL WORKER_URL or WORKER_HEALTH_URL is required");
@@ -154,6 +154,18 @@ function parseRoomPlan(value) {
     process.exit(1);
   }
   return { roomId, level, persona };
+}
+
+function validateUniqueRoomPlans(plans) {
+  const seen = new Set();
+  for (const plan of plans) {
+    if (seen.has(plan.roomId)) {
+      console.error(`FAIL duplicate CLASSROOM_PLANS room "${plan.roomId}" would overwrite classroom evidence`);
+      process.exit(1);
+    }
+    seen.add(plan.roomId);
+  }
+  return plans;
 }
 
 function normalizeBaseUrl(value) {

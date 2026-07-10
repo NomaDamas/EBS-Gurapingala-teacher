@@ -63,6 +63,15 @@ test("release:commands rejects missing room plan and deploy-verify classroom roo
 
   assert.notEqual(deployVerify.code, 0);
   assert.match(deployVerify.stderr, /roomId must be a filming room/);
+
+  const duplicateRoom = await runReleaseCommands({
+    WORKER_URL: "https://worker.example.com",
+    PR_HEAD_SHA: "abc123",
+    CLASSROOM_PLANS: "2026-07-13-3-5:2:테스트;;2026-07-13-3-5:3:다른 테스트"
+  });
+
+  assert.notEqual(duplicateRoom.code, 0);
+  assert.match(duplicateRoom.stderr, /duplicate CLASSROOM_PLANS room/);
 });
 
 function runReleaseCommands(env) {

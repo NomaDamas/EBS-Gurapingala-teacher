@@ -56,8 +56,10 @@ if ((process.env.REQUIRE_OPENAI || "true") === "true" && !process.env.EXPECTED_O
   failures.push("EXPECTED_OPENAI_MODEL is required when REQUIRE_OPENAI=true");
 }
 
-if (process.env.TEACHER_TOKEN && /^<.*>$/.test(process.env.TEACHER_TOKEN.trim())) {
-  failures.push("TEACHER_TOKEN must be the real secret value, not a placeholder");
+for (const name of ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN", "TEACHER_TOKEN"]) {
+  if (process.env[name] && isPlaceholderValue(process.env[name])) {
+    failures.push(`${name} must be the real value, not a placeholder`);
+  }
 }
 
 const wrangler = readFileSync("wrangler.toml", "utf8");
@@ -98,6 +100,11 @@ function isHttpsWorkerUrl(value) {
   } catch {
     return false;
   }
+}
+
+function isPlaceholderValue(value) {
+  const text = String(value || "").trim();
+  return /^<.*>$/.test(text) || /^your[-_]/i.test(text) || /example/i.test(text);
 }
 
 function normalizeRoomId(value) {

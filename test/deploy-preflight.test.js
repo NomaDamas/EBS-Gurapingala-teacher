@@ -60,7 +60,27 @@ test("deploy preflight rejects unsafe production verification settings", async (
   assert.match(result.stderr, /REQUIRE_TEACHER_TOKEN=true is required/);
   assert.match(result.stderr, /REQUIRE_CLOUDFLARE_EDGE=true is required/);
   assert.match(result.stderr, /WORKER_HEALTH_URL must be an https Cloudflare Worker URL/);
-  assert.match(result.stderr, /TEACHER_TOKEN must be the real secret value/);
+  assert.match(result.stderr, /TEACHER_TOKEN must be the real value/);
+});
+
+test("deploy preflight rejects Cloudflare placeholder credentials", async () => {
+  const result = await runPreflight({
+    DEPLOY_ENVIRONMENT: "production",
+    CLOUDFLARE_ACCOUNT_ID: "<account-id>",
+    CLOUDFLARE_API_TOKEN: "your-token",
+    WORKER_HEALTH_URL: "https://worker.example.com",
+    TEACHER_TOKEN: "teacher-token",
+    VERIFY_ROOM: "deploy-verify",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLOUDFLARE_EDGE: "true",
+    EXPECTED_OPENAI_MODEL: "gpt-5.5",
+    EXPECTED_OPENAI_TIMEOUT_MS: "15000"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /CLOUDFLARE_ACCOUNT_ID must be the real value/);
+  assert.match(result.stderr, /CLOUDFLARE_API_TOKEN must be the real value/);
 });
 
 test("deploy preflight rejects filming rooms for verification purge", async () => {
