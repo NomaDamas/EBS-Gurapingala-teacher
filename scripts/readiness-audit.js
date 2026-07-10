@@ -108,9 +108,10 @@ const checks = [
   },
   {
     id: "debrief-export-after-experiment",
-    evidence: ["src/domain/session-export.js", "src/ui/teacher.js", "docs/experiment-policy.md", "docs/production-runbook.md"],
+    evidence: ["src/domain/session-export.js", "src/worker.js", "src/ui/teacher.js", "docs/experiment-policy.md", "docs/production-runbook.md"],
     run: async (files) =>
-      includesAll(files["src/domain/session-export.js"], ["buildDebriefRows", "buildDebriefCsv", "correctAnswer", "whyFalse", "roomId", "latencyMs", "blockedForStudent", "debriefRequired", "debriefRequiredTurns", "blockedTurns", "averageLatencyMs", "lastChatAt", "lastLevel", "verificationPrompt", "debriefNote", "formulaSafe", "redactSensitiveFields", "isSensitiveExportKey", "sessionsecret", "openaiapikey", "xteachertoken"]) &&
+      includesAll(files["src/domain/session-export.js"], ["buildDebriefRows", "buildDebriefCsv", "correctAnswer", "whyFalse", "roomId", "latencyMs", "blockedForStudent", "debriefRequired", "debriefRequiredTurns", "blockedTurns", "averageLatencyMs", "lastChatAt", "lastLevel", "verificationPrompt", "debriefNote", "formulaSafe", "redactSensitiveFields", "isSensitiveExportKey", "normalized.includes(\"secret\")", "normalized.includes(\"apikey\")", "normalized.includes(\"openaikey\")", "normalized.includes(\"teacherkey\")", "normalized.includes(\"teachertoken\")", "normalized.endsWith(\"token\")"]) &&
+      includesAll(files["src/worker.js"], ["redactSensitiveFields", "const recordedEvent = await this.recordEvent(event", "this.broadcast(recordedEvent)", "events: redactSensitiveFields(events)"]) &&
       includesAll(files["src/ui/teacher.js"], ["/api/debrief", "/api/debrief.csv", "정정 수업 오류표", "exportFilename"]) &&
       includesAll(files["docs/experiment-policy.md"], ["정정 수업", "debriefRequired=true", "blockedForStudent=true"]) &&
       includesAll(files["docs/production-runbook.md"], ["formula injection"])

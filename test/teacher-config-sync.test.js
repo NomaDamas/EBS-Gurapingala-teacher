@@ -20,7 +20,8 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(worker, /await this\.updateConfig\(data, normalizeRoomId\(url\.searchParams\.get\("room"\)\)\)/);
   assert.match(worker, /url\.pathname === "\/config" && request\.method === "POST"[\s\S]*this\.updateConfig\(await request\.json\(\), normalizeRoomId\(url\.searchParams\.get\("room"\)\)\)/);
   assert.match(worker, /const config = \{\s*level: nextLevel,\s*persona: nextPersona,\s*updatedAt\s*\}/s);
-  assert.match(worker, /await this\.recordEvent\(event\)/);
+  assert.match(worker, /const recordedEvent = await this\.recordEvent\(event\)/);
+  assert.match(worker, /this\.broadcast\(recordedEvent\)/);
 
   assert.equal(teacher.includes('updateSocketStatus("online");\n        sendTeacherConfig();'), false);
   assert.match(teacher, /if \(event\.config\) applyTeacherConfig\(event\.config\)/);

@@ -135,7 +135,7 @@ function normalizeEvents(events) {
   return Array.isArray(events) ? events.filter(Boolean).map(redactSensitiveFields) : [];
 }
 
-function redactSensitiveFields(value) {
+export function redactSensitiveFields(value) {
   if (Array.isArray(value)) return value.map(redactSensitiveFields);
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(
@@ -147,16 +147,15 @@ function redactSensitiveFields(value) {
 
 function isSensitiveExportKey(key) {
   const normalized = String(key || "").toLowerCase().replace(/[-_]/g, "");
-  return [
-    "sessionsecret",
-    "authorization",
-    "apikey",
-    "openaiapikey",
-    "teacherkey",
-    "teachertoken",
-    "xteachertoken",
-    "token"
-  ].includes(normalized);
+  return normalized.includes("secret") ||
+    normalized.includes("authorization") ||
+    normalized.includes("apikey") ||
+    normalized.includes("openaikey") ||
+    normalized.includes("teacherkey") ||
+    normalized.includes("teachertoken") ||
+    normalized === "token" ||
+    normalized.startsWith("token") ||
+    normalized.endsWith("token");
 }
 
 function csvEscape(value) {

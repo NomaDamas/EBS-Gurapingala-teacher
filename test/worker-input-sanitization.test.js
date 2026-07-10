@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker from "../src/worker.js";
+import worker, { ClassroomRoom } from "../src/worker.js";
 
 test("student inputs are normalized before telemetry is stored", async () => {
   const storedEvents = [];
@@ -97,6 +97,48 @@ test("student JSON body limit applies while streaming without content-length", a
 
   assert.equal(res.status, 413);
   assert.equal(payload.error, "payload_too_large");
+});
+
+test("ClassroomRoom redacts secrets before telemetry is stored", async () => {
+  const storage = new Map();
+  const room = new ClassroomRoom({
+    storage: {
+      get: async (key) => storage.get(key),
+      put: async (key, value) => storage.set(key, value),
+      delete: async (key) => storage.delete(key)
+    }
+  });
+
+  const write = await room.fetch(new Request("https://room.local/event", {
+    method: "POST",
+    body: JSON.stringify({
+      type: "chat_turn",
+      sessionId: "s1",
+      studentName: "민준",
+      sessionSecret: "student-secret-leak",
+      teacherTokenValue: "teacher-token-leak",
+      teacherKeyValue: "teacher-key-leak",
+      nested: {
+        openaiApiKeyBackup: "openai-key-leak",
+        openaiKeyBackup: "openai-key-variant-leak",
+        bearerAuthorizationHeader: "Bearer hidden",
+        safe: "kept"
+      },
+      at: "2026-07-10T01:00:00.000Z"
+    })
+  }));
+  assert.equal(write.status, 200);
+
+  const read = await room.fetch(new Request("https://room.local/events"));
+  const events = await read.json();
+  const serialized = JSON.stringify(events);
+  assert.equal(serialized.includes("student-secret-leak"), false);
+  assert.equal(serialized.includes("teacher-token-leak"), false);
+  assert.equal(serialized.includes("teacher-key-leak"), false);
+  assert.equal(serialized.includes("openai-key-leak"), false);
+  assert.equal(serialized.includes("openai-key-variant-leak"), false);
+  assert.equal(serialized.includes("Bearer hidden"), false);
+  assert.equal(events[0].nested.safe, "kept");
 });
 
 function jsonResponse(body) {

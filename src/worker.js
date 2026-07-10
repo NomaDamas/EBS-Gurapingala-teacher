@@ -1,7 +1,7 @@
 import { normalizeLevel } from "./domain/misinfo-policy.js";
 import { DEFAULT_OPENAI_MODEL, generateAuditedAnswer, normalizeTimeoutMs } from "./domain/llm-provider.js";
 import { EVALUATION_SET_50, PUBLIC_EVALUATION_SET_50 } from "./domain/evaluation-set.js";
-import { buildDebriefCsv, buildDebriefRows, buildExportPayload } from "./domain/session-export.js";
+import { buildDebriefCsv, buildDebriefRows, buildExportPayload, redactSensitiveFields } from "./domain/session-export.js";
 import { buildSessionContext } from "./domain/session-context.js";
 import { SECURITY_HEADERS, isTeacherAuthorized, rateLimitDecision, unauthorized } from "./domain/security.js";
 import { studentHtml } from "./ui/student.js";
@@ -240,8 +240,8 @@ export class ClassroomRoom {
     }
     if (url.pathname === "/event" && request.method === "POST") {
       const event = await request.json();
-      await this.recordEvent(event, Number(url.searchParams.get("ttlHours") || 24));
-      this.broadcast(event);
+      const recordedEvent = await this.recordEvent(event, Number(url.searchParams.get("ttlHours") || 24));
+      this.broadcast(recordedEvent);
       return text("ok");
     }
     if (url.pathname === "/rate-limit" && request.method === "POST") {
@@ -292,8 +292,10 @@ export class ClassroomRoom {
 
   async recordEvent(event, ttlHours = 24) {
     const events = await this.readEvents(ttlHours);
-    events.push(event);
+    const safeEvent = redactSensitiveFields(event);
+    events.push(safeEvent);
     await this.state.storage.put("events", events.slice(-1000));
+    return safeEvent;
   }
 
   async readEvents(ttlHours = 24) {
@@ -375,8 +377,8 @@ export class ClassroomRoom {
     const validation = sanitizeTeacherConfig(data, {});
     if (validation.errorBody) {
       const rejected = buildTeacherConfigRejectedEvent(roomId, validation.errorBody);
-      await this.recordEvent(rejected);
-      this.broadcast(rejected);
+      const recordedRejected = await this.recordEvent(rejected);
+      this.broadcast(recordedRejected);
       return validation.errorBody;
     }
     const nextLevel = validation.value.level;
@@ -398,8 +400,8 @@ export class ClassroomRoom {
       config,
       at: updatedAt
     };
-    await this.recordEvent(event);
-    this.broadcast(event);
+    const recordedEvent = await this.recordEvent(event);
+    this.broadcast(recordedEvent);
     return config;
   }
 
@@ -412,7 +414,7 @@ export class ClassroomRoom {
         sessionId: "teacher",
         studentName: "teacher",
         config,
-        events,
+        events: redactSensitiveFields(events),
         at: new Date().toISOString()
       }));
     } catch {
