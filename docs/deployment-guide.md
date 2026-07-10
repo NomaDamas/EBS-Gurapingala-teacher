@@ -4,9 +4,13 @@
 
 Cloudflare 계정과 Wrangler 로그인이 필요하다.
 Cloudflare 계정이 여러 개이면 로컬 명령과 GitHub Actions 모두 `CLOUDFLARE_ACCOUNT_ID`를 명시해야 한다. 계정 id가 없으면 Wrangler가 비대화형 배포에서 계정을 고르지 못해 실패한다.
+저장소의 `.nvmrc`로 Node `22.22.2`를 선택한 뒤 고정된 lockfile을 설치한다. Node 20 이하에서는 현재 Wrangler가 실행되지 않으므로 `node --version`이 `v22`인지 먼저 확인한다.
 
 ```bash
-npm install
+nvm install
+nvm use
+node --version
+npm ci
 npx wrangler login
 ```
 

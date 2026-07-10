@@ -32,10 +32,13 @@ EBS 다큐프라임 `<생각의 멸종>` 실험용 학생/교사용 AI 챗봇입
 
 ## 로컬 실행
 
-Node.js 22 이상을 사용합니다. CI와 Cloudflare 배포 workflow는 `package-lock.json` 기반 `npm ci`로 의존성을 고정합니다.
+Node.js 22 이상을 사용합니다. 저장소의 `.nvmrc`는 CI와 같은 major인 Node `22.22.2`를 고정합니다. CI와 Cloudflare 배포 workflow는 `package-lock.json` 기반 `npm ci`로 의존성을 고정합니다.
 
 ```bash
-npm install
+nvm install
+nvm use
+node --version
+npm ci
 npm run dev
 ```
 
