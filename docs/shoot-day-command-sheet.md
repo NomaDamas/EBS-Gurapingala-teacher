@@ -60,6 +60,13 @@ npm run review:packet
 ## 5. 배포 검증 증거
 
 ```bash
+PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 \
+PR_HEAD_SHA=$PR_HEAD_SHA \
+CI_EVIDENCE_FILE=artifacts/ci-evidence.json \
+npm run verify:ci
+```
+
+```bash
 WORKER_URL=$WORKER_URL \
 TEACHER_TOKEN=<TEACHER_TOKEN> \
 VERIFY_ROOM=deploy-verify \
@@ -144,6 +151,7 @@ PR_HEAD_SHA=$PR_HEAD_SHA \
 EXPECTED_PR_HEAD_SHA=$PR_HEAD_SHA \
 CI_STATUS=success \
 CI_HEAD_SHA=$PR_HEAD_SHA \
+CI_EVIDENCE_FILE=artifacts/ci-evidence.json \
 REQUIRE_OPENAI=true \
 REQUIRE_TEACHER_TOKEN=true \
 REQUIRE_CLASSROOM_CONFIG=true \

@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 test("release audit passes only with review, deploy verification, CI, and commit evidence", async () => {
   const evidence = await writeEvidenceFiles({
@@ -31,6 +31,7 @@ test("release audit passes only with review, deploy verification, CI, and commit
   assert.equal(result.code, 0, result.stdout + result.stderr);
   assert.match(result.stdout, /release audit passed/);
   assert.match(result.stdout, /prHeadSha=abc123/);
+  assert.match(result.stdout, /ciEvidenceFile=/);
   assert.match(result.stdout, /externalReviewFile=/);
   assert.match(result.stdout, /verifyDeployEvidenceFile=/);
   assert.match(result.stdout, /classroomConfigEvidenceFiles=.*classroom-config-1\.json.*classroom-config-2\.json/);
@@ -771,6 +772,7 @@ test("release audit rejects unexpected classroom room evidence", async () => {
 async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverrides = {}, deployOverrides = {}, classroomOverrides = {}, classroomTwoOverrides = {} }) {
   const dir = await mkdtemp(join(tmpdir(), "release-audit-"));
   const externalReviewFile = join(dir, "external-review.json");
+  const ciEvidenceFile = join(dir, "ci-evidence.json");
   const deployEvidenceFile = join(dir, "deploy-evidence.json");
   const classroomConfigEvidenceFile = join(dir, "classroom-config-1.json");
   const secondClassroomConfigEvidenceFile = join(dir, "classroom-config-2.json");
@@ -882,6 +884,28 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
   await writeFile(deployEvidenceFile, deployEvidenceJson);
   await writeFile(classroomConfigEvidenceFile, classroomEvidenceJson);
   await writeFile(secondClassroomConfigEvidenceFile, secondClassroomEvidenceJson);
+  await writeFile(ciEvidenceFile, JSON.stringify({
+    schemaVersion: "ci-evidence/v1",
+    generatedAt: "2026-07-10T00:00:30.000Z",
+    status: "pass",
+    prUrl: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1",
+    repository: "NomaDamas/EBS-Gurapingala-teacher",
+    prNumber: 1,
+    prHeadSha,
+    actualPrHeadSha: prHeadSha,
+    expectedCheckName: "Verify product gates",
+    checkRun: {
+      id: 101,
+      name: "Verify product gates",
+      status: "completed",
+      conclusion: "success",
+      htmlUrl: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/actions/runs/1",
+      detailsUrl: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/actions/runs/1/job/2",
+      startedAt: "2026-07-10T00:00:00Z",
+      completedAt: "2026-07-10T00:00:20Z"
+    },
+    totalCheckRuns: 1
+  }, null, 2));
   await writeFile(externalReviewFile, JSON.stringify({
     schemaVersion: "external-review-evidence/v1",
     generatedAt: "2026-07-10T00:03:00.000Z",
@@ -928,6 +952,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
   }, null, 2));
   return {
     externalReviewFile,
+    ciEvidenceFile,
     deployEvidenceFile,
     classroomConfigEvidenceFile,
     classroomConfigEvidenceFiles: [classroomConfigEvidenceFile, secondClassroomConfigEvidenceFile]
@@ -945,6 +970,7 @@ function runReleaseAudit(env) {
       env: {
         PATH: process.env.PATH,
         CI_HEAD_SHA: env.CI_HEAD_SHA ?? env.PR_HEAD_SHA,
+        CI_EVIDENCE_FILE: env.CI_EVIDENCE_FILE ?? (env.EXTERNAL_REVIEW_FILE ? join(dirname(env.EXTERNAL_REVIEW_FILE), "ci-evidence.json") : undefined),
         ...env
       }
     });

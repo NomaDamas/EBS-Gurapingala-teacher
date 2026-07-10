@@ -10,6 +10,8 @@ test("shoot day command sheet keeps release evidence tied to the latest PR head"
   assert.match(sheet, /PR_HEAD_SHA=\$PR_HEAD_SHA/);
   assert.match(sheet, /EXPECTED_PR_HEAD_SHA=\$PR_HEAD_SHA/);
   assert.match(sheet, /CI_HEAD_SHA=\$PR_HEAD_SHA/);
+  assert.match(sheet, /CI_EVIDENCE_FILE=artifacts\/ci-evidence\.json/);
+  assert.match(sheet, /npm run verify:ci/);
   assert.doesNotMatch(sheet, /export PR_HEAD_SHA=[0-9a-f]{7,40}/);
 });
 

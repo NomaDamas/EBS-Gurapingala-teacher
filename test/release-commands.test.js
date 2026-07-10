@@ -13,6 +13,8 @@ test("release:commands prints commit-bound deploy, classroom, review, and releas
   });
 
   assert.equal(result.code, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /npm run verify:ci/);
+  assert.match(result.stdout, /CI_EVIDENCE_FILE=artifacts\/ci-evidence\.json/);
   assert.match(result.stdout, /npm run verify:deploy/);
   assert.match(result.stdout, /VERIFY_ROOM=deploy-verify/);
   assert.match(result.stdout, /REQUIRE_CLOUDFLARE_EDGE=true/);

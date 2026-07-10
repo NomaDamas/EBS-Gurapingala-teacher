@@ -15,6 +15,7 @@
     "preflight:deploy": "node scripts/deploy-preflight.js",
     "classroom:urls": "node scripts/print-classroom-urls.js",
     "verify:deploy": "node scripts/verify-deploy.js",
+    "verify:ci": "node scripts/verify-ci.js",
     "rehearsal:config": "node scripts/verify-classroom-config.js",
     "review:evidence": "node scripts/write-external-review-evidence.js",
     "review:packet": "node scripts/print-external-review-packet.js",

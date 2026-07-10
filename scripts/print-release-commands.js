@@ -30,7 +30,15 @@ const expectedRooms = plans.map((plan) => plan.roomId).join(",");
 console.log("# EBS classroom release evidence commands");
 console.log("# Run these after GitHub CI is green and the real Cloudflare Worker is deployed.");
 console.log("");
-console.log("## 1. Verify deployed Worker");
+console.log("## 1. Verify latest PR CI");
+console.log([
+  "PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1",
+  `PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
+  "CI_EVIDENCE_FILE=artifacts/ci-evidence.json",
+  "npm run verify:ci"
+].join(" "));
+console.log("");
+console.log("## 2. Verify deployed Worker");
 console.log([
   `WORKER_URL=${shellQuote(workerUrl)}`,
   `TEACHER_TOKEN=${teacherToken}`,
@@ -45,7 +53,7 @@ console.log([
   "npm run verify:deploy"
 ].join(" "));
 console.log("");
-console.log("## 2. Verify each filming classroom room");
+console.log("## 3. Verify each filming classroom room");
 for (const [index, plan] of plans.entries()) {
   console.log(`# Room ${index + 1}: ${plan.roomId}`);
   console.log([
@@ -64,7 +72,7 @@ for (const [index, plan] of plans.entries()) {
   ].join(" "));
 }
 console.log("");
-console.log("## 3. Write structured external review evidence after APPROVE");
+console.log("## 4. Write structured external review evidence after APPROVE");
 console.log([
   "EXTERNAL_REVIEW_DECISION=APPROVE",
   `EXTERNAL_REVIEWER=${reviewer}`,
@@ -83,7 +91,7 @@ console.log([
   "npm run review:evidence"
 ].join(" "));
 console.log("");
-console.log("## 4. Final release audit");
+console.log("## 5. Final release audit");
 console.log([
   "EXTERNAL_REVIEW_DECISION=APPROVE",
   "VERIFY_DEPLOY_STATUS=pass",
@@ -92,6 +100,7 @@ console.log([
   `EXPECTED_PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
   "CI_STATUS=success",
   `CI_HEAD_SHA=${shellQuote(prHeadSha)}`,
+  "CI_EVIDENCE_FILE=artifacts/ci-evidence.json",
   "REQUIRE_OPENAI=true",
   "REQUIRE_TEACHER_TOKEN=true",
   "REQUIRE_CLASSROOM_CONFIG=true",
