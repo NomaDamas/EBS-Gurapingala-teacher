@@ -186,6 +186,36 @@ test("review:evidence requires CI evidence artifact for approval", async () => {
   assert.match(result.stderr, /CI_EVIDENCE_FILE is required/);
 });
 
+test("review:evidence rejects approval when CI evidence did not pass", async () => {
+  const artifacts = await writeGateArtifacts({
+    ci: { status: "fail" }
+  });
+  const result = await runReviewEvidence(validApprovalEnv(artifacts));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /CI_EVIDENCE_FILE status must be pass/);
+});
+
+test("review:evidence rejects approval when deployed evidence is from a different PR head", async () => {
+  const artifacts = await writeGateArtifacts({
+    deploy: { prHeadSha: "old123" }
+  });
+  const result = await runReviewEvidence(validApprovalEnv(artifacts));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE prHeadSha must match PR_HEAD_SHA/);
+});
+
+test("review:evidence rejects approval when classroom evidence points to deploy verification room", async () => {
+  const artifacts = await writeGateArtifacts({
+    classroom: { roomId: "deploy-verify" }
+  });
+  const result = await runReviewEvidence(validApprovalEnv(artifacts));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* roomId must be a filming\/rehearsal room/);
+});
+
 function runReviewEvidence(env) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, ["scripts/write-external-review-evidence.js"], {
@@ -207,13 +237,32 @@ function runReviewEvidence(env) {
   });
 }
 
-async function writeGateArtifacts() {
+function validApprovalEnv(artifacts) {
+  return {
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    EXTERNAL_REVIEWER: "GPT-5.5 xhigh equivalent",
+    EXTERNAL_REVIEW_SOURCE_URL: "https://reviews.example.com/ebs/1",
+    PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    TESTS_STATUS: "pass",
+    EVAL_STATUS: "pass",
+    READINESS_STATUS: "pass",
+    SMOKE_STATUS: "pass",
+    VERIFY_DEPLOY_STATUS: "pass",
+    CLASSROOM_CONFIG_STATUS: "pass",
+    CI_EVIDENCE_FILE: artifacts.ciEvidence,
+    VERIFY_DEPLOY_EVIDENCE_FILE: artifacts.deployEvidence,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: artifacts.classroomEvidence
+  };
+}
+
+async function writeGateArtifacts(overrides = {}) {
   const dir = await mkdtemp(join(tmpdir(), "external-review-gates-"));
   const ciEvidence = join(dir, "ci-evidence.json");
   const deployEvidence = join(dir, "deploy-evidence.json");
   const classroomEvidence = join(dir, "classroom-config.json");
-  await writeFile(ciEvidence, JSON.stringify({ schemaVersion: "ci-evidence/v1", generatedAt: "2026-07-10T00:00:30.000Z", status: "pass", prHeadSha: "abc123" }));
-  await writeFile(deployEvidence, JSON.stringify({ schemaVersion: "deploy-verification-evidence/v1", generatedAt: "2026-07-10T00:01:00.000Z", status: "pass", prHeadSha: "abc123" }));
-  await writeFile(classroomEvidence, JSON.stringify({ schemaVersion: "classroom-config-evidence/v1", generatedAt: "2026-07-10T00:02:00.000Z", status: "pass", prHeadSha: "abc123", roomId: "2026-07-13-3-5" }));
+  await writeFile(ciEvidence, JSON.stringify({ schemaVersion: "ci-evidence/v1", generatedAt: "2026-07-10T00:00:30.000Z", status: "pass", prHeadSha: "abc123", ...(overrides.ci || {}) }));
+  await writeFile(deployEvidence, JSON.stringify({ schemaVersion: "deploy-verification-evidence/v1", generatedAt: "2026-07-10T00:01:00.000Z", status: "pass", prHeadSha: "abc123", ...(overrides.deploy || {}) }));
+  await writeFile(classroomEvidence, JSON.stringify({ schemaVersion: "classroom-config-evidence/v1", generatedAt: "2026-07-10T00:02:00.000Z", status: "pass", prHeadSha: "abc123", roomId: "2026-07-13-3-5", ...(overrides.classroom || {}) }));
   return { ciEvidence, deployEvidence, classroomEvidence };
 }

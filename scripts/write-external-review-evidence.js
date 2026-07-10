@@ -66,6 +66,13 @@ if (failures.length) {
 
 const reviewSource = await buildReviewSource();
 const evidenceArtifacts = await buildEvidenceArtifacts();
+validateApprovalEvidenceArtifacts(evidenceArtifacts);
+
+if (failures.length) {
+  for (const failure of failures) console.error(`FAIL ${failure}`);
+  console.error(`external review evidence failed: ${failures.length} issue(s)`);
+  process.exit(1);
+}
 
 const payload = {
   schemaVersion: "external-review-evidence/v1",
@@ -99,6 +106,49 @@ async function buildEvidenceArtifacts() {
     deployVerification: verifyDeployEvidenceFile ? await hashEvidenceFile(verifyDeployEvidenceFile) : null,
     classroomConfigs: await Promise.all(classroomConfigEvidenceFiles.map(hashEvidenceFile))
   };
+}
+
+function validateApprovalEvidenceArtifacts(artifacts) {
+  if (decision !== "approve") return;
+  validateArtifact(artifacts.ci, {
+    label: "CI_EVIDENCE_FILE",
+    schemaVersion: "ci-evidence/v1",
+    requireRoom: false
+  });
+  validateArtifact(artifacts.deployVerification, {
+    label: "VERIFY_DEPLOY_EVIDENCE_FILE",
+    schemaVersion: "deploy-verification-evidence/v1",
+    requireRoom: false
+  });
+  for (const artifact of artifacts.classroomConfigs) {
+    validateArtifact(artifact, {
+      label: `CLASSROOM_CONFIG_EVIDENCE_FILE ${artifact?.file || ""}`.trim(),
+      schemaVersion: "classroom-config-evidence/v1",
+      requireRoom: true
+    });
+  }
+}
+
+function validateArtifact(artifact, { label, schemaVersion, requireRoom }) {
+  if (!artifact || typeof artifact !== "object") {
+    failures.push(`${label} artifact is required for APPROVE evidence`);
+    return;
+  }
+  if (artifact.schemaVersion !== schemaVersion) {
+    failures.push(`${label} schemaVersion must be ${schemaVersion}`);
+  }
+  if (!isPass(normalizeStatus(artifact.status))) {
+    failures.push(`${label} status must be pass`);
+  }
+  if (artifact.prHeadSha !== prHeadSha) {
+    failures.push(`${label} prHeadSha must match PR_HEAD_SHA`);
+  }
+  if (!isIsoTimestamp(artifact.generatedAt)) {
+    failures.push(`${label} generatedAt must be a valid timestamp`);
+  }
+  if (requireRoom && !isFilmingRoom(artifact.roomId)) {
+    failures.push(`${label} roomId must be a filming/rehearsal room, not default-classroom or deploy-verify`);
+  }
 }
 
 async function hashEvidenceFile(file) {
@@ -166,6 +216,18 @@ function isHttpsUrl(value) {
   } catch {
     return false;
   }
+}
+
+function isIsoTimestamp(value) {
+  return typeof value === "string" && !Number.isNaN(Date.parse(value));
+}
+
+function isFilmingRoom(value) {
+  const room = String(value || "").trim();
+  return Boolean(room) &&
+    room !== "default-classroom" &&
+    room !== "deploy-verify" &&
+    !room.startsWith("deploy-verify-");
 }
 
 function parseList(value) {
