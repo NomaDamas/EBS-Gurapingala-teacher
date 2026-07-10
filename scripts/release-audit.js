@@ -15,6 +15,7 @@ const externalReviewFile = String(process.env.EXTERNAL_REVIEW_FILE || "").trim()
 const verifyDeployEvidenceFile = String(process.env.VERIFY_DEPLOY_EVIDENCE_FILE || "").trim();
 const classroomConfigEvidenceFile = String(process.env.CLASSROOM_CONFIG_EVIDENCE_FILE || "").trim();
 const classroomConfigEvidenceFiles = parseEvidenceFileList(process.env.CLASSROOM_CONFIG_EVIDENCE_FILES || classroomConfigEvidenceFile);
+const expectedClassroomRooms = parseEvidenceFileList(process.env.EXPECTED_CLASSROOM_ROOMS);
 
 if (externalReviewDecision !== "approve") {
   failures.push("EXTERNAL_REVIEW_DECISION=APPROVE is required before merge/release");
@@ -106,6 +107,7 @@ if (requireClassroomConfig && classroomConfigEvidenceFiles.length === 0) {
     if (!classroomConfigEvidence) continue;
     validateClassroomConfigEvidence(classroomConfigEvidence, file, seenRooms);
   }
+  if (requireClassroomConfig) validateExpectedClassroomRooms(seenRooms);
 }
 
 if (failures.length) {
@@ -122,6 +124,7 @@ console.log(`verifyDeployStatus=${verifyDeployStatus}`);
 console.log(`externalReviewFile=${externalReviewFile}`);
 console.log(`verifyDeployEvidenceFile=${verifyDeployEvidenceFile}`);
 console.log(`classroomConfigEvidenceFiles=${classroomConfigEvidenceFiles.join(",")}`);
+console.log(`expectedClassroomRooms=${expectedClassroomRooms.join(",")}`);
 
 function normalizeDecision(value) {
   return String(value || "").trim().toLowerCase().replace(/[^a-z_]/g, "");
@@ -209,6 +212,31 @@ function validateClassroomConfigEvidence(classroomConfigEvidence, file, seenRoom
   if (!Array.isArray(classroomConfigEvidence.checks) || classroomConfigEvidence.checks.some((check) => check?.passed !== true)) {
     failures.push(`${label} checks must all pass`);
   }
+}
+
+function validateExpectedClassroomRooms(seenRooms) {
+  if (expectedClassroomRooms.length === 0) {
+    failures.push("EXPECTED_CLASSROOM_ROOMS is required when REQUIRE_CLASSROOM_CONFIG=true so release audit can prove every filming room has evidence");
+    return;
+  }
+  const expectedRooms = new Set(expectedClassroomRooms.map((room) => normalizeEvidenceRoom(room)));
+  for (const room of expectedRooms) {
+    if (!isFilmingRoom(room)) {
+      failures.push(`EXPECTED_CLASSROOM_ROOMS contains non-filming room ${room}`);
+    }
+    if (!seenRooms.has(room)) {
+      failures.push(`CLASSROOM_CONFIG_EVIDENCE_FILES missing expected filming room ${room}`);
+    }
+  }
+  for (const room of seenRooms) {
+    if (!expectedRooms.has(room)) {
+      failures.push(`CLASSROOM_CONFIG_EVIDENCE_FILES contains unexpected filming room ${room}`);
+    }
+  }
+}
+
+function normalizeEvidenceRoom(value) {
+  return String(value || "").trim();
 }
 
 function isFilmingRoom(value) {

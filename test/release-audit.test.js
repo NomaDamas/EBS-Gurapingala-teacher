@@ -22,7 +22,8 @@ test("release audit passes only with review, deploy verification, CI, and commit
     REQUIRE_CLASSROOM_CONFIG: "true",
     EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
     VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
-    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(",")
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
   });
 
   assert.equal(result.code, 0, result.stdout + result.stderr);
@@ -31,6 +32,7 @@ test("release audit passes only with review, deploy verification, CI, and commit
   assert.match(result.stdout, /externalReviewFile=/);
   assert.match(result.stdout, /verifyDeployEvidenceFile=/);
   assert.match(result.stdout, /classroomConfigEvidenceFiles=.*classroom-config-1\.json.*classroom-config-2\.json/);
+  assert.match(result.stdout, /expectedClassroomRooms=2026-07-13-3-5,2026-07-16-3-1/);
 });
 
 test("release audit fails closed without external review and real deploy verification", async () => {
@@ -68,7 +70,8 @@ test("release audit rejects stale review or deploy evidence from an older commit
     REQUIRE_CLASSROOM_CONFIG: "true",
     EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
     VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
-    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(",")
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
   });
 
   assert.notEqual(result.code, 0);
@@ -98,7 +101,8 @@ test("release audit rejects deploy evidence that was not strict OpenAI teacher-t
     REQUIRE_CLASSROOM_CONFIG: "true",
     EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
     VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
-    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(",")
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
   });
 
   assert.notEqual(result.code, 0);
@@ -126,7 +130,8 @@ test("release audit rejects classroom config evidence from deploy-verify room", 
     REQUIRE_CLASSROOM_CONFIG: "true",
     EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
     VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
-    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(",")
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
   });
 
   assert.notEqual(result.code, 0);
@@ -156,7 +161,8 @@ test("release audit rejects classroom config evidence with mismatched observed c
     REQUIRE_CLASSROOM_CONFIG: "true",
     EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
     VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
-    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(",")
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
   });
 
   assert.notEqual(result.code, 0);
@@ -183,11 +189,62 @@ test("release audit rejects duplicate classroom config evidence rooms", async ()
     REQUIRE_CLASSROOM_CONFIG: "true",
     EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
     VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
-    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(",")
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
   });
 
   assert.notEqual(result.code, 0);
   assert.match(result.stderr, /roomId must be unique across CLASSROOM_CONFIG_EVIDENCE_FILES/);
+});
+
+test("release audit rejects missing expected classroom room evidence", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/"
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles[0],
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /missing expected filming room 2026-07-16-3-1/);
+});
+
+test("release audit rejects unexpected classroom room evidence", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/"
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /contains unexpected filming room 2026-07-16-3-1/);
 });
 
 async function writeEvidenceFiles({ prHeadSha, workerUrl, deployOverrides = {}, classroomOverrides = {}, classroomTwoOverrides = {} }) {
