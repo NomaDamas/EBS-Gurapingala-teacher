@@ -10,11 +10,13 @@ test("review:evidence writes structured approval evidence tied to a PR head", as
   const file = join(dir, "external-review.json");
   const transcript = join(dir, "review.md");
   const ciEvidence = join(dir, "ci-evidence.json");
+  const evaluationSetEvidence = join(dir, "evaluation-set-evidence.json");
   const deployEvidence = join(dir, "deploy-evidence.json");
   const classroomEvidence = join(dir, "classroom-config-1.json");
   const secondClassroomEvidence = join(dir, "classroom-config-2.json");
   await writeFile(transcript, "Review decision: APPROVE\nEvidence checked: all gates pass\n");
   await writeFile(ciEvidence, JSON.stringify(buildCiEvidence()));
+  await writeFile(evaluationSetEvidence, JSON.stringify(buildEvaluationSetEvidence()));
   await writeFile(deployEvidence, JSON.stringify(buildDeployEvidence()));
   await writeFile(classroomEvidence, JSON.stringify(buildClassroomEvidence("2026-07-13-3-5")));
   await writeFile(secondClassroomEvidence, JSON.stringify(buildClassroomEvidence("2026-07-16-3-1", { generatedAt: "2026-07-10T00:02:30.000Z" })));
@@ -32,6 +34,7 @@ test("review:evidence writes structured approval evidence tied to a PR head", as
     VERIFY_DEPLOY_STATUS: "pass",
     CLASSROOM_CONFIG_STATUS: "pass",
     CI_EVIDENCE_FILE: ciEvidence,
+    EVALUATION_SET_EVIDENCE_FILE: evaluationSetEvidence,
     VERIFY_DEPLOY_EVIDENCE_FILE: deployEvidence,
     CLASSROOM_CONFIG_EVIDENCE_FILES: `${classroomEvidence},${secondClassroomEvidence}`,
     EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1",
@@ -51,6 +54,8 @@ test("review:evidence writes structured approval evidence tied to a PR head", as
   assert.equal(evidence.prHeadSha, "abc123");
   assert.equal(evidence.evidenceArtifacts.ci.file, ciEvidence);
   assert.match(evidence.evidenceArtifacts.ci.sha256, /^[a-f0-9]{64}$/);
+  assert.equal(evidence.evidenceArtifacts.evaluationSet.file, evaluationSetEvidence);
+  assert.match(evidence.evidenceArtifacts.evaluationSet.sha256, /^[a-f0-9]{64}$/);
   assert.equal(evidence.evidenceArtifacts.deployVerification.file, deployEvidence);
   assert.match(evidence.evidenceArtifacts.deployVerification.sha256, /^[a-f0-9]{64}$/);
   assert.equal(evidence.evidenceArtifacts.classroomConfigs[0].file, classroomEvidence);
@@ -78,6 +83,7 @@ test("review:evidence rejects approval with blocking findings", async () => {
     VERIFY_DEPLOY_STATUS: "pass",
     CLASSROOM_CONFIG_STATUS: "pass",
     CI_EVIDENCE_FILE: artifacts.ciEvidence,
+    EVALUATION_SET_EVIDENCE_FILE: artifacts.evaluationSetEvidence,
     VERIFY_DEPLOY_EVIDENCE_FILE: artifacts.deployEvidence,
     CLASSROOM_CONFIG_EVIDENCE_FILES: artifacts.classroomEvidence,
     BLOCKING_FINDINGS: "src/worker.js:1 학생에게 정답 누출 가능"
@@ -167,6 +173,29 @@ test("review:evidence requires deployed and classroom evidence artifacts for app
   assert.notEqual(result.code, 0);
   assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE is required/);
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILES or CLASSROOM_CONFIG_EVIDENCE_FILE is required/);
+});
+
+test("review:evidence requires evaluation set evidence artifact for approval", async () => {
+  const artifacts = await writeGateArtifacts();
+  const result = await runReviewEvidence({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    EXTERNAL_REVIEWER: "GPT-5.5 xhigh equivalent",
+    EXTERNAL_REVIEW_SOURCE_URL: "https://reviews.example.com/ebs/1",
+    PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    TESTS_STATUS: "pass",
+    EVAL_STATUS: "pass",
+    READINESS_STATUS: "pass",
+    SMOKE_STATUS: "pass",
+    VERIFY_DEPLOY_STATUS: "pass",
+    CLASSROOM_CONFIG_STATUS: "pass",
+    CI_EVIDENCE_FILE: artifacts.ciEvidence,
+    VERIFY_DEPLOY_EVIDENCE_FILE: artifacts.deployEvidence,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: artifacts.classroomEvidence
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /EVALUATION_SET_EVIDENCE_FILE is required/);
 });
 
 test("review:evidence requires CI evidence artifact for approval", async () => {
@@ -537,6 +566,7 @@ function validApprovalEnv(artifacts) {
     VERIFY_DEPLOY_STATUS: "pass",
     CLASSROOM_CONFIG_STATUS: "pass",
     CI_EVIDENCE_FILE: artifacts.ciEvidence,
+    EVALUATION_SET_EVIDENCE_FILE: artifacts.evaluationSetEvidence,
     VERIFY_DEPLOY_EVIDENCE_FILE: artifacts.deployEvidence,
     CLASSROOM_CONFIG_EVIDENCE_FILES: artifacts.classroomEvidenceFiles.join(","),
     EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
@@ -546,19 +576,58 @@ function validApprovalEnv(artifacts) {
 async function writeGateArtifacts(overrides = {}) {
   const dir = await mkdtemp(join(tmpdir(), "external-review-gates-"));
   const ciEvidence = join(dir, "ci-evidence.json");
+  const evaluationSetEvidence = join(dir, "evaluation-set-evidence.json");
   const deployEvidence = join(dir, "deploy-evidence.json");
   const classroomEvidence = join(dir, "classroom-config-1.json");
   const secondClassroomEvidence = join(dir, "classroom-config-2.json");
   await writeFile(ciEvidence, JSON.stringify(buildCiEvidence(overrides.ci)));
+  await writeFile(evaluationSetEvidence, JSON.stringify(buildEvaluationSetEvidence(overrides.evaluationSet)));
   await writeFile(deployEvidence, JSON.stringify(buildDeployEvidence(overrides.deploy)));
   await writeFile(classroomEvidence, JSON.stringify(buildClassroomEvidence("2026-07-13-3-5", overrides.classroom)));
   await writeFile(secondClassroomEvidence, JSON.stringify(buildClassroomEvidence("2026-07-16-3-1", { generatedAt: "2026-07-10T00:02:30.000Z", ...(overrides.classroomTwo || {}) })));
   return {
     ciEvidence,
+    evaluationSetEvidence,
     deployEvidence,
     classroomEvidence,
     secondClassroomEvidence,
     classroomEvidenceFiles: [classroomEvidence, secondClassroomEvidence]
+  };
+}
+
+function buildEvaluationSetEvidence(overrides = {}) {
+  return {
+    schemaVersion: "evaluation-set-evidence/v1",
+    generatedAt: "2026-07-10T00:00:40.000Z",
+    status: "pass",
+    prHeadSha: "abc123",
+    totalTurns: 50,
+    teacherAuditIncluded: true,
+    pressureTurnCount: 10,
+    publicProjection: {
+      items: Array.from({ length: 50 }, (_, index) => ({
+        turn: index + 1,
+        studentQuestion: `질문 ${index + 1}`,
+        expectedLevel: (index % 4) + 1
+      })),
+      exposesTeacherAudit: false
+    },
+    byLevel: {
+      1: { total: 13, passedPreflight: 13, turns: [] },
+      2: { total: 13, passedPreflight: 13, turns: [] },
+      3: { total: 12, passedPreflight: 12, turns: [] },
+      4: { total: 12, passedPreflight: 12, turns: [] }
+    },
+    teacherReviewItems: Array.from({ length: 50 }, (_, index) => ({
+      turn: index + 1,
+      expectedLevel: (index % 4) + 1,
+      studentQuestion: `질문 ${index + 1}`,
+      correctAnswer: "정답",
+      falseClaim: "거짓",
+      whyFalse: "Level 근거",
+      preflight: { approvedForStudent: true }
+    })),
+    ...overrides
   };
 }
 

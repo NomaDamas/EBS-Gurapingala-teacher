@@ -30,6 +30,7 @@ const reviewEvidenceCommandParts = [
   "CLASSROOM_CONFIG_STATUS=pass",
   requireClassroomChatProof ? "REQUIRE_CLASSROOM_CHAT_PROOF=true" : "",
   "CI_EVIDENCE_FILE=artifacts/ci-evidence.json",
+  "EVALUATION_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json",
   "VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json",
   `CLASSROOM_CONFIG_EVIDENCE_FILES=${shellQuote(classroomConfigEvidenceFiles)}`,
   `EXPECTED_CLASSROOM_ROOMS=${shellQuote(classroomRoomList.join(","))}`,

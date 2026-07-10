@@ -9,6 +9,7 @@
 - [ ] `node scripts/readiness-audit.js` passed.
 - [ ] `node scripts/smoke-worker.js` passed.
 - [ ] GitHub Actions `Verify product gates` passed on the latest PR head.
+- [ ] `npm run eval:set` produced `evaluation-set-evidence/v1` for the latest PR head, and `review:evidence`/`release:audit` used `EVALUATION_SET_EVIDENCE_FILE`.
 - [ ] `npm run rehearsal:config` passed against each filming/rehearsal room and produced `classroom-config-evidence/v1`.
 
 ## Release Gates

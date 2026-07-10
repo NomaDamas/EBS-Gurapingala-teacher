@@ -57,7 +57,14 @@ console.log([
   "npm run verify:ci"
 ].join(" "));
 console.log("");
-console.log("## 3. Verify deployed Worker");
+console.log("## 3. Write 50-turn evaluation set evidence");
+console.log([
+  `PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
+  "EVAL_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json",
+  "npm run eval:set"
+].join(" "));
+console.log("");
+console.log("## 4. Verify deployed Worker");
 console.log([
   `WORKER_URL=${shellQuote(workerUrl)}`,
   `TEACHER_TOKEN=${teacherToken}`,
@@ -72,7 +79,7 @@ console.log([
   "npm run verify:deploy"
 ].join(" "));
 console.log("");
-console.log("## 4. Verify each filming classroom room");
+console.log("## 5. Verify each filming classroom room");
 if (classroomChatProof) {
   console.log("# CLASSROOM_CHAT_PROOF=true adds one setting-validation chat turn to each room.");
 }
@@ -96,7 +103,7 @@ for (const [index, plan] of plans.entries()) {
   console.log(command.join(" "));
 }
 console.log("");
-console.log("## 5. Write structured external review evidence after APPROVE");
+console.log("## 6. Write structured external review evidence after APPROVE");
 console.log([
   "EXTERNAL_REVIEW_DECISION=APPROVE",
   `EXTERNAL_REVIEWER=${reviewer}`,
@@ -111,6 +118,7 @@ console.log([
   "CLASSROOM_CONFIG_STATUS=pass",
   classroomChatProof ? "REQUIRE_CLASSROOM_CHAT_PROOF=true" : "",
   "CI_EVIDENCE_FILE=artifacts/ci-evidence.json",
+  "EVALUATION_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json",
   "VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json",
   `CLASSROOM_CONFIG_EVIDENCE_FILES=${shellQuote(classroomEvidenceFiles.join(","))}`,
   `EXPECTED_CLASSROOM_ROOMS=${shellQuote(expectedRooms)}`,
@@ -118,7 +126,7 @@ console.log([
   "npm run review:evidence"
 ].filter(Boolean).join(" "));
 console.log("");
-console.log("## 6. Final release audit");
+console.log("## 7. Final release audit");
 console.log([
   "EXTERNAL_REVIEW_DECISION=APPROVE",
   "VERIFY_DEPLOY_STATUS=pass",
@@ -128,6 +136,7 @@ console.log([
   "CI_STATUS=success",
   `CI_HEAD_SHA=${shellQuote(prHeadSha)}`,
   "CI_EVIDENCE_FILE=artifacts/ci-evidence.json",
+  "EVALUATION_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json",
   "REQUIRE_OPENAI=true",
   "REQUIRE_TEACHER_TOKEN=true",
   "REQUIRE_CLASSROOM_CONFIG=true",

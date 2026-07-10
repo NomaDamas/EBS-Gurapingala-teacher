@@ -56,7 +56,7 @@ npm run review:packet
 중단 조건:
 
 - GPT-5.5 xhigh 또는 동등 리뷰가 `APPROVE`를 주기 전에는 머지하지 않는다.
-- 실제 Worker `verify:deploy`와 모든 촬영방 `rehearsal:config`가 pass이기 전에는 리뷰어에게 `APPROVE`를 요청하지 않는다.
+- 실제 Worker `verify:deploy`, `eval:set`, 모든 촬영방 `rehearsal:config`가 pass이기 전에는 리뷰어에게 `APPROVE`를 요청하지 않는다.
 - blocking finding이 하나라도 있으면 구현을 수정하고 같은 게이트를 다시 돈다.
 
 ## 5. 배포 검증 증거
@@ -66,6 +66,12 @@ PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 \
 PR_HEAD_SHA=$PR_HEAD_SHA \
 CI_EVIDENCE_FILE=artifacts/ci-evidence.json \
 npm run verify:ci
+```
+
+```bash
+PR_HEAD_SHA=$PR_HEAD_SHA \
+EVAL_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json \
+npm run eval:set
 ```
 
 ```bash
@@ -124,7 +130,7 @@ npm run rehearsal:config
 
 ## 7. 승인 증거 생성
 
-외부 리뷰가 승인되고, `verify:deploy`와 모든 촬영방 `rehearsal:config`가 같은 `PR_HEAD_SHA`에서 pass인 뒤에만 실행한다.
+외부 리뷰가 승인되고, `verify:ci`, `eval:set`, `verify:deploy`, 모든 촬영방 `rehearsal:config`가 같은 `PR_HEAD_SHA`에서 pass인 뒤에만 실행한다.
 
 ```bash
 EXTERNAL_REVIEW_DECISION=APPROVE \
@@ -139,6 +145,7 @@ SMOKE_STATUS=pass \
 VERIFY_DEPLOY_STATUS=pass \
 CLASSROOM_CONFIG_STATUS=pass \
 CI_EVIDENCE_FILE=artifacts/ci-evidence.json \
+EVALUATION_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json \
 VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json \
 CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json \
 EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 \
@@ -157,6 +164,7 @@ EXPECTED_PR_HEAD_SHA=$PR_HEAD_SHA \
 CI_STATUS=success \
 CI_HEAD_SHA=$PR_HEAD_SHA \
 CI_EVIDENCE_FILE=artifacts/ci-evidence.json \
+EVALUATION_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json \
 REQUIRE_OPENAI=true \
 REQUIRE_TEACHER_TOKEN=true \
 REQUIRE_CLASSROOM_CONFIG=true \

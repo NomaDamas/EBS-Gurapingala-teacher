@@ -57,7 +57,7 @@ PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 PR_HEAD_SHA=<
 ```
 
 ```bash
-EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success CI_HEAD_SHA=<latest-sha> CI_EVIDENCE_FILE=artifacts/ci-evidence.json REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLASSROOM_CONFIG=true REQUIRE_CLOUDFLARE_EDGE=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run release:audit
+EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success CI_HEAD_SHA=<latest-sha> CI_EVIDENCE_FILE=artifacts/ci-evidence.json EVALUATION_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLASSROOM_CONFIG=true REQUIRE_CLOUDFLARE_EDGE=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run release:audit
 ```
 
 ## 외부 승인 조건
@@ -65,7 +65,7 @@ EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<w
 - GitHub Actions `Verify product gates`가 최신 PR head에서 `SUCCESS`여야 한다.
 - GPT-5.5 xhigh 또는 동등한 외부 코드 리뷰 승인이 있어야 한다.
 - 외부 리뷰어는 [GPT-5.5 xhigh 외부 리뷰 패킷](external-review-packet.md)의 프롬프트, 반려 조건, 판정 양식을 사용한다.
-- `npm run release:audit`가 최신 PR head SHA, `CI_HEAD_SHA`와 `PR_HEAD_SHA` 일치, `ci-evidence/v1`, `CI_EVIDENCE_FILE.generatedAt`이 `checkRun.completedAt` 이후인지, 외부 승인 JSON, 실제 `verify:deploy` 증거 JSON, Cloudflare response header evidence, sanitized `/api/health` snapshot, 각 촬영방 `rehearsal:config` 증거 JSON, `EXPECTED_CLASSROOM_ROOMS`와 증거 `roomId` 집합 일치, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`, `REQUIRE_CLASSROOM_CONFIG=true`, `REQUIRE_CLOUDFLARE_EDGE=true` 증거로 통과해야 한다.
+- `npm run release:audit`가 최신 PR head SHA, `CI_HEAD_SHA`와 `PR_HEAD_SHA` 일치, `ci-evidence/v1`, `evaluation-set-evidence/v1`, `CI_EVIDENCE_FILE.generatedAt`이 `checkRun.completedAt` 이후인지, 외부 승인 JSON, 실제 `verify:deploy` 증거 JSON, Cloudflare response header evidence, sanitized `/api/health` snapshot, 각 촬영방 `rehearsal:config` 증거 JSON, `EXPECTED_CLASSROOM_ROOMS`와 증거 `roomId` 집합 일치, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`, `REQUIRE_CLASSROOM_CONFIG=true`, `REQUIRE_CLOUDFLARE_EDGE=true` 증거로 통과해야 한다.
 - 승인 전에는 `main`에 머지하지 않는다.
 - Cloudflare production secret `OPENAI_API_KEY`, `TEACHER_TOKEN` 등록은 실제 배포 계정에서 별도 확인한다.
 - 촬영 전 리허설에서 학생 기기 2대 이상, 교사용 대시보드, 정정 수업 export를 실제 URL로 확인한다.

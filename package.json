@@ -9,6 +9,7 @@
   "scripts": {
     "test": "node --test",
     "eval": "node scripts/run-eval.js",
+    "eval:set": "node scripts/write-evaluation-set-evidence.js",
     "readiness": "node scripts/readiness-audit.js",
     "smoke": "node scripts/smoke-worker.js",
     "shoot:checklist": "node scripts/print-shoot-checklist.js",

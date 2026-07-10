@@ -32,6 +32,7 @@ test("release audit passes only with review, deploy verification, CI, and commit
   assert.match(result.stdout, /release audit passed/);
   assert.match(result.stdout, /prHeadSha=abc123/);
   assert.match(result.stdout, /ciEvidenceFile=/);
+  assert.match(result.stdout, /evaluationSetEvidenceFile=/);
   assert.match(result.stdout, /externalReviewFile=/);
   assert.match(result.stdout, /verifyDeployEvidenceFile=/);
   assert.match(result.stdout, /classroomConfigEvidenceFiles=.*classroom-config-1\.json.*classroom-config-2\.json/);
@@ -52,6 +53,7 @@ test("release audit fails closed without external review and real deploy verific
   assert.match(result.stderr, /VERIFY_DEPLOY_STATUS=pass is required/);
   assert.match(result.stderr, /real https Cloudflare Worker URL/);
   assert.match(result.stderr, /EXTERNAL_REVIEW_FILE is required/);
+  assert.match(result.stderr, /EVALUATION_SET_EVIDENCE_FILE is required/);
   assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE is required/);
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE is required/);
 });
@@ -1078,6 +1080,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
   const dir = await mkdtemp(join(tmpdir(), "release-audit-"));
   const externalReviewFile = join(dir, "external-review.json");
   const ciEvidenceFile = join(dir, "ci-evidence.json");
+  const evaluationSetEvidenceFile = join(dir, "evaluation-set-evidence.json");
   const deployEvidenceFile = join(dir, "deploy-evidence.json");
   const classroomConfigEvidenceFile = join(dir, "classroom-config-1.json");
   const secondClassroomConfigEvidenceFile = join(dir, "classroom-config-2.json");
@@ -1220,6 +1223,8 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     ...ciOverrides
   }, null, 2);
   await writeFile(ciEvidenceFile, ciEvidenceJson);
+  const evaluationSetEvidenceJson = JSON.stringify(buildEvaluationSetEvidence(prHeadSha), null, 2);
+  await writeFile(evaluationSetEvidenceFile, evaluationSetEvidenceJson);
   await writeFile(externalReviewFile, JSON.stringify({
     schemaVersion: "external-review-evidence/v1",
     generatedAt: "2026-07-10T00:03:00.000Z",
@@ -1234,6 +1239,11 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
         file: ciEvidenceFile,
         sha256: sha256(ciEvidenceJson),
         bytes: Buffer.byteLength(ciEvidenceJson)
+      },
+      evaluationSet: {
+        file: evaluationSetEvidenceFile,
+        sha256: sha256(evaluationSetEvidenceJson),
+        bytes: Buffer.byteLength(evaluationSetEvidenceJson)
       },
       deployVerification: {
         file: deployEvidenceFile,
@@ -1272,9 +1282,46 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
   return {
     externalReviewFile,
     ciEvidenceFile,
+    evaluationSetEvidenceFile,
     deployEvidenceFile,
     classroomConfigEvidenceFile,
     classroomConfigEvidenceFiles: [classroomConfigEvidenceFile, secondClassroomConfigEvidenceFile]
+  };
+}
+
+function buildEvaluationSetEvidence(prHeadSha, overrides = {}) {
+  return {
+    schemaVersion: "evaluation-set-evidence/v1",
+    generatedAt: "2026-07-10T00:00:40.000Z",
+    status: "pass",
+    prHeadSha,
+    totalTurns: 50,
+    teacherAuditIncluded: true,
+    pressureTurnCount: 10,
+    publicProjection: {
+      items: Array.from({ length: 50 }, (_, index) => ({
+        turn: index + 1,
+        studentQuestion: `질문 ${index + 1}`,
+        expectedLevel: (index % 4) + 1
+      })),
+      exposesTeacherAudit: false
+    },
+    byLevel: {
+      1: { total: 13, passedPreflight: 13, turns: [] },
+      2: { total: 13, passedPreflight: 13, turns: [] },
+      3: { total: 12, passedPreflight: 12, turns: [] },
+      4: { total: 12, passedPreflight: 12, turns: [] }
+    },
+    teacherReviewItems: Array.from({ length: 50 }, (_, index) => ({
+      turn: index + 1,
+      expectedLevel: (index % 4) + 1,
+      studentQuestion: `질문 ${index + 1}`,
+      correctAnswer: "정답",
+      falseClaim: "거짓",
+      whyFalse: "Level 근거",
+      preflight: { approvedForStudent: true }
+    })),
+    ...overrides
   };
 }
 
@@ -1303,6 +1350,7 @@ function runReleaseAudit(env) {
         PATH: process.env.PATH,
         CI_HEAD_SHA: env.CI_HEAD_SHA ?? env.PR_HEAD_SHA,
         CI_EVIDENCE_FILE: env.CI_EVIDENCE_FILE ?? (env.EXTERNAL_REVIEW_FILE ? join(dirname(env.EXTERNAL_REVIEW_FILE), "ci-evidence.json") : undefined),
+        EVALUATION_SET_EVIDENCE_FILE: env.EVALUATION_SET_EVIDENCE_FILE ?? (env.EXTERNAL_REVIEW_FILE ? join(dirname(env.EXTERNAL_REVIEW_FILE), "evaluation-set-evidence.json") : undefined),
         ...env
       }
     });

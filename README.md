@@ -44,6 +44,12 @@ npm run dev
 npm run eval
 ```
 
+50턴 질문·Level·교사용 정답/거짓/근거 evidence 생성:
+
+```bash
+PR_HEAD_SHA=<latest-sha> EVAL_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json npm run eval:set
+```
+
 프로덕션 readiness 점검:
 
 ```bash
@@ -83,7 +89,7 @@ PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 PR_HEAD_SHA=<
 ```
 
 ```bash
-EXTERNAL_REVIEW_DECISION=APPROVE EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts/external-review-transcript.md PR_HEAD_SHA=<latest-sha> CI_STATUS=success TESTS_STATUS=pass EVAL_STATUS=pass READINESS_STATUS=pass SMOKE_STATUS=pass VERIFY_DEPLOY_STATUS=pass CLASSROOM_CONFIG_STATUS=pass CI_EVIDENCE_FILE=artifacts/ci-evidence.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 EXTERNAL_REVIEW_FILE=artifacts/external-review.json npm run review:evidence
+EXTERNAL_REVIEW_DECISION=APPROVE EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts/external-review-transcript.md PR_HEAD_SHA=<latest-sha> CI_STATUS=success TESTS_STATUS=pass EVAL_STATUS=pass READINESS_STATUS=pass SMOKE_STATUS=pass VERIFY_DEPLOY_STATUS=pass CLASSROOM_CONFIG_STATUS=pass CI_EVIDENCE_FILE=artifacts/ci-evidence.json EVALUATION_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 EXTERNAL_REVIEW_FILE=artifacts/external-review.json npm run review:evidence
 ```
 
 외부 리뷰어에게 전달할 요청문은 현재 PR/SHA와 검증 상태를 넣어 생성할 수 있다.
@@ -93,10 +99,10 @@ PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 PR_HEAD_SHA=<
 ```
 
 ```bash
-EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success CI_HEAD_SHA=<latest-sha> CI_EVIDENCE_FILE=artifacts/ci-evidence.json REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLASSROOM_CONFIG=true REQUIRE_CLOUDFLARE_EDGE=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run release:audit
+EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success CI_HEAD_SHA=<latest-sha> CI_EVIDENCE_FILE=artifacts/ci-evidence.json EVALUATION_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLASSROOM_CONFIG=true REQUIRE_CLOUDFLARE_EDGE=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run release:audit
 ```
 
-`release:audit`는 `review:evidence`가 생성한 `external-review-evidence/v1` 승인 파일, `verify:ci`가 생성한 `ci-evidence/v1`, 실제 Worker URL `verify:deploy` 증거 파일, 각 촬영방 `rehearsal:config` 증거 파일, 최신 PR head CI 통과, OpenAI/교사용 token/촬영방 설정 검증 증거가 모두 같은 commit에 묶였는지 확인한다. `CI_HEAD_SHA`와 `CI_EVIDENCE_FILE.prHeadSha`는 `PR_HEAD_SHA`와 같아야 하며, `CI_EVIDENCE_FILE.generatedAt`은 `checkRun.completedAt` 이후여야 한다. 외부 리뷰 승인 파일은 CI/배포/촬영방 증거 파일의 SHA-256 해시를 `evidenceArtifacts`에 기록해야 하며, `review:evidence`와 최종 감사는 현재 제출된 증거 파일 해시와 일치하는지 확인한다. `VERIFY_DEPLOY_EVIDENCE_FILE`은 Cloudflare response header evidence와 sanitized `/api/health` snapshot을 포함해야 한다. `EXPECTED_CLASSROOM_ROOMS`는 촬영 계획의 기준 room 목록이며, 증거 파일의 `roomId` 집합이 이 목록과 정확히 일치해야 한다.
+`release:audit`는 `review:evidence`가 생성한 `external-review-evidence/v1` 승인 파일, `verify:ci`가 생성한 `ci-evidence/v1`, `eval:set`이 생성한 `evaluation-set-evidence/v1`, 실제 Worker URL `verify:deploy` 증거 파일, 각 촬영방 `rehearsal:config` 증거 파일, 최신 PR head CI 통과, OpenAI/교사용 token/촬영방 설정 검증 증거가 모두 같은 commit에 묶였는지 확인한다. `CI_HEAD_SHA`와 `CI_EVIDENCE_FILE.prHeadSha`는 `PR_HEAD_SHA`와 같아야 하며, `CI_EVIDENCE_FILE.generatedAt`은 `checkRun.completedAt` 이후여야 한다. 외부 리뷰 승인 파일은 CI/50턴 평가 세트/배포/촬영방 증거 파일의 SHA-256 해시를 `evidenceArtifacts`에 기록해야 하며, `review:evidence`와 최종 감사는 현재 제출된 증거 파일 해시와 일치하는지 확인한다. `VERIFY_DEPLOY_EVIDENCE_FILE`은 Cloudflare response header evidence와 sanitized `/api/health` snapshot을 포함해야 한다. `EXPECTED_CLASSROOM_ROOMS`는 촬영 계획의 기준 room 목록이며, 증거 파일의 `roomId` 집합이 이 목록과 정확히 일치해야 한다.
 
 명령 조합 실수를 줄이려면 실제 Worker URL과 촬영방 계획을 넣고 릴리즈 증거 명령을 먼저 출력한다.
 

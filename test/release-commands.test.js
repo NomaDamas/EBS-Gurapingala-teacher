@@ -20,6 +20,8 @@ test("release:commands prints commit-bound deploy, classroom, review, and releas
   assert.doesNotMatch(result.stdout, /secret-token/);
   assert.match(result.stdout, /npm run verify:ci/);
   assert.match(result.stdout, /CI_EVIDENCE_FILE=artifacts\/ci-evidence\.json/);
+  assert.match(result.stdout, /npm run eval:set/);
+  assert.match(result.stdout, /EVAL_SET_EVIDENCE_FILE=artifacts\/evaluation-set-evidence\.json/);
   assert.match(result.stdout, /npm run verify:deploy/);
   assert.match(result.stdout, /VERIFY_ROOM=deploy-verify/);
   assert.match(result.stdout, /REQUIRE_CLOUDFLARE_EDGE=true/);
@@ -33,10 +35,12 @@ test("release:commands prints commit-bound deploy, classroom, review, and releas
   assert.match(result.stdout, /CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts\/2026-07-16-3-1-config\.json/);
   assert.match(result.stdout, /npm run review:evidence/);
   assert.match(result.stdout, /EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts\/external-review-transcript\.md/);
+  assert.match(result.stdout, /EVALUATION_SET_EVIDENCE_FILE=artifacts\/evaluation-set-evidence\.json/);
   assert.match(result.stdout, /CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts\/2026-07-13-3-5-config\.json,artifacts\/2026-07-16-3-1-config\.json/);
   assert.match(result.stdout, /EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1/);
   assert.match(result.stdout, /npm run release:audit/);
   assert.match(result.stdout, /CI_HEAD_SHA=abc123/);
+  assert.match(result.stdout, /EVALUATION_SET_EVIDENCE_FILE=artifacts\/evaluation-set-evidence\.json/);
 });
 
 test("release:commands can intentionally add classroom chat audit proof to rehearsal commands", async () => {

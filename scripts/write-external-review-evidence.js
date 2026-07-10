@@ -17,6 +17,7 @@ const verifyDeployStatus = normalizeStatus(process.env.VERIFY_DEPLOY_STATUS || "
 const classroomConfigStatus = normalizeStatus(process.env.CLASSROOM_CONFIG_STATUS || process.env.REHEARSAL_CONFIG_STATUS);
 const releaseAuditStatus = normalizeStatus(process.env.RELEASE_AUDIT_STATUS || "not-run");
 const ciEvidenceFile = String(process.env.CI_EVIDENCE_FILE || "").trim();
+const evaluationSetEvidenceFile = String(process.env.EVALUATION_SET_EVIDENCE_FILE || "").trim();
 const verifyDeployEvidenceFile = String(process.env.VERIFY_DEPLOY_EVIDENCE_FILE || "").trim();
 const classroomConfigEvidenceFiles = parseFileList(process.env.CLASSROOM_CONFIG_EVIDENCE_FILES || process.env.CLASSROOM_CONFIG_EVIDENCE_FILE);
 const expectedClassroomRooms = parseFileList(process.env.EXPECTED_CLASSROOM_ROOMS);
@@ -44,6 +45,9 @@ if (decision === "approve" && !verifyDeployEvidenceFile) {
 }
 if (decision === "approve" && !ciEvidenceFile) {
   failures.push("CI_EVIDENCE_FILE is required for APPROVE evidence so the review is tied to latest PR CI evidence");
+}
+if (decision === "approve" && !evaluationSetEvidenceFile) {
+  failures.push("EVALUATION_SET_EVIDENCE_FILE is required for APPROVE evidence so the review is tied to the 50-turn teacher-review set");
 }
 if (decision === "approve" && classroomConfigEvidenceFiles.length === 0) {
   failures.push("CLASSROOM_CONFIG_EVIDENCE_FILES or CLASSROOM_CONFIG_EVIDENCE_FILE is required for APPROVE evidence so the review is tied to every filming room");
@@ -109,6 +113,7 @@ console.log(`external review evidence written: ${outputFile}`);
 async function buildEvidenceArtifacts() {
   return {
     ci: ciEvidenceFile ? await hashEvidenceFile(ciEvidenceFile) : null,
+    evaluationSet: evaluationSetEvidenceFile ? await hashEvidenceFile(evaluationSetEvidenceFile) : null,
     deployVerification: verifyDeployEvidenceFile ? await hashEvidenceFile(verifyDeployEvidenceFile) : null,
     classroomConfigs: await Promise.all(classroomConfigEvidenceFiles.map(hashEvidenceFile))
   };
@@ -122,6 +127,12 @@ function validateApprovalEvidenceArtifacts(artifacts) {
     requireRoom: false
   });
   validateCiEvidenceArtifact(artifacts.ci);
+  validateArtifact(artifacts.evaluationSet, {
+    label: "EVALUATION_SET_EVIDENCE_FILE",
+    schemaVersion: "evaluation-set-evidence/v1",
+    requireRoom: false
+  });
+  validateEvaluationSetEvidenceArtifact(artifacts.evaluationSet);
   validateArtifact(artifacts.deployVerification, {
     label: "VERIFY_DEPLOY_EVIDENCE_FILE",
     schemaVersion: "deploy-verification-evidence/v1",
@@ -137,6 +148,31 @@ function validateApprovalEvidenceArtifacts(artifacts) {
     validateClassroomEvidenceArtifact(artifact, artifacts.deployVerification?.workerUrl);
   }
   validateExpectedClassroomRooms(artifacts.classroomConfigs);
+}
+
+function validateEvaluationSetEvidenceArtifact(artifact) {
+  if (!artifact || typeof artifact !== "object") return;
+  if (artifact.totalTurns !== 50) {
+    failures.push("EVALUATION_SET_EVIDENCE_FILE totalTurns must be 50");
+  }
+  if (artifact.teacherAuditIncluded !== true) {
+    failures.push("EVALUATION_SET_EVIDENCE_FILE must include teacher audit fields");
+  }
+  if (artifact.pressureTurnCount !== 10) {
+    failures.push("EVALUATION_SET_EVIDENCE_FILE pressureTurnCount must be 10");
+  }
+  if (artifact.publicProjection?.exposesTeacherAudit !== false) {
+    failures.push("EVALUATION_SET_EVIDENCE_FILE publicProjection must not expose teacher audit fields");
+  }
+  if (!Array.isArray(artifact.teacherReviewItems) || artifact.teacherReviewItems.length !== 50) {
+    failures.push("EVALUATION_SET_EVIDENCE_FILE teacherReviewItems must contain 50 turns");
+  }
+  for (const level of ["1", "2", "3", "4"]) {
+    const bucket = artifact.byLevel?.[level];
+    if (!bucket || !Number.isFinite(bucket.total) || bucket.total <= 0 || bucket.passedPreflight !== bucket.total) {
+      failures.push(`EVALUATION_SET_EVIDENCE_FILE byLevel.${level} must have all turns passing preflight`);
+    }
+  }
 }
 
 function validateArtifact(artifact, { label, schemaVersion, requireRoom }) {
@@ -346,6 +382,12 @@ async function hashEvidenceFile(file) {
     if (json.passedChecks !== undefined) artifact.passedChecks = json.passedChecks;
     if (json.totalChecks !== undefined) artifact.totalChecks = json.totalChecks;
     if (json.checkRun) artifact.checkRun = json.checkRun;
+    if (json.totalTurns !== undefined) artifact.totalTurns = json.totalTurns;
+    if (json.teacherAuditIncluded !== undefined) artifact.teacherAuditIncluded = json.teacherAuditIncluded;
+    if (json.pressureTurnCount !== undefined) artifact.pressureTurnCount = json.pressureTurnCount;
+    if (json.publicProjection) artifact.publicProjection = json.publicProjection;
+    if (json.teacherReviewItems) artifact.teacherReviewItems = json.teacherReviewItems;
+    if (json.byLevel) artifact.byLevel = json.byLevel;
     if (json.roomId) artifact.roomId = json.roomId;
     if (json.verifyRoom) artifact.verifyRoom = json.verifyRoom;
     if (json.expectedLevel !== undefined) artifact.expectedLevel = json.expectedLevel;
