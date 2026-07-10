@@ -87,7 +87,7 @@ npm run deploy
 배포 후 실제 Worker URL을 검증한다.
 
 ```bash
-WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 PR_HEAD_SHA=<latest-sha> VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json npm run verify:deploy
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 PR_HEAD_SHA=<latest-sha> VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json npm run verify:deploy
 ```
 
 이 검증은 학생 페이지와 관찰 고지, `/api/health`, 50턴 평가 endpoint, `/api/join`과 `/api/chat`, `/teacher` 보호 여부, token 기반 교사용 접속, Level/persona 설정 API, unsafe persona 거절, export telemetry, purge 정리를 확인한다. 교사용 API 검증은 URL query token이 아니라 `x-teacher-token` header를 사용해 token이 검증 URL에 남지 않게 한다. 실시간 WebSocket 보호는 `teacher websocket accepts subprotocol token without query token` 체크로 검증하며, token 없이 `/ws/teacher`에 접근하면 401이고 `Sec-WebSocket-Protocol` token만 있으면 인증 통과 후 upgrade 요구 426이 나와야 한다. `REQUIRE_OPENAI=true`를 주면 `/api/health`의 `provider=openai`와 `openaiConfigured=true`도 강제해 촬영 배포가 rules fallback으로 뜨는 것을 막는다. `EXPECTED_OPENAI_MODEL`을 주면 `/api/health.openaiModel`이 촬영 기대 모델과 일치하는지도 확인한다. `EXPECTED_OPENAI_TIMEOUT_MS`를 주면 `/api/health.openaiTimeoutMs`가 촬영 기대 timeout과 일치하는지도 확인한다. `TEACHER_TOKEN`을 생략하면 교사용 token 접속·export·purge 확인은 건너뛰고 보호 정책 상태만 점검한다.
@@ -105,10 +105,10 @@ EXTERNAL_REVIEW_DECISION=APPROVE EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" EX
 ```
 
 ```bash
-EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLASSROOM_CONFIG=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run release:audit
+EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLASSROOM_CONFIG=true REQUIRE_CLOUDFLARE_EDGE=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run release:audit
 ```
 
-`EXTERNAL_REVIEW_FILE`은 `review:evidence`가 생성한 `external-review-evidence/v1` JSON이어야 하며 `decision: "APPROVE"`, `reviewer` 또는 `model`, 실제 리뷰 산출물과 연결되는 `source.url` 또는 `source.transcriptSha256`, `prHeadSha`, pass 상태의 `evidenceChecked`, 빈 `blockingFindings`를 포함해야 한다. `VERIFY_DEPLOY_EVIDENCE_FILE`은 `verify:deploy`가 생성한 `deploy-verification-evidence/v1` JSON이어야 하며 같은 `PR_HEAD_SHA`, 같은 `WORKER_URL`, `requireOpenAI=true`, `requireTeacherToken=true`를 기록해야 한다.
+`EXTERNAL_REVIEW_FILE`은 `review:evidence`가 생성한 `external-review-evidence/v1` JSON이어야 하며 `decision: "APPROVE"`, `reviewer` 또는 `model`, 실제 리뷰 산출물과 연결되는 `source.url` 또는 `source.transcriptSha256`, `prHeadSha`, pass 상태의 `evidenceChecked`, 빈 `blockingFindings`를 포함해야 한다. `VERIFY_DEPLOY_EVIDENCE_FILE`은 `verify:deploy`가 생성한 `deploy-verification-evidence/v1` JSON이어야 하며 같은 `PR_HEAD_SHA`, 같은 `WORKER_URL`, `requireOpenAI=true`, `requireTeacherToken=true`, `requireCloudflareEdge=true`, `cloudflareEdge.present=true`를 기록해야 한다.
 `CLASSROOM_CONFIG_EVIDENCE_FILES`는 각 촬영방에서 `rehearsal:config`가 생성한 `classroom-config-evidence/v1` JSON 목록이어야 하며 같은 `PR_HEAD_SHA`, 같은 `WORKER_URL`, 실제 촬영/리허설 room, 기대 Level/persona와 실제 적용 config 일치를 기록해야 한다. `EXPECTED_CLASSROOM_ROOMS`는 촬영 계획의 기준 room 목록이며, 증거 파일의 `roomId` 집합과 정확히 일치해야 한다.
 
 GitHub Actions `Deploy` workflow는 `PR_HEAD_SHA=${{ github.sha }}`와 `VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json`로 실제 URL 검증을 실행하고, 결과를 `deploy-verification-evidence` artifact로 업로드한다. 릴리즈 감사에는 이 artifact의 JSON을 그대로 사용한다.

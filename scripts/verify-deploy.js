@@ -7,6 +7,7 @@ const filmingRoomId = normalizeRoomId(process.env.WORKER_ROOM || "");
 const verifyRoomId = normalizeRoomId(process.env.VERIFY_ROOM || "deploy-verify");
 const requireOpenAI = process.env.REQUIRE_OPENAI === "true";
 const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN === "true";
+const requireCloudflareEdge = process.env.REQUIRE_CLOUDFLARE_EDGE === "true";
 const expectedOpenAIModel = process.env.EXPECTED_OPENAI_MODEL || "";
 const expectedOpenAITimeoutMs = normalizeExpectedTimeout(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "");
 const deployEvidenceFile = String(process.env.VERIFY_DEPLOY_EVIDENCE_FILE || "").trim();
@@ -100,6 +101,11 @@ const checks = [
     return res.status === 200 &&
       body.teacherProtected === true &&
       Boolean(teacherToken);
+  }],
+  ["Cloudflare edge headers are present when required", async () => {
+    if (!requireCloudflareEdge) return true;
+    const edge = await getCloudflareEdgeMetadata();
+    return edge.present === true;
   }],
   ["evaluation set exposes 50 turns", async () => {
     const res = await fetchUrl("/api/evaluation-set");
@@ -388,6 +394,7 @@ if (failed) {
 }
 
 async function writeDeployEvidence(file, passed, results) {
+  const cloudflareEdge = await getCloudflareEdgeMetadata();
   const payload = {
     schemaVersion: "deploy-verification-evidence/v1",
     generatedAt: new Date().toISOString(),
@@ -397,6 +404,8 @@ async function writeDeployEvidence(file, passed, results) {
     verifyRoom: verifyRoomId,
     requireOpenAI,
     requireTeacherToken,
+    requireCloudflareEdge,
+    cloudflareEdge,
     expectedOpenAIModel,
     expectedOpenAITimeoutMs: expectedOpenAITimeoutMs || null,
     passedChecks: results.filter((result) => result.passed).length,
@@ -406,6 +415,21 @@ async function writeDeployEvidence(file, passed, results) {
   await mkdir(dirname(file), { recursive: true });
   await writeFile(file, `${JSON.stringify(payload, null, 2)}\n`);
   console.log(`deploy verification evidence written: ${file}`);
+}
+
+async function getCloudflareEdgeMetadata() {
+  const res = await fetchUrl("/api/health");
+  const headers = {
+    cfRay: res.headers.get("cf-ray") || "",
+    cfCacheStatus: res.headers.get("cf-cache-status") || "",
+    server: res.headers.get("server") || "",
+    reportTo: res.headers.get("report-to") || ""
+  };
+  const serialized = Object.values(headers).join(" ").toLowerCase();
+  return {
+    present: Boolean(headers.cfRay || serialized.includes("cloudflare")),
+    headers
+  };
 }
 
 function fetchUrl(path, query = {}, init) {

@@ -231,6 +231,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(result.stdout, /PASS student page loads/);
     assert.match(result.stdout, /PASS student join and chat endpoint works/);
     assert.match(result.stdout, /PASS teacher token is configured when required/);
+    assert.match(result.stdout, /PASS Cloudflare edge headers are present when required/);
     assert.match(result.stdout, /PASS full evaluation set requires teacher token/);
     assert.match(result.stdout, /PASS teacher config API controls generated audit level/);
     assert.match(result.stdout, /PASS teacher config rejects unsafe persona overrides/);
@@ -243,7 +244,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(result.stdout, /PASS OpenAI provider is configured when required/);
     assert.match(result.stdout, /PASS OpenAI model matches expectation when provided/);
     assert.match(result.stdout, /PASS OpenAI timeout matches expectation when provided/);
-    assert.match(result.stdout, /deploy verification passed: 18\/18/);
+    assert.match(result.stdout, /deploy verification passed: 19\/19/);
     assert.match(result.stdout, /deploy verification evidence written:/);
     assert.deepEqual(purgedRooms, ["deploy-verify"]);
     const evidence = JSON.parse(await readFile(evidenceFile, "utf8"));
@@ -251,9 +252,11 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.equal(evidence.status, "pass");
     assert.equal(evidence.prHeadSha, "abc123");
     assert.equal(evidence.workerUrl, `${workerUrl}/`);
-    assert.equal(evidence.passedChecks, 18);
-    assert.equal(evidence.totalChecks, 18);
-    assert.equal(evidence.checks.length, 18);
+    assert.equal(evidence.passedChecks, 19);
+    assert.equal(evidence.totalChecks, 19);
+    assert.equal(evidence.checks.length, 19);
+    assert.equal(evidence.requireCloudflareEdge, false);
+    assert.equal(evidence.cloudflareEdge.present, true);
 
     const strictResult = await runNode(["scripts/verify-deploy.js"], {
       WORKER_URL: workerUrl,
@@ -353,6 +356,7 @@ function json(res, body) {
 }
 
 function setSecurityHeaders(res) {
+  res.setHeader("cf-ray", "test-ray");
   res.setHeader("cache-control", "no-store");
   res.setHeader("x-robots-tag", "noindex, nofollow");
   res.setHeader("content-security-policy", "default-src 'self'; frame-ancestors 'none'; object-src 'none'");

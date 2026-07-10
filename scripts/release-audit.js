@@ -11,6 +11,7 @@ const ciStatus = normalizeStatus(process.env.CI_STATUS || process.env.GITHUB_CI_
 const requireOpenAI = process.env.REQUIRE_OPENAI !== "false";
 const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN !== "false";
 const requireClassroomConfig = process.env.REQUIRE_CLASSROOM_CONFIG !== "false";
+const requireCloudflareEdge = process.env.REQUIRE_CLOUDFLARE_EDGE === "true";
 const externalReviewFile = String(process.env.EXTERNAL_REVIEW_FILE || "").trim();
 const verifyDeployEvidenceFile = String(process.env.VERIFY_DEPLOY_EVIDENCE_FILE || "").trim();
 const classroomConfigEvidenceFile = String(process.env.CLASSROOM_CONFIG_EVIDENCE_FILE || "").trim();
@@ -51,6 +52,10 @@ if (requireTeacherToken && process.env.REQUIRE_TEACHER_TOKEN !== "true") {
 
 if (requireClassroomConfig && process.env.REQUIRE_CLASSROOM_CONFIG !== "true") {
   failures.push("REQUIRE_CLASSROOM_CONFIG=true must be recorded for filming release verification");
+}
+
+if (requireCloudflareEdge && process.env.REQUIRE_CLOUDFLARE_EDGE !== "true") {
+  failures.push("REQUIRE_CLOUDFLARE_EDGE=true must be recorded for production Cloudflare release verification");
 }
 
 const externalReview = readJsonEvidence(externalReviewFile, "EXTERNAL_REVIEW_FILE");
@@ -111,6 +116,12 @@ if (!verifyDeployEvidenceFile) {
   }
   if (deployEvidence.requireTeacherToken !== true) {
     failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must record requireTeacherToken=true");
+  }
+  if (requireCloudflareEdge && deployEvidence.requireCloudflareEdge !== true) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must record requireCloudflareEdge=true");
+  }
+  if (requireCloudflareEdge && deployEvidence.cloudflareEdge?.present !== true) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must prove Cloudflare edge headers were present");
   }
   if (!Number.isFinite(deployEvidence.totalChecks) || deployEvidence.totalChecks < 18) {
     failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must include all deploy verification checks");

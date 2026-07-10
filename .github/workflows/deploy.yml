@@ -60,6 +60,7 @@ jobs:
           VERIFY_ROOM: ${{ vars.VERIFY_ROOM || 'deploy-verify' }}
           REQUIRE_OPENAI: ${{ vars.REQUIRE_OPENAI || 'true' }}
           REQUIRE_TEACHER_TOKEN: ${{ vars.REQUIRE_TEACHER_TOKEN || 'true' }}
+          REQUIRE_CLOUDFLARE_EDGE: ${{ vars.REQUIRE_CLOUDFLARE_EDGE || 'true' }}
           EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.5' }}
           EXPECTED_OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
 

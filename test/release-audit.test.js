@@ -20,6 +20,7 @@ test("release audit passes only with review, deploy verification, CI, and commit
     REQUIRE_OPENAI: "true",
     REQUIRE_TEACHER_TOKEN: "true",
     REQUIRE_CLASSROOM_CONFIG: "true",
+    REQUIRE_CLOUDFLARE_EDGE: "true",
     EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
     VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
     CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
@@ -176,6 +177,40 @@ test("release audit rejects deploy evidence that was not strict OpenAI teacher-t
   assert.notEqual(result.code, 0);
   assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE must record requireOpenAI=true/);
   assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE must record requireTeacherToken=true/);
+});
+
+test("release audit rejects deploy evidence without Cloudflare edge proof when required", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    deployOverrides: {
+      requireCloudflareEdge: false,
+      cloudflareEdge: {
+        present: false,
+        headers: {}
+      }
+    }
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    REQUIRE_CLOUDFLARE_EDGE: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE must record requireCloudflareEdge=true/);
+  assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE must prove Cloudflare edge headers were present/);
 });
 
 test("release audit rejects classroom config evidence from deploy-verify room", async () => {
@@ -350,8 +385,15 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     prHeadSha,
     requireOpenAI: true,
     requireTeacherToken: true,
-    passedChecks: 18,
-    totalChecks: 18,
+    requireCloudflareEdge: true,
+    cloudflareEdge: {
+      present: true,
+      headers: {
+        cfRay: "test-ray"
+      }
+    },
+    passedChecks: 19,
+    totalChecks: 19,
     checks: [],
     ...deployOverrides
   }, null, 2));

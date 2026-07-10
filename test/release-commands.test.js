@@ -15,6 +15,7 @@ test("release:commands prints commit-bound deploy, classroom, review, and releas
   assert.equal(result.code, 0, result.stdout + result.stderr);
   assert.match(result.stdout, /npm run verify:deploy/);
   assert.match(result.stdout, /VERIFY_ROOM=deploy-verify/);
+  assert.match(result.stdout, /REQUIRE_CLOUDFLARE_EDGE=true/);
   assert.match(result.stdout, /WORKER_URL=https:\/\/worker\.example\.com\//);
   assert.match(result.stdout, /PR_HEAD_SHA=abc123/);
   assert.match(result.stdout, /CLASSROOM_ROOM=2026-07-13-3-5/);
