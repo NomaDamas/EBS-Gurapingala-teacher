@@ -100,6 +100,12 @@ EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<w
 WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> CLASSROOM_PLANS='2026-07-13-3-5:2:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:2:이순신 장군처럼 친절하게 설명한다.' npm run release:commands
 ```
 
+촬영방별 공유 URL은 학생용에 token이 섞이지 않도록 별도 출력한다.
+
+```bash
+WORKER_URL=https://<worker-domain> CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run classroom:urls
+```
+
 촬영반별 URL 분리 예시:
 
 ```text

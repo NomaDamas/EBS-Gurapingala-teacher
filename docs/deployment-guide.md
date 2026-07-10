@@ -50,6 +50,12 @@ https://<worker-domain>/teacher?token=<TEACHER_TOKEN>
 교사: https://<worker-domain>/teacher?room=2026-07-13-3-5&token=<TEACHER_TOKEN>
 ```
 
+공유 URL은 `classroom:urls`로 생성한다. 학생 URL에는 token이 없어야 하고, 교사용 URL은 스태프에게만 공유한다.
+
+```bash
+WORKER_URL=https://<worker-domain> CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run classroom:urls
+```
+
 `room` 값은 영문 소문자, 숫자, `_`, `-` 중심으로 정규화된다. 값을 생략하면 `default-classroom`을 사용한다.
 
 ## 3-2. Level/persona 설정 안전장치

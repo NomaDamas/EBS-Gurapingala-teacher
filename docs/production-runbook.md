@@ -8,6 +8,8 @@
 2. 촬영일·학급별 `room` 값을 정한다.
    - 예: `2026-07-13-3-5`, `2026-07-16-3-1`
    - 학생 URL과 교사용 URL은 반드시 같은 `room` 값을 사용한다.
+   - `WORKER_URL=https://<worker-domain> CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run classroom:urls`로 공유 URL을 생성한다.
+   - 학생에게 공유하는 `studentUrl`에는 `token` query가 없어야 한다.
 3. Cloudflare secret을 설정한다.
    - `OPENAI_API_KEY`: 서버에서만 사용하는 단일 OpenAI API 키다.
    - `TEACHER_TOKEN`: 교사용 대시보드와 export API 보호용 token이다.
@@ -56,6 +58,8 @@
 2. 학생 역할 기기 2대 이상에서 `/?room=<room>`로 접속하고 이름만 입력해 입장한다.
 3. 학생 화면에 이름·질문·답변·접속 상태가 교사용 대시보드에 기록된다는 고지가 보이는지 확인한다.
 4. 교사용 화면의 `학생 URL 복사`, `교사용 URL 복사` 버튼으로 공유 링크를 확인한다.
+   - 학생 URL에는 token이 없어야 한다.
+   - 교사용 URL은 스태프에게만 공유한다.
 5. 교사용 token은 localStorage에 저장된 뒤 주소창에서 제거되는지 확인한다.
 6. 교사용 화면에서 학생 카드가 online으로 보이는지 확인한다.
 7. 교사용 화면에서 Level과 persona를 바꾸고 저장되는지 확인한다.

@@ -12,6 +12,7 @@
     "readiness": "node scripts/readiness-audit.js",
     "smoke": "node scripts/smoke-worker.js",
     "preflight:deploy": "node scripts/deploy-preflight.js",
+    "classroom:urls": "node scripts/print-classroom-urls.js",
     "verify:deploy": "node scripts/verify-deploy.js",
     "rehearsal:config": "node scripts/verify-classroom-config.js",
     "review:evidence": "node scripts/write-external-review-evidence.js",
