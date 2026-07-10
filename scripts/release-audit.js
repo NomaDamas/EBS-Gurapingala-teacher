@@ -279,6 +279,9 @@ function validateClassroomConfigEvidence(classroomConfigEvidence, file, seenRoom
   if (classroomConfigEvidence.requireTeacherToken !== true) {
     failures.push(`${label} must record requireTeacherToken=true`);
   }
+  if (!hasValidClassroomHealthEvidence(classroomConfigEvidence.observedHealth)) {
+    failures.push(`${label} must include a sanitized /api/health evidence snapshot`);
+  }
   if (classroomConfigEvidence.observedConfig?.persona !== classroomConfigEvidence.expectedPersona ||
     Number(classroomConfigEvidence.observedConfig?.level) !== classroomConfigEvidence.expectedLevel) {
     failures.push(`${label} observedConfig must match expected Level/persona`);
@@ -311,6 +314,16 @@ function validateExpectedClassroomRooms(seenRooms) {
 
 function normalizeEvidenceRoom(value) {
   return String(value || "").trim();
+}
+
+function hasValidClassroomHealthEvidence(health) {
+  if (!health || typeof health !== "object") return false;
+  if (Number(health.status) !== 200) return false;
+  if (health.ok !== true) return false;
+  if (requireOpenAI && health.openaiConfigured !== true) return false;
+  if (requireTeacherToken && health.teacherProtected !== true) return false;
+  if (typeof health.openaiModel !== "string") return false;
+  return JSON.stringify(health).includes("OPENAI_API_KEY") === false;
 }
 
 function isFilmingRoom(value) {

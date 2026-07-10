@@ -109,7 +109,7 @@ EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<w
 ```
 
 `EXTERNAL_REVIEW_FILE`은 `review:evidence`가 생성한 `external-review-evidence/v1` JSON이어야 하며 `decision: "APPROVE"`, `reviewer` 또는 `model`, 실제 리뷰 산출물과 연결되는 `source.url` 또는 `source.transcriptSha256`, `prHeadSha`, pass 상태의 `evidenceChecked`, 빈 `blockingFindings`를 포함해야 한다. `VERIFY_DEPLOY_EVIDENCE_FILE`은 `verify:deploy`가 생성한 `deploy-verification-evidence/v1` JSON이어야 하며 같은 `PR_HEAD_SHA`, 같은 `WORKER_URL`, `requireOpenAI=true`, `requireTeacherToken=true`, `requireCloudflareEdge=true`, `cloudflareEdge.present=true`, Cloudflare response header evidence, sanitized `/api/health` snapshot을 기록해야 한다.
-`CLASSROOM_CONFIG_EVIDENCE_FILES`는 각 촬영방에서 `rehearsal:config`가 생성한 `classroom-config-evidence/v1` JSON 목록이어야 하며 같은 `PR_HEAD_SHA`, 같은 `WORKER_URL`, 실제 촬영/리허설 room, 기대 Level/persona와 실제 적용 config 일치를 기록해야 한다. `EXPECTED_CLASSROOM_ROOMS`는 촬영 계획의 기준 room 목록이며, 증거 파일의 `roomId` 집합과 정확히 일치해야 한다.
+`CLASSROOM_CONFIG_EVIDENCE_FILES`는 각 촬영방에서 `rehearsal:config`가 생성한 `classroom-config-evidence/v1` JSON 목록이어야 하며 같은 `PR_HEAD_SHA`, 같은 `WORKER_URL`, 실제 촬영/리허설 room, 기대 Level/persona와 실제 적용 config 일치, sanitized `/api/health` snapshot을 기록해야 한다. `EXPECTED_CLASSROOM_ROOMS`는 촬영 계획의 기준 room 목록이며, 증거 파일의 `roomId` 집합과 정확히 일치해야 한다.
 
 GitHub Actions `Deploy` workflow는 `PR_HEAD_SHA=${{ github.sha }}`와 `VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json`로 실제 URL 검증을 실행하고, 결과를 `deploy-verification-evidence` artifact로 업로드한다. 릴리즈 감사에는 이 artifact의 JSON을 그대로 사용한다.
 

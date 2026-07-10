@@ -65,6 +65,13 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
     assert.equal(evidence.roomId, "2026-07-13-3-5");
     assert.equal(evidence.prHeadSha, "abc123");
     assert.equal(evidence.expectedLevel, 2);
+    assert.deepEqual(evidence.observedHealth, {
+      status: 200,
+      ok: true,
+      openaiConfigured: true,
+      openaiModel: "gpt-5.5",
+      teacherProtected: true
+    });
     assert.equal(evidence.observedConfig.persona, "이순신 장군처럼 친절하게 설명한다.");
 
     const applyResult = await runNode(["scripts/verify-classroom-config.js"], {
@@ -94,6 +101,18 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
 
     assert.notEqual(unsafeRoomResult.code, 0);
     assert.match(unsafeRoomResult.stderr, /CLASSROOM_ROOM must be a filming\/rehearsal room/);
+
+    const missingShaResult = await runNode(["scripts/verify-classroom-config.js"], {
+      WORKER_URL: workerUrl,
+      TEACHER_TOKEN: "teacher-secret",
+      CLASSROOM_ROOM: "2026-07-13-3-5",
+      EXPECTED_FALSE_LEVEL: "2",
+      EXPECTED_PERSONA: "이순신 장군처럼 친절하게 설명한다.",
+      CLASSROOM_CONFIG_EVIDENCE_FILE: evidenceFile
+    });
+
+    assert.notEqual(missingShaResult.code, 0);
+    assert.match(missingShaResult.stderr, /PR_HEAD_SHA or GITHUB_SHA is required/);
   } finally {
     await close(server);
   }

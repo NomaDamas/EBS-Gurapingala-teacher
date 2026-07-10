@@ -333,6 +333,34 @@ test("release audit rejects classroom config evidence with mismatched observed c
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* observedConfig must match expected Level\/persona/);
 });
 
+test("release audit rejects classroom config evidence without sanitized health snapshot", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    classroomOverrides: {
+      observedHealth: undefined
+    }
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* sanitized \/api\/health evidence snapshot/);
+});
+
 test("release audit rejects duplicate classroom config evidence rooms", async () => {
   const evidence = await writeEvidenceFiles({
     prHeadSha: "abc123",
@@ -479,6 +507,13 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     expectedPersona: "이순신 장군처럼 친절하게 설명한다.",
     requireOpenAI: true,
     requireTeacherToken: true,
+    observedHealth: {
+      status: 200,
+      ok: true,
+      openaiConfigured: true,
+      openaiModel: "gpt-5.5",
+      teacherProtected: true
+    },
     observedConfig: {
       level: 2,
       persona: "이순신 장군처럼 친절하게 설명한다."
@@ -498,6 +533,13 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     expectedPersona: "관점 왜곡 실험용 역사 도우미",
     requireOpenAI: true,
     requireTeacherToken: true,
+    observedHealth: {
+      status: 200,
+      ok: true,
+      openaiConfigured: true,
+      openaiModel: "gpt-5.5",
+      teacherProtected: true
+    },
     observedConfig: {
       level: 3,
       persona: "관점 왜곡 실험용 역사 도우미"

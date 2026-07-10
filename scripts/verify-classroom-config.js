@@ -16,6 +16,7 @@ const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || ""
 const failures = [];
 if (!baseUrl) failures.push("WORKER_URL is required");
 if (!teacherToken && requireTeacherToken) failures.push("TEACHER_TOKEN is required when REQUIRE_TEACHER_TOKEN is not false");
+if (evidenceFile && !prHeadSha) failures.push("PR_HEAD_SHA or GITHUB_SHA is required when CLASSROOM_CONFIG_EVIDENCE_FILE is set");
 if (!roomId) failures.push("CLASSROOM_ROOM is required");
 if (roomId === "default-classroom" && process.env.ALLOW_DEFAULT_CLASSROOM !== "true") {
   failures.push("CLASSROOM_ROOM must not be default-classroom unless ALLOW_DEFAULT_CLASSROOM=true");
@@ -29,6 +30,7 @@ if (!expectedPersona) failures.push("EXPECTED_PERSONA is required");
 if (failures.length) exitWithFailures(failures);
 
 const results = [];
+let observedHealth = null;
 
 await check("student URL loads for classroom room", async () => {
   const res = await fetchUrl("/");
@@ -54,6 +56,13 @@ await check("teacher URL accepts token", async () => {
 await check("health matches classroom requirements", async () => {
   const res = await fetchUrl("/api/health");
   const body = await res.json();
+  observedHealth = {
+    status: res.status,
+    ok: body.ok === true,
+    openaiConfigured: body.openaiConfigured === true,
+    openaiModel: safeString(body.openaiModel),
+    teacherProtected: body.teacherProtected === true
+  };
   return res.status === 200 &&
     body.ok === true &&
     (!requireOpenAI || body.openaiConfigured === true) &&
@@ -130,6 +139,7 @@ async function writeEvidence(passed) {
     requireOpenAI,
     requireTeacherToken,
     expectedOpenAIModel,
+    observedHealth,
     observedConfig,
     checks: results
   };
@@ -177,6 +187,10 @@ function normalizeRoomId(value) {
 function normalizeExpectedLevel(value) {
   const level = Number(value);
   return Number.isInteger(level) && level >= 1 && level <= 4 ? level : 0;
+}
+
+function safeString(value) {
+  return typeof value === "string" ? value : "";
 }
 
 function exitWithFailures(items) {
