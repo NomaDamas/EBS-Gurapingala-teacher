@@ -13,6 +13,7 @@ export CLASSROOM_PLANS='2026-07-13-3-5:2:이순신 장군처럼 친절하게 설
 
 `PR_HEAD_SHA`는 촬영 직전 `gh pr view 1 --json headRefOid`로 다시 확인한다. PR head가 바뀌면 이 문서의 SHA 대신 최신 SHA로 모든 증거를 다시 생성한다.
 GitHub Actions Deploy를 쓰는 경우 저장소 secret `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `OPENAI_API_KEY`, `TEACHER_TOKEN`과 variable `WORKER_HEALTH_URL`이 먼저 설정되어 있어야 한다.
+`npm run verify:github-setup`이 통과하지 않으면 Deploy workflow를 실행하지 않는다.
 
 ## 2. 로컬 게이트
 
@@ -21,6 +22,7 @@ npm test
 npm run eval
 npm run readiness
 npm run smoke
+npm run verify:github-setup
 CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> OPENAI_API_KEY=<openai-key> WORKER_HEALTH_URL=$WORKER_URL TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run preflight:deploy
 ```
 
@@ -30,6 +32,7 @@ CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> OPENAI_API_KEY=<
 - `npm run eval`: 50/50 통과, falsehood 100%, levelFit 100%, truthLeak 0%
 - `npm run readiness`: 전체 통과
 - `npm run smoke`: 전체 통과
+- `npm run verify:github-setup`: 필수 GitHub secret/variable 이름 존재, secret 값 미출력
 - `npm run preflight:deploy`: production strict gate 통과. placeholder token, http URL, strict flag 누락이면 실패해야 한다.
 
 ## 3. 공유 URL 출력

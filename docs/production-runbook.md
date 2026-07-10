@@ -14,6 +14,7 @@
    - `OPENAI_API_KEY`: 서버에서만 사용하는 단일 OpenAI API 키다.
    - `TEACHER_TOKEN`: 교사용 대시보드와 export API 보호용 token이다.
    - GitHub Actions 배포를 쓰면 `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `OPENAI_API_KEY`, `TEACHER_TOKEN` secret과 `WORKER_HEALTH_URL`, `EXPECTED_OPENAI_MODEL`, `EXPECTED_OPENAI_TIMEOUT_MS` variable을 먼저 설정한다.
+   - `npm run verify:github-setup`으로 필수 이름이 모두 존재하는지 확인한다. 이 명령은 secret 값을 출력하지 않는다.
 4. 배포 전 로컬 게이트를 실행한다.
    - Node.js 22 이상을 사용한다.
    - `npm ci`

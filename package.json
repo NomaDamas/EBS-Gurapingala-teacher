@@ -14,6 +14,7 @@
     "smoke": "node scripts/smoke-worker.js",
     "shoot:checklist": "node scripts/print-shoot-checklist.js",
     "preflight:deploy": "node scripts/deploy-preflight.js",
+    "verify:github-setup": "node scripts/verify-github-deploy-setup.js",
     "classroom:urls": "node scripts/print-classroom-urls.js",
     "verify:deploy": "node scripts/verify-deploy.js",
     "verify:ci": "node scripts/verify-ci.js",

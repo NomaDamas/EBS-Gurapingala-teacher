@@ -95,7 +95,10 @@ gh secret set TEACHER_TOKEN
 gh variable set WORKER_HEALTH_URL --body https://<worker-domain>
 gh variable set EXPECTED_OPENAI_MODEL --body gpt-5.5
 gh variable set EXPECTED_OPENAI_TIMEOUT_MS --body 15000
+npm run verify:github-setup
 ```
+
+`verify:github-setup`은 secret 값을 출력하지 않고 필수 secret/variable 이름만 검사한다. 누락 시 필요한 `gh secret set` 또는 `gh variable set` 명령을 출력하고 실패한다.
 
 ```bash
 npm test

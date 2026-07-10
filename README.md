@@ -160,6 +160,7 @@ gh secret set CLOUDFLARE_API_TOKEN
 gh secret set OPENAI_API_KEY
 gh secret set TEACHER_TOKEN
 gh variable set WORKER_HEALTH_URL --body https://<worker-domain>
+npm run verify:github-setup
 ```
 
 로컬에서 직접 배포할 때는 Cloudflare Worker secret을 직접 설정한다.
