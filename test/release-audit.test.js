@@ -80,6 +80,46 @@ test("release audit rejects stale review or deploy evidence from an older commit
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* prHeadSha must match PR_HEAD_SHA/);
 });
 
+test("release audit rejects unstructured external review evidence", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    externalReviewOverrides: {
+      schemaVersion: "legacy-review-note",
+      evidenceChecked: {
+        ciStatus: "success",
+        testsStatus: "pass",
+        evalStatus: "pass",
+        readinessStatus: "pass",
+        smokeStatus: "pass",
+        verifyDeployStatus: "pass",
+        classroomConfigStatus: "not-run"
+      },
+      blockingFindings: ["학생에게 정답이 노출될 수 있음"]
+    }
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /schemaVersion must be external-review-evidence\/v1/);
+  assert.match(result.stderr, /evidenceChecked\.classroomConfigStatus must be pass or success/);
+  assert.match(result.stderr, /cannot include blockingFindings/);
+});
+
 test("release audit rejects deploy evidence that was not strict OpenAI teacher-token verification", async () => {
   const evidence = await writeEvidenceFiles({
     prHeadSha: "abc123",
@@ -247,16 +287,30 @@ test("release audit rejects unexpected classroom room evidence", async () => {
   assert.match(result.stderr, /contains unexpected filming room 2026-07-16-3-1/);
 });
 
-async function writeEvidenceFiles({ prHeadSha, workerUrl, deployOverrides = {}, classroomOverrides = {}, classroomTwoOverrides = {} }) {
+async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverrides = {}, deployOverrides = {}, classroomOverrides = {}, classroomTwoOverrides = {} }) {
   const dir = await mkdtemp(join(tmpdir(), "release-audit-"));
   const externalReviewFile = join(dir, "external-review.json");
   const deployEvidenceFile = join(dir, "deploy-evidence.json");
   const classroomConfigEvidenceFile = join(dir, "classroom-config-1.json");
   const secondClassroomConfigEvidenceFile = join(dir, "classroom-config-2.json");
   await writeFile(externalReviewFile, JSON.stringify({
+    schemaVersion: "external-review-evidence/v1",
     decision: "APPROVE",
     reviewer: "GPT-5.5 xhigh equivalent",
-    prHeadSha
+    prHeadSha,
+    evidenceChecked: {
+      ciStatus: "success",
+      testsStatus: "pass",
+      evalStatus: "pass",
+      readinessStatus: "pass",
+      smokeStatus: "pass",
+      verifyDeployStatus: "pass",
+      classroomConfigStatus: "pass",
+      releaseAuditStatus: "not-run"
+    },
+    blockingFindings: [],
+    nonBlockingRisks: [],
+    ...externalReviewOverrides
   }, null, 2));
   await writeFile(deployEvidenceFile, JSON.stringify({
     schemaVersion: "deploy-verification-evidence/v1",
