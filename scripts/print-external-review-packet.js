@@ -10,10 +10,13 @@ const classroomConfigStatus = String(process.env.CLASSROOM_CONFIG_STATUS || "not
 const releaseAuditStatus = String(process.env.RELEASE_AUDIT_STATUS || "not-run").trim();
 const workerUrl = String(process.env.WORKER_URL || process.env.WORKER_HEALTH_URL || "<not-yet-provided>").trim();
 const classroomRooms = String(process.env.EXPECTED_CLASSROOM_ROOMS || "2026-07-13-3-5,2026-07-16-3-1").trim();
+const classroomRoomList = parseRoomList(classroomRooms);
+const classroomConfigEvidenceFiles = classroomRoomList.map((room) => `artifacts/${room}-config.json`).join(",");
 
 const failures = [];
 if (!isUrl(prUrl)) failures.push("PR_URL is required");
 if (!prHeadSha) failures.push("PR_HEAD_SHA or GITHUB_SHA is required");
+if (classroomRoomList.length === 0) failures.push("EXPECTED_CLASSROOM_ROOMS must include at least one filming room");
 if (failures.length) {
   for (const failure of failures) console.error(`FAIL ${failure}`);
   console.error(`external review packet failed: ${failures.length} setup issue(s)`);
@@ -107,7 +110,14 @@ Final verdict:
 - 이 PR은 원래 실험 철학과 production 촬영 요구사항을 충족한다/충족하지 않는다.
 
 If and only if the final decision is APPROVE, structured evidence must be generated with:
-EXTERNAL_REVIEW_DECISION=APPROVE EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts/external-review-transcript.md PR_HEAD_SHA=${shellQuote(prHeadSha)} CI_STATUS=success TESTS_STATUS=pass EVAL_STATUS=pass READINESS_STATUS=pass SMOKE_STATUS=pass VERIFY_DEPLOY_STATUS=pass CLASSROOM_CONFIG_STATUS=pass CI_EVIDENCE_FILE=artifacts/ci-evidence.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 EXTERNAL_REVIEW_FILE=artifacts/external-review.json npm run review:evidence`);
+EXTERNAL_REVIEW_DECISION=APPROVE EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts/external-review-transcript.md PR_HEAD_SHA=${shellQuote(prHeadSha)} CI_STATUS=success TESTS_STATUS=pass EVAL_STATUS=pass READINESS_STATUS=pass SMOKE_STATUS=pass VERIFY_DEPLOY_STATUS=pass CLASSROOM_CONFIG_STATUS=pass CI_EVIDENCE_FILE=artifacts/ci-evidence.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=${shellQuote(classroomConfigEvidenceFiles)} EXPECTED_CLASSROOM_ROOMS=${shellQuote(classroomRoomList.join(","))} EXTERNAL_REVIEW_FILE=artifacts/external-review.json npm run review:evidence`);
+
+function parseRoomList(value) {
+  return String(value || "")
+    .split(",")
+    .map((room) => room.trim())
+    .filter(Boolean);
+}
 
 function isUrl(value) {
   try {

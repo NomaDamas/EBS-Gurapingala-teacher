@@ -93,7 +93,8 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       EXPECTED_PERSONA: "관점 왜곡 실험용 역사 도우미",
       APPLY_CLASSROOM_CONFIG: "true",
       REQUIRE_OPENAI: "true",
-      EXPECTED_OPENAI_MODEL: "gpt-5.5"
+      EXPECTED_OPENAI_MODEL: "gpt-5.5",
+      EXPECTED_OPENAI_TIMEOUT_MS: "15000"
     });
 
     assert.equal(applyResult.code, 0, applyResult.stdout + applyResult.stderr);
@@ -139,6 +140,19 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
 
     assert.notEqual(missingModelResult.code, 0);
     assert.match(missingModelResult.stderr, /EXPECTED_OPENAI_MODEL is required when REQUIRE_OPENAI=true/);
+
+    const missingTimeoutResult = await runNode(["scripts/verify-classroom-config.js"], {
+      WORKER_URL: workerUrl,
+      TEACHER_TOKEN: "teacher-secret",
+      CLASSROOM_ROOM: "2026-07-13-3-5",
+      EXPECTED_FALSE_LEVEL: "2",
+      EXPECTED_PERSONA: "이순신 장군처럼 친절하게 설명한다.",
+      REQUIRE_OPENAI: "true",
+      EXPECTED_OPENAI_MODEL: "gpt-5.5"
+    });
+
+    assert.notEqual(missingTimeoutResult.code, 0);
+    assert.match(missingTimeoutResult.stderr, /EXPECTED_OPENAI_TIMEOUT_MS is required when REQUIRE_OPENAI=true/);
   } finally {
     await close(server);
   }

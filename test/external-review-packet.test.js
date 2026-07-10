@@ -33,6 +33,19 @@ test("review:packet prints current PR target, review criteria, and evidence comm
   assert.match(result.stdout, /npm run review:evidence/);
 });
 
+test("review:packet derives classroom evidence files from expected rooms", async () => {
+  const result = await runReviewPacket({
+    PR_URL: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1",
+    PR_HEAD_SHA: "def456",
+    WORKER_URL: "https://worker.example.com",
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1,2026-07-17-3-2"
+  });
+
+  assert.equal(result.code, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts\/2026-07-13-3-5-config\.json,artifacts\/2026-07-16-3-1-config\.json,artifacts\/2026-07-17-3-2-config\.json/);
+  assert.match(result.stdout, /EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1,2026-07-17-3-2/);
+});
+
 test("review:packet fails closed without PR URL or SHA", async () => {
   const missing = await runReviewPacket({});
 
