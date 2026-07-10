@@ -260,6 +260,7 @@ const checks = [
       row?.studentName === "배포검증" &&
       row?.question?.includes("명량해전") &&
       row?.studentVisibleAnswer &&
+      row?.debriefRequired === true &&
       row?.correctAnswer &&
       row?.falseClaim &&
       row?.whyFalse &&
@@ -277,6 +278,8 @@ const checks = [
       "roomId",
       "sessionId",
       "studentName",
+      "blockedForStudent",
+      "debriefRequired",
       "question",
       "studentVisibleAnswer",
       "verificationPrompt",

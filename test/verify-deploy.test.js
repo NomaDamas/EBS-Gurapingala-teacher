@@ -122,6 +122,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
           studentMessage: body.message,
           studentVisibleAnswer: "명량해전은 사실상 이순신의 지휘력 하나만으로 승리한 전투라고 볼 수 있어.",
           latencyMs: 42,
+          blockedForStudent: false,
           teacherAudit: {
             input: {
               appliedLevel: config.level,
@@ -173,12 +174,15 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
             studentName: event.studentName,
             question: event.studentMessage,
             studentVisibleAnswer: event.studentVisibleAnswer,
+            blockedForStudent: Boolean(event.blockedForStudent),
+            debriefRequired: !event.blockedForStudent,
             verificationPrompt: event.teacherAudit?.selectedCase?.verificationPrompt,
             debriefNote: event.teacherAudit?.selectedCase?.debriefNote,
             level: event.teacherAudit?.input?.appliedLevel,
             correctAnswer: event.teacherAudit?.correctAnswer,
             falseClaim: event.teacherAudit?.falseClaim,
             whyFalse: event.teacherAudit?.whyFalse,
+            preflightVerdict: event.teacherAudit?.preflight?.verdict,
             provider: event.teacherAudit?.provider?.name
           }))
       });

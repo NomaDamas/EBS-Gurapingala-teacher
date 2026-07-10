@@ -51,12 +51,32 @@ test("buildDebriefRows는 채팅 턴을 정정 수업용 행으로 변환한다"
   assert.equal(rows[0].studentName, "민준");
   assert.equal(rows[0].latencyMs, 842);
   assert.equal(rows[0].blockedForStudent, false);
+  assert.equal(rows[0].debriefRequired, true);
   assert.equal(rows[0].topic, "명량해전 전력");
   assert.ok(rows[0].verificationPrompt.includes("승리 요인"));
   assert.ok(rows[0].debriefNote.includes("정정"));
   assert.equal(rows[0].level, 2);
   assert.ok(rows[0].correctAnswer.includes("12척"));
   assert.ok(rows[0].whyFalse.includes("Level 2"));
+});
+
+test("buildDebriefRows는 학생에게 숨긴 fail-closed 턴을 정정 필수 대상에서 제외한다", () => {
+  const rows = buildDebriefRows([
+    {
+      ...EVENTS[2],
+      blockedForStudent: true,
+      studentVisibleAnswer: "답변을 다시 물어봐 줘.",
+      teacherAudit: {
+        ...EVENTS[2].teacherAudit,
+        preflight: { verdict: "FAIL_CLOSED_AFTER_RETRIES" }
+      }
+    }
+  ]);
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].blockedForStudent, true);
+  assert.equal(rows[0].debriefRequired, false);
+  assert.equal(rows[0].preflightVerdict, "FAIL_CLOSED_AFTER_RETRIES");
 });
 
 test("summarizeSessions는 heartbeat 기준 online 상태와 턴 수를 계산한다", () => {
@@ -133,9 +153,10 @@ test("buildDebriefCsv는 스프레드시트용 CSV를 생성하고 특수문자�
     }
   ]);
 
-  assert.ok(csv.startsWith("roomId,sessionId,studentName,at,latencyMs,blockedForStudent,question"));
+  assert.ok(csv.startsWith("roomId,sessionId,studentName,at,latencyMs,blockedForStudent,debriefRequired,question"));
   assert.ok(csv.includes('"842"'));
   assert.ok(csv.includes('"false"'));
+  assert.ok(csv.includes('"true"'));
   assert.ok(csv.includes("verificationPrompt"));
   assert.ok(csv.includes("debriefNote"));
   assert.ok(csv.includes('"2026-07-13-3-5"'));
