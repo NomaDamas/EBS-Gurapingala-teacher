@@ -179,6 +179,12 @@ if (!verifyDeployEvidenceFile) {
   if (!hasValidDeployHealthEvidence(deployEvidence.health)) {
     failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must include a sanitized /api/health evidence snapshot");
   }
+  if (!isSafeDeployVerifyRoom(deployEvidence.verifyRoom)) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE verifyRoom must be a deploy verification room, not a filming room");
+  }
+  if (!hasValidSharingUrls(deployEvidence.sharingUrls, deployEvidence.verifyRoom, workerUrl)) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must include student/teacher sharing URL evidence with no student token");
+  }
   if (!String(deployEvidence.expectedOpenAIModel || "").trim()) {
     failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must record expectedOpenAIModel");
   } else if (deployEvidence.health?.openaiModel !== deployEvidence.expectedOpenAIModel) {
@@ -430,7 +436,7 @@ function validateClassroomConfigEvidence(classroomConfigEvidence, file, seenRoom
     Number(classroomConfigEvidence.observedConfig?.level) !== classroomConfigEvidence.expectedLevel) {
     failures.push(`${label} observedConfig must match expected Level/persona`);
   }
-  if (!hasValidClassroomSharingUrls(classroomConfigEvidence.sharingUrls, classroomConfigEvidence.roomId, workerUrl)) {
+  if (!hasValidSharingUrls(classroomConfigEvidence.sharingUrls, classroomConfigEvidence.roomId, workerUrl)) {
     failures.push(`${label} must include student/teacher sharing URL evidence with no student token`);
   }
   if (!Array.isArray(classroomConfigEvidence.checks) || classroomConfigEvidence.checks.some((check) => check?.passed !== true)) {
@@ -496,7 +502,7 @@ function hasValidClassroomHealthEvidence(health) {
   return JSON.stringify(health).includes("OPENAI_API_KEY") === false;
 }
 
-function hasValidClassroomSharingUrls(sharingUrls, roomId, expectedWorkerUrl) {
+function hasValidSharingUrls(sharingUrls, roomId, expectedWorkerUrl) {
   if (!sharingUrls || typeof sharingUrls !== "object") return false;
   if (sharingUrls.studentUrlHasToken !== false) return false;
   if (sharingUrls.teacherUrlRequiresToken !== true) return false;
@@ -519,10 +525,19 @@ function hasValidClassroomSharingUrls(sharingUrls, roomId, expectedWorkerUrl) {
   return teacherUrl.searchParams.get("token") === "<TEACHER_TOKEN>";
 }
 
+function hasValidClassroomSharingUrls(sharingUrls, roomId, expectedWorkerUrl) {
+  return hasValidSharingUrls(sharingUrls, roomId, expectedWorkerUrl);
+}
+
 function isFilmingRoom(value) {
   const room = String(value || "").trim();
   return Boolean(room) &&
     room !== "default-classroom" &&
     room !== "deploy-verify" &&
     !room.startsWith("deploy-verify-");
+}
+
+function isSafeDeployVerifyRoom(value) {
+  const room = String(value || "").trim();
+  return room === "deploy-verify" || room.startsWith("deploy-verify-");
 }

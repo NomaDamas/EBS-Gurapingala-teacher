@@ -413,6 +413,7 @@ async function writeDeployEvidence(file, passed, results) {
     requireCloudflareEdge,
     cloudflareEdge,
     health,
+    sharingUrls: buildSharingUrlEvidence(),
     expectedOpenAIModel,
     expectedOpenAITimeoutMs: expectedOpenAITimeoutMs || null,
     passedChecks: results.filter((result) => result.passed).length,
@@ -461,6 +462,27 @@ async function getHealthEvidence() {
       error: error instanceof Error ? error.message : String(error)
     };
   }
+}
+
+function buildSharingUrlEvidence() {
+  const studentUrl = buildShareUrl("/", "");
+  const teacherUrlTemplate = buildShareUrl("/teacher", "<TEACHER_TOKEN>");
+  return {
+    studentUrl,
+    teacherUrlTemplate,
+    studentUrlHasToken: new URL(studentUrl).searchParams.has("token"),
+    teacherUrlRequiresToken: new URL(teacherUrlTemplate).searchParams.get("token") === "<TEACHER_TOKEN>"
+  };
+}
+
+function buildShareUrl(pathname, tokenPlaceholder) {
+  const url = new URL(baseUrl);
+  url.pathname = pathname;
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("room", verifyRoomId);
+  if (tokenPlaceholder) url.searchParams.set("token", tokenPlaceholder);
+  return url.toString().replace("%3CTEACHER_TOKEN%3E", "<TEACHER_TOKEN>");
 }
 
 function safeString(value) {

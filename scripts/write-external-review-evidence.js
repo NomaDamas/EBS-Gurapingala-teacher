@@ -182,6 +182,12 @@ function validateDeployEvidenceArtifact(artifact) {
   if (!hasValidDeployHealthEvidence(artifact.health)) {
     failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must include a sanitized /api/health evidence snapshot");
   }
+  if (!isSafeDeployVerifyRoom(artifact.verifyRoom)) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE verifyRoom must be a deploy verification room, not a filming room");
+  }
+  if (!hasValidClassroomSharingUrls(artifact.sharingUrls, artifact.verifyRoom, artifact.workerUrl)) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must include student/teacher sharing URL evidence with no student token");
+  }
   if (!String(artifact.expectedOpenAIModel || "").trim()) {
     failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must record expectedOpenAIModel");
   } else if (artifact.health?.openaiModel !== artifact.expectedOpenAIModel) {
@@ -332,6 +338,7 @@ async function hashEvidenceFile(file) {
     if (json.totalChecks !== undefined) artifact.totalChecks = json.totalChecks;
     if (json.checkRun) artifact.checkRun = json.checkRun;
     if (json.roomId) artifact.roomId = json.roomId;
+    if (json.verifyRoom) artifact.verifyRoom = json.verifyRoom;
     if (json.expectedLevel !== undefined) artifact.expectedLevel = json.expectedLevel;
     if (json.expectedPersona !== undefined) artifact.expectedPersona = json.expectedPersona;
     if (json.expectedOpenAIModel !== undefined) artifact.expectedOpenAIModel = json.expectedOpenAIModel;
@@ -470,6 +477,11 @@ function isFilmingRoom(value) {
     room !== "default-classroom" &&
     room !== "deploy-verify" &&
     !room.startsWith("deploy-verify-");
+}
+
+function isSafeDeployVerifyRoom(value) {
+  const room = String(value || "").trim();
+  return room === "deploy-verify" || room.startsWith("deploy-verify-");
 }
 
 function parseList(value) {

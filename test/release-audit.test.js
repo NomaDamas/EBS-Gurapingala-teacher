@@ -586,6 +586,73 @@ test("release audit rejects deploy evidence with mismatched expected OpenAI mode
   assert.match(timeoutResult.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE health\.openaiTimeoutMs must match expectedOpenAITimeoutMs/);
 });
 
+test("release audit rejects deploy evidence without safe sharing URLs", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    deployOverrides: {
+      sharingUrls: {
+        studentUrl: "https://ebs-gurapingala-teacher.example.workers.dev/?room=deploy-verify&token=leaked",
+        teacherUrlTemplate: "https://ebs-gurapingala-teacher.example.workers.dev/teacher?room=deploy-verify",
+        studentUrlHasToken: true,
+        teacherUrlRequiresToken: false
+      }
+    }
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE must include student\/teacher sharing URL evidence with no student token/);
+});
+
+test("release audit rejects deploy evidence that purged a filming room", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    deployOverrides: {
+      verifyRoom: "2026-07-13-3-5",
+      sharingUrls: {
+        studentUrl: "https://ebs-gurapingala-teacher.example.workers.dev/?room=2026-07-13-3-5",
+        teacherUrlTemplate: "https://ebs-gurapingala-teacher.example.workers.dev/teacher?room=2026-07-13-3-5&token=<TEACHER_TOKEN>",
+        studentUrlHasToken: false,
+        teacherUrlRequiresToken: true
+      }
+    }
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE verifyRoom must be a deploy verification room/);
+});
+
 test("release audit rejects classroom config evidence from deploy-verify room", async () => {
   const evidence = await writeEvidenceFiles({
     prHeadSha: "abc123",
@@ -922,6 +989,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     status: "pass",
     workerUrl,
     prHeadSha,
+    verifyRoom: "deploy-verify",
     requireOpenAI: true,
     requireTeacherToken: true,
     requireCloudflareEdge: true,
@@ -946,6 +1014,12 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     },
     passedChecks: 19,
     totalChecks: 19,
+    sharingUrls: {
+      studentUrl: `${workerUrl}?room=deploy-verify`,
+      teacherUrlTemplate: `${workerUrl.replace(/\/$/, "")}/teacher?room=deploy-verify&token=<TEACHER_TOKEN>`,
+      studentUrlHasToken: false,
+      teacherUrlRequiresToken: true
+    },
     checks: [],
     ...deployOverrides
   }, null, 2);

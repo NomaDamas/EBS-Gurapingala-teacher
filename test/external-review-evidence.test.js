@@ -276,6 +276,41 @@ test("review:evidence rejects approval when deploy health mismatches expected Op
   assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE health\.openaiTimeoutMs must match expectedOpenAITimeoutMs/);
 });
 
+test("review:evidence rejects approval when deploy evidence lacks safe sharing URLs", async () => {
+  const artifacts = await writeGateArtifacts({
+    deploy: {
+      sharingUrls: {
+        studentUrl: "https://ebs-gurapingala-teacher.example.workers.dev/?room=deploy-verify&token=leaked",
+        teacherUrlTemplate: "https://ebs-gurapingala-teacher.example.workers.dev/teacher?room=deploy-verify",
+        studentUrlHasToken: true,
+        teacherUrlRequiresToken: false
+      }
+    }
+  });
+  const result = await runReviewEvidence(validApprovalEnv(artifacts));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE must include student\/teacher sharing URL evidence with no student token/);
+});
+
+test("review:evidence rejects approval when deploy evidence uses a filming room", async () => {
+  const artifacts = await writeGateArtifacts({
+    deploy: {
+      verifyRoom: "2026-07-13-3-5",
+      sharingUrls: {
+        studentUrl: "https://ebs-gurapingala-teacher.example.workers.dev/?room=2026-07-13-3-5",
+        teacherUrlTemplate: "https://ebs-gurapingala-teacher.example.workers.dev/teacher?room=2026-07-13-3-5&token=<TEACHER_TOKEN>",
+        studentUrlHasToken: false,
+        teacherUrlRequiresToken: true
+      }
+    }
+  });
+  const result = await runReviewEvidence(validApprovalEnv(artifacts));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE verifyRoom must be a deploy verification room/);
+});
+
 test("review:evidence rejects approval when classroom evidence points to deploy verification room", async () => {
   const artifacts = await writeGateArtifacts({
     classroom: { roomId: "deploy-verify" }
@@ -473,12 +508,14 @@ async function writeGateArtifacts(overrides = {}) {
 }
 
 function buildDeployEvidence(overrides = {}) {
+  const workerUrl = "https://ebs-gurapingala-teacher.example.workers.dev/";
   return {
     schemaVersion: "deploy-verification-evidence/v1",
     generatedAt: "2026-07-10T00:01:00.000Z",
     status: "pass",
-    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    workerUrl,
     prHeadSha: "abc123",
+    verifyRoom: "deploy-verify",
     requireOpenAI: true,
     requireTeacherToken: true,
     requireCloudflareEdge: true,
@@ -499,6 +536,12 @@ function buildDeployEvidence(overrides = {}) {
     },
     expectedOpenAIModel: "gpt-5.5",
     expectedOpenAITimeoutMs: 15000,
+    sharingUrls: {
+      studentUrl: `${workerUrl}?room=deploy-verify`,
+      teacherUrlTemplate: `${workerUrl}teacher?room=deploy-verify&token=<TEACHER_TOKEN>`,
+      studentUrlHasToken: false,
+      teacherUrlRequiresToken: true
+    },
     passedChecks: 19,
     totalChecks: 19,
     ...overrides

@@ -252,9 +252,16 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.equal(evidence.status, "pass");
     assert.equal(evidence.prHeadSha, "abc123");
     assert.equal(evidence.workerUrl, `${workerUrl}/`);
+    assert.equal(evidence.verifyRoom, "deploy-verify");
     assert.equal(evidence.passedChecks, 19);
     assert.equal(evidence.totalChecks, 19);
     assert.equal(evidence.checks.length, 19);
+    assert.deepEqual(evidence.sharingUrls, {
+      studentUrl: `${workerUrl}/?room=deploy-verify`,
+      teacherUrlTemplate: `${workerUrl}/teacher?room=deploy-verify&token=<TEACHER_TOKEN>`,
+      studentUrlHasToken: false,
+      teacherUrlRequiresToken: true
+    });
     assert.equal(evidence.requireCloudflareEdge, false);
     assert.equal(evidence.cloudflareEdge.present, true);
     assert.deepEqual(evidence.health, {
