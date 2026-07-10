@@ -2,6 +2,7 @@ const workerUrl = normalizeBaseUrl(process.env.WORKER_URL || process.env.WORKER_
 const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "").trim();
 const expectedOpenAIModel = String(process.env.EXPECTED_OPENAI_MODEL || "gpt-5.5").trim();
 const expectedOpenAITimeoutMs = String(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "15000").trim();
+const classroomChatProof = process.env.CLASSROOM_CHAT_PROOF === "true";
 const teacherToken = process.env.TEACHER_TOKEN ? "$TEACHER_TOKEN" : "<TEACHER_TOKEN>";
 const cloudflareAccountId = process.env.CLOUDFLARE_ACCOUNT_ID ? "$CLOUDFLARE_ACCOUNT_ID" : "<CLOUDFLARE_ACCOUNT_ID>";
 const cloudflareApiToken = process.env.CLOUDFLARE_API_TOKEN ? "$CLOUDFLARE_API_TOKEN" : "<CLOUDFLARE_API_TOKEN>";
@@ -72,9 +73,12 @@ console.log([
 ].join(" "));
 console.log("");
 console.log("## 4. Verify each filming classroom room");
+if (classroomChatProof) {
+  console.log("# CLASSROOM_CHAT_PROOF=true adds one setting-validation chat turn to each room.");
+}
 for (const [index, plan] of plans.entries()) {
   console.log(`# Room ${index + 1}: ${plan.roomId}`);
-  console.log([
+  const command = [
     `WORKER_URL=${shellQuote(workerUrl)}`,
     `TEACHER_TOKEN=${teacherToken}`,
     `CLASSROOM_ROOM=${shellQuote(plan.roomId)}`,
@@ -86,8 +90,10 @@ for (const [index, plan] of plans.entries()) {
     `EXPECTED_OPENAI_TIMEOUT_MS=${shellQuote(expectedOpenAITimeoutMs)}`,
     `PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
     `CLASSROOM_CONFIG_EVIDENCE_FILE=${shellQuote(classroomEvidenceFiles[index])}`,
+    classroomChatProof ? "VERIFY_CLASSROOM_CHAT=true" : "",
     "npm run rehearsal:config"
-  ].join(" "));
+  ].filter(Boolean);
+  console.log(command.join(" "));
 }
 console.log("");
 console.log("## 5. Write structured external review evidence after APPROVE");

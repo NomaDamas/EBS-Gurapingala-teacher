@@ -104,6 +104,8 @@ EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<w
 WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> CLASSROOM_PLANS='2026-07-13-3-5:2:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:2:이순신 장군처럼 친절하게 설명한다.' npm run release:commands
 ```
 
+교사 설정이 실제 `/api/chat` 감사 JSON까지 반영되는지 증거가 필요하면 `CLASSROOM_CHAT_PROOF=true`를 함께 준다. 이 옵션은 각 촬영방에 `설정검증` 채팅 1턴을 남기므로 실제 촬영 직전에는 의도적으로만 사용한다.
+
 촬영방별 공유 URL은 학생용에 token이 섞이지 않도록 별도 출력한다.
 
 ```bash

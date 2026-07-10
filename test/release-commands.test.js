@@ -29,6 +29,7 @@ test("release:commands prints commit-bound deploy, classroom, review, and releas
   assert.match(result.stdout, /CLASSROOM_ROOM=2026-07-13-3-5/);
   assert.match(result.stdout, /EXPECTED_FALSE_LEVEL=2/);
   assert.match(result.stdout, /CLASSROOM_ROOM=2026-07-13-3-5[\s\S]*EXPECTED_OPENAI_TIMEOUT_MS=15000[\s\S]*npm run rehearsal:config/);
+  assert.doesNotMatch(result.stdout, /VERIFY_CLASSROOM_CHAT=true/);
   assert.match(result.stdout, /CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts\/2026-07-16-3-1-config\.json/);
   assert.match(result.stdout, /npm run review:evidence/);
   assert.match(result.stdout, /EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts\/external-review-transcript\.md/);
@@ -36,6 +37,20 @@ test("release:commands prints commit-bound deploy, classroom, review, and releas
   assert.match(result.stdout, /EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1/);
   assert.match(result.stdout, /npm run release:audit/);
   assert.match(result.stdout, /CI_HEAD_SHA=abc123/);
+});
+
+test("release:commands can intentionally add classroom chat audit proof to rehearsal commands", async () => {
+  const result = await runReleaseCommands({
+    WORKER_URL: "https://worker.example.com",
+    PR_HEAD_SHA: "abc123",
+    CLASSROOM_CHAT_PROOF: "true",
+    CLASSROOM_PLANS: "2026-07-13-3-5:2:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:2:이순신 장군처럼 친절하게 설명한다."
+  });
+
+  assert.equal(result.code, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /CLASSROOM_CHAT_PROOF=true adds one setting-validation chat turn/);
+  assert.match(result.stdout, /CLASSROOM_ROOM=2026-07-13-3-5[\s\S]*VERIFY_CLASSROOM_CHAT=true[\s\S]*npm run rehearsal:config/);
+  assert.match(result.stdout, /CLASSROOM_ROOM=2026-07-16-3-1[\s\S]*VERIFY_CLASSROOM_CHAT=true[\s\S]*npm run rehearsal:config/);
 });
 
 test("release:commands rejects missing room plan and deploy-verify classroom room", async () => {
