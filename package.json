@@ -16,6 +16,7 @@
     "rehearsal:config": "node scripts/verify-classroom-config.js",
     "review:evidence": "node scripts/write-external-review-evidence.js",
     "release:audit": "node scripts/release-audit.js",
+    "release:commands": "node scripts/print-release-commands.js",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail"

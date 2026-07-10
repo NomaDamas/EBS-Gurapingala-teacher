@@ -42,6 +42,10 @@
    - 설정까지 적용해야 할 때만 `APPLY_CLASSROOM_CONFIG=true`를 붙인다.
    - `CLASSROOM_ROOM`은 실제 촬영/리허설 room이어야 하며 `deploy-verify` room은 거절된다.
    - 생성되는 `classroom-config-evidence/v1` JSON은 촬영 room, 기대 Level/persona, health 조건, 실제 적용 config를 기록한다.
+9. 릴리즈 증거 명령을 한 번에 출력해 운영자가 같은 SHA/room/evidence path를 쓰는지 확인한다.
+   - `WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> CLASSROOM_PLANS='2026-07-13-3-5:2:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:2:이순신 장군처럼 친절하게 설명한다.' npm run release:commands`
+   - 출력된 명령은 `verify:deploy`, 각 촬영방 `rehearsal:config`, `review:evidence`, `release:audit` 순서로 실행한다.
+   - `release:commands`는 `deploy-verify`를 촬영방으로 쓰는 계획을 거절한다.
 
 ## 2. 리허설
 

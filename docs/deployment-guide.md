@@ -107,6 +107,12 @@ EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<w
 
 GitHub Actions `Deploy` workflow는 `PR_HEAD_SHA=${{ github.sha }}`와 `VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json`로 실제 URL 검증을 실행하고, 결과를 `deploy-verification-evidence` artifact로 업로드한다. 릴리즈 감사에는 이 artifact의 JSON을 그대로 사용한다.
 
+릴리즈 당일에는 `release:commands`로 같은 `WORKER_URL`, `PR_HEAD_SHA`, 촬영방 계획에서 증거 생성 명령을 출력한 뒤 순서대로 실행한다.
+
+```bash
+WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> CLASSROOM_PLANS='2026-07-13-3-5:2:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:2:이순신 장군처럼 친절하게 설명한다.' npm run release:commands
+```
+
 GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 
 필요한 repository/environment secrets:
