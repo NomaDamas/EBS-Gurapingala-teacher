@@ -31,6 +31,22 @@ if (!isSafeVerifyRoom(verifyRoom)) {
   failures.push("VERIFY_ROOM must be deploy-verify or deploy-verify-<suffix>; never use a filming room for deploy verification");
 }
 
+if (isProduction) {
+  for (const [name, expected] of [
+    ["REQUIRE_OPENAI", "true"],
+    ["REQUIRE_TEACHER_TOKEN", "true"],
+    ["REQUIRE_CLOUDFLARE_EDGE", "true"]
+  ]) {
+    if (process.env[name] !== expected) failures.push(`${name}=true is required for production deploy preflight`);
+  }
+  if (!isHttpsWorkerUrl(process.env.WORKER_HEALTH_URL)) {
+    failures.push("WORKER_HEALTH_URL must be an https Cloudflare Worker URL for production deploy preflight");
+  }
+  if (!process.env.EXPECTED_OPENAI_TIMEOUT_MS) {
+    failures.push("EXPECTED_OPENAI_TIMEOUT_MS is required for production deploy preflight");
+  }
+}
+
 const expectedTimeout = process.env.EXPECTED_OPENAI_TIMEOUT_MS || "15000";
 if (!isValidTimeout(expectedTimeout)) {
   failures.push("EXPECTED_OPENAI_TIMEOUT_MS must be an integer between 1000 and 60000");
@@ -38,6 +54,10 @@ if (!isValidTimeout(expectedTimeout)) {
 
 if ((process.env.REQUIRE_OPENAI || "true") === "true" && !process.env.EXPECTED_OPENAI_MODEL) {
   failures.push("EXPECTED_OPENAI_MODEL is required when REQUIRE_OPENAI=true");
+}
+
+if (process.env.TEACHER_TOKEN && /^<.*>$/.test(process.env.TEACHER_TOKEN.trim())) {
+  failures.push("TEACHER_TOKEN must be the real secret value, not a placeholder");
 }
 
 const wrangler = readFileSync("wrangler.toml", "utf8");
@@ -69,6 +89,15 @@ function isNode22OrNewer(version) {
 function isValidTimeout(value) {
   const n = Number(value);
   return Number.isInteger(n) && n >= 1000 && n <= 60000;
+}
+
+function isHttpsWorkerUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    return url.protocol === "https:" && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
 }
 
 function normalizeRoomId(value) {

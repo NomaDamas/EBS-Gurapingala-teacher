@@ -12,6 +12,7 @@ test("deploy preflight passes with production deployment requirements", async ()
     VERIFY_ROOM: "deploy-verify",
     REQUIRE_OPENAI: "true",
     REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLOUDFLARE_EDGE: "true",
     EXPECTED_OPENAI_MODEL: "gpt-5.5",
     EXPECTED_OPENAI_TIMEOUT_MS: "15000"
   });
@@ -34,6 +35,32 @@ test("deploy preflight fails closed when production secrets are missing", async 
   assert.match(result.stderr, /CLOUDFLARE_API_TOKEN is required/);
   assert.match(result.stderr, /WORKER_HEALTH_URL is required/);
   assert.match(result.stderr, /TEACHER_TOKEN is required/);
+  assert.match(result.stderr, /REQUIRE_TEACHER_TOKEN=true is required/);
+  assert.match(result.stderr, /REQUIRE_CLOUDFLARE_EDGE=true is required/);
+  assert.match(result.stderr, /EXPECTED_OPENAI_TIMEOUT_MS is required/);
+});
+
+test("deploy preflight rejects unsafe production verification settings", async () => {
+  const result = await runPreflight({
+    DEPLOY_ENVIRONMENT: "production",
+    CLOUDFLARE_ACCOUNT_ID: "account-id",
+    CLOUDFLARE_API_TOKEN: "api-token",
+    WORKER_HEALTH_URL: "http://worker.example.com",
+    TEACHER_TOKEN: "<TEACHER_TOKEN>",
+    VERIFY_ROOM: "deploy-verify",
+    REQUIRE_OPENAI: "false",
+    REQUIRE_TEACHER_TOKEN: "false",
+    REQUIRE_CLOUDFLARE_EDGE: "false",
+    EXPECTED_OPENAI_MODEL: "gpt-5.5",
+    EXPECTED_OPENAI_TIMEOUT_MS: "15000"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /REQUIRE_OPENAI=true is required/);
+  assert.match(result.stderr, /REQUIRE_TEACHER_TOKEN=true is required/);
+  assert.match(result.stderr, /REQUIRE_CLOUDFLARE_EDGE=true is required/);
+  assert.match(result.stderr, /WORKER_HEALTH_URL must be an https Cloudflare Worker URL/);
+  assert.match(result.stderr, /TEACHER_TOKEN must be the real secret value/);
 });
 
 test("deploy preflight rejects filming rooms for verification purge", async () => {

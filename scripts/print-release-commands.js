@@ -3,6 +3,8 @@ const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || ""
 const expectedOpenAIModel = String(process.env.EXPECTED_OPENAI_MODEL || "gpt-5.5").trim();
 const expectedOpenAITimeoutMs = String(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "15000").trim();
 const teacherToken = process.env.TEACHER_TOKEN ? "$TEACHER_TOKEN" : "<TEACHER_TOKEN>";
+const cloudflareAccountId = process.env.CLOUDFLARE_ACCOUNT_ID ? "$CLOUDFLARE_ACCOUNT_ID" : "<CLOUDFLARE_ACCOUNT_ID>";
+const cloudflareApiToken = process.env.CLOUDFLARE_API_TOKEN ? "$CLOUDFLARE_API_TOKEN" : "<CLOUDFLARE_API_TOKEN>";
 const reviewer = shellQuote(process.env.EXTERNAL_REVIEWER || "GPT-5.5 xhigh equivalent");
 const reviewSource = process.env.EXTERNAL_REVIEW_SOURCE_URL
   ? `EXTERNAL_REVIEW_SOURCE_URL=${shellQuote(process.env.EXTERNAL_REVIEW_SOURCE_URL)}`
@@ -30,7 +32,23 @@ const expectedRooms = plans.map((plan) => plan.roomId).join(",");
 console.log("# EBS classroom release evidence commands");
 console.log("# Run these after GitHub CI is green and the real Cloudflare Worker is deployed.");
 console.log("");
-console.log("## 1. Verify latest PR CI");
+console.log("## 1. Fail closed on production deploy prerequisites");
+console.log([
+  "DEPLOY_ENVIRONMENT=production",
+  `CLOUDFLARE_ACCOUNT_ID=${cloudflareAccountId}`,
+  `CLOUDFLARE_API_TOKEN=${cloudflareApiToken}`,
+  `WORKER_HEALTH_URL=${shellQuote(workerUrl)}`,
+  `TEACHER_TOKEN=${teacherToken}`,
+  "VERIFY_ROOM=deploy-verify",
+  "REQUIRE_OPENAI=true",
+  "REQUIRE_TEACHER_TOKEN=true",
+  "REQUIRE_CLOUDFLARE_EDGE=true",
+  `EXPECTED_OPENAI_MODEL=${shellQuote(expectedOpenAIModel)}`,
+  `EXPECTED_OPENAI_TIMEOUT_MS=${shellQuote(expectedOpenAITimeoutMs)}`,
+  "npm run preflight:deploy"
+].join(" "));
+console.log("");
+console.log("## 2. Verify latest PR CI");
 console.log([
   "PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1",
   `PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
@@ -38,7 +56,7 @@ console.log([
   "npm run verify:ci"
 ].join(" "));
 console.log("");
-console.log("## 2. Verify deployed Worker");
+console.log("## 3. Verify deployed Worker");
 console.log([
   `WORKER_URL=${shellQuote(workerUrl)}`,
   `TEACHER_TOKEN=${teacherToken}`,
@@ -53,7 +71,7 @@ console.log([
   "npm run verify:deploy"
 ].join(" "));
 console.log("");
-console.log("## 3. Verify each filming classroom room");
+console.log("## 4. Verify each filming classroom room");
 for (const [index, plan] of plans.entries()) {
   console.log(`# Room ${index + 1}: ${plan.roomId}`);
   console.log([
@@ -72,7 +90,7 @@ for (const [index, plan] of plans.entries()) {
   ].join(" "));
 }
 console.log("");
-console.log("## 4. Write structured external review evidence after APPROVE");
+console.log("## 5. Write structured external review evidence after APPROVE");
 console.log([
   "EXTERNAL_REVIEW_DECISION=APPROVE",
   `EXTERNAL_REVIEWER=${reviewer}`,
@@ -93,7 +111,7 @@ console.log([
   "npm run review:evidence"
 ].join(" "));
 console.log("");
-console.log("## 5. Final release audit");
+console.log("## 6. Final release audit");
 console.log([
   "EXTERNAL_REVIEW_DECISION=APPROVE",
   "VERIFY_DEPLOY_STATUS=pass",

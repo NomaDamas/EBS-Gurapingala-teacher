@@ -20,6 +20,7 @@ npm test
 npm run eval
 npm run readiness
 npm run smoke
+CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> WORKER_HEALTH_URL=$WORKER_URL TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run preflight:deploy
 ```
 
 기대 결과:
@@ -28,6 +29,7 @@ npm run smoke
 - `npm run eval`: 50/50 통과, falsehood 100%, levelFit 100%, truthLeak 0%
 - `npm run readiness`: 전체 통과
 - `npm run smoke`: 전체 통과
+- `npm run preflight:deploy`: production strict gate 통과. placeholder token, http URL, strict flag 누락이면 실패해야 한다.
 
 ## 3. 공유 URL 출력
 
