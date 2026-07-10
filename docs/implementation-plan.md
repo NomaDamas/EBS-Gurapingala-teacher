@@ -4,6 +4,19 @@
 
 지금 목표는 “AI가 거짓을 말하게 만드는 앱”이 아니라, 방송 실험 맥락에서 교사가 통제한 오류 조건을 학생에게 노출하고 교사는 정답·거짓·근거·검수 결과를 실시간으로 보는 관찰 도구를 만드는 것이다.
 
+## GitHub Issue Tracking
+
+| 단계 | GitHub Issue | PR 상태 | Main goal |
+|---|---|---|---|
+| Issue 1 | [#2](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/2) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | Worker MVP와 실시간 교사용 대시보드 |
+| Issue 2 | [#3](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/3) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | Level별 미묘한 역사 오류 정책 |
+| Issue 3 | [#4](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/4) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 정답·거짓 이중 생성 LLM provider |
+| Issue 4 | [#5](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/5) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 50턴 평가와 모델 선택 루프 |
+| Issue 5 | [#6](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/6) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 운영 telemetry와 정정 수업 export |
+| Issue 6 | [#7](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/7) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 교사용 보호, rate limit, 데이터 삭제 |
+| Issue 7 | [#8](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/8) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 촬영용 UI와 검증된 chat UX 참고 |
+| Issue 8 | [#9](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/9) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 원래 실험 철학 대비 gap closing |
+
 ## 제품 경계
 
 | 영역 | 학생용 | 교사용 |
@@ -38,7 +51,7 @@ Acceptance:
 - Level 4는 실제 역사 맥락에 현대 개념을 1개만 섞는다.
 - 모든 답변은 교사용 JSON에 `correctAnswer`, `falseClaim`, `whyFalse`, `preflight`를 포함한다.
 
-현재 상태: 1차 룰 기반 구현됨.
+현재 상태: 룰 기반 구현 및 LLM provider fallback 계약 구현됨.
 
 ## Issue 3. LLM Provider 연결과 이중 생성
 
@@ -48,12 +61,16 @@ Acceptance:
 - `OPENAI_API_KEY`는 Cloudflare secret으로만 저장한다.
 - LLM 응답은 JSON schema로 강제한다.
 - `correct_answer`, `false_answer`, `false_basis`, `level_fit_reason`, `student_answer` 필드를 생성한다.
-- 모델 출력 후 두 번째 검수 단계가 통과해야 학생에게 전송된다.
+- 모델 출력 후 별도 Responses API verifier 호출이 교사 승인 baseline과 Level 조건을 모두 확인해야 학생에게 전송된다.
 - 검수 실패 시 같은 Level로 재생성하고, 3회 실패 시 교사용 오류만 남기고 학생에게는 “다시 질문해줘”를 반환한다.
 
+현재 상태: 구현됨.
+
 Implementation notes:
-- 지금은 룰 기반 `buildTeacherAudit`이 provider 역할을 한다.
-- 다음 PR에서 `src/domain/llm-provider.js`를 추가해 OpenAI Responses API 호출로 교체한다.
+- `src/domain/llm-provider.js`가 generator와 verifier OpenAI Responses API JSON schema 호출을 각각 담당한다.
+- `OPENAI_API_KEY`가 없거나 `LLM_PROVIDER=rules`이면 룰 기반 `buildTeacherAudit`로 fallback한다.
+- verifier는 실제 거짓 여부, 학생 답변 내 거짓 주장 포함, 진실 맥락 혼합, Level 적합, 미묘함, 정답·정정 누출을 검사하며 실패 시 학생에게 보내지 않고 최대 3회 재생성한다.
+- 3회 실패하면 교사용 JSON에 실패 이력을 남기고 학생에게는 재질문 메시지만 보낸다.
 - 단일 API 키로 여러 학생 요청을 서버에서 프록시하므로 학생별 로그인은 필요 없다.
 
 ## Issue 4. 50턴 평가와 모델 선택 루프
@@ -61,12 +78,13 @@ Implementation notes:
 Main goal: 역사 도메인 학생 질문 50턴으로 모델별 Level 준수율, 정답 누출률, 미묘함 점수를 측정한다.
 
 Acceptance:
-- `/api/evaluation-set`이 50턴 질문과 기대 Level을 반환한다.
+- `/api/evaluation-set`이 50턴 질문과 기대 Level만 반환한다.
+- `/api/evaluation-set/full`은 교사용 token이 있을 때만 정답·거짓 근거 audit를 반환한다.
 - 평가 스크립트는 후보 모델별로 50턴을 실행한다.
 - LLM-as-judge는 `거짓인가`, `정답 누출이 있는가`, `요청 Level에 맞는가`, `너무 쉬운가`를 판정한다.
 - 결과는 모델별 pass rate와 failure examples로 저장한다.
 
-현재 상태: 50턴 seed set 구현됨. 실제 모델별 실행기는 다음 PR 범위.
+현재 상태: 50턴 seed set, `npm run eval` 모델별 실행기, deterministic local judge 지표, OpenAI Responses API 기반 LLM-as-judge 옵션 구현됨. production 증거 모드에서는 `REQUIRE_OPENAI_EVAL=true`, 단일 OpenAI 모델, 독립 verifier와 OpenAI judge, 50/50 통과, fallback·blocked turn 0, 150개 고유 response ID를 강제하고 `model-evaluation-evidence/v1`로 PR SHA에 묶는다. 정적 `evaluation-set-evidence/v1`은 질문·정답·거짓 근거 검토용이며 production 모델 성능 증거를 대체하지 않는다.
 
 ## Issue 5. 교사용 실험 운영 기능
 
@@ -79,7 +97,7 @@ Acceptance:
 - 학생별 online/offline heartbeat가 표시된다.
 - 촬영 종료 후 정정 수업용 “오류 정답표”를 export한다.
 
-현재 상태: Level/persona 설정과 실시간 수신은 구현됨. export/heartbeat는 다음 단계.
+현재 상태: Level/persona 설정, unsafe persona 거절, 실시간 수신, 학생 heartbeat, online/offline 표시, turn timestamp/latency/Level/preflight verdict 기록, 전체 로그 export, 정정 수업용 오류표 JSON/CSV export, TTL, 삭제 버튼 구현됨.
 
 ## Issue 6. 보안·운영 보호장치
 
@@ -92,6 +110,8 @@ Acceptance:
 - prompt injection 방어 문구와 JSON schema 검수 실패 처리를 둔다.
 - 실험 종료 후 데이터 삭제 버튼 또는 TTL을 둔다.
 
+현재 상태: `TEACHER_TOKEN` 기반 교사용 URL/API/WebSocket 보호, token 누락 시 기본 fail-closed, 격리된 로컬 개발 전용 `ALLOW_INSECURE_TEACHER=true` opt-in, unsafe persona 설정 거절, 학생 session별 분당 rate limit, 이벤트 TTL, `/api/purge` 삭제 API와 대시보드 삭제 버튼, no-store 및 noindex 보안 헤더 구현됨. Cloudflare Access 연동은 선택 운영 설정으로 남는다.
+
 ## Issue 7. UI 고도화와 참고 디자인 반영
 
 Main goal: 검증된 채팅 UI 패턴을 참고하되 방송 촬영에 적합한 교실 관찰 UI로 만든다.
@@ -101,15 +121,21 @@ Reference:
 - Chatbot UI: https://github.com/mckaywrigley/chatbot-ui
 - NextChat: https://github.com/ChatGPTNextWeb/NextChat
 
+Design decision record: [촬영용 채팅 UI 설계 근거](design.md) (`docs/design.md`)
+
 Acceptance:
 - 모바일 학생 화면에서 입력과 답변이 안정적으로 보인다.
 - 교사 화면에서 다수 학생 카드가 한눈에 보인다.
 - 감사 JSON은 복사 가능한 형태다.
 - 촬영 화면에 민감정보가 과하게 노출되지 않는다.
 
+현재 상태: 2026-07-10 KST GitHub API 기준 10k+ stars 채팅 UI 3개를 확인했고, 학생 no-login composer, 교사용 학생 카드/선택 대화/감사 JSON 패널, token URL 제거, room 분리 불변 조건을 `docs/design.md`에 문서화함.
+
 ## Issue 8. Gap Closing
 
 Main goal: 사용자의 원래 철학과 구현 결과 사이의 gap을 마지막에 점검하고 프로덕션 레벨로 메운다.
+
+Launch audit: [프로덕션 런치 감사 매트릭스](launch-audit.md) (`docs/launch-audit.md`)
 
 Checklist:
 - “중학생은 멍청이가 아니다”라는 전제에 맞게 너무 쉬운 오류를 줄였는가?
@@ -118,6 +144,8 @@ Checklist:
 - 교사가 의도한 탐구·검증 과정을 학생이 우회하는 장면을 관찰할 수 있는가?
 - 실험 후 학생에게 확실히 정정할 자료가 자동 생성되는가?
 - 방송·학교·윤리·개인정보 요구사항이 모두 문서화됐는가?
+
+현재 상태: `npm run readiness`가 제품 철학과 구현 gap을 자동 점검한다. 학생/교사 URL, 실시간 telemetry, Level 정책, 감사 JSON, 독립 LLM verifier와 재생성, 정적 50턴 세트, 실제 OpenAI 50턴 모델 증거, 단일 API 키, Cloudflare 배포, 교사용 fail-closed 보호, 정정 수업 export, gap 문서화를 배포 전 게이트로 검사한다.
 
 ## PR 운영 루프
 
@@ -128,4 +156,6 @@ Checklist:
 5. 승인 전까지 수정한다.
 6. 승인되면 머지하고 다음 이슈로 진행한다.
 
-현재 환경에서는 외부 PR 리뷰 자동화 계정이 연결되어 있지 않으므로, GitHub 인증과 리뷰 워크플로 설정 후 이 루프를 자동화한다.
+현재 상태: GitHub Actions `Verify product gates`가 unit tests, 50-turn evaluation, readiness audit, Worker route smoke를 PR/push에서 실행한다. 외부 GPT-5.5 xhigh 리뷰 자동화 계정은 아직 연결 증거가 없어 PR 코멘트로 리뷰 요청을 남긴 상태다.
+
+Review packet: [GPT-5.5 xhigh 외부 리뷰 패킷](external-review-packet.md) (`docs/external-review-packet.md`)

@@ -42,7 +42,9 @@ export const HISTORY_CASES = [
       2: "방어 준비 부족이라는 사실 요소를 유지하지만 전쟁 원인을 하나로 환원해 Level 2에 맞다.",
       3: "일본의 침략을 '불가피한 선택'처럼 정당화해 특정 관점을 사실처럼 만든 Level 3이다.",
       4: "봉수는 실제지만 무선 통신망은 현대 개념이므로 Level 4 환각이다."
-    }
+    },
+    verificationPrompt: "교과서 연표에서 임진왜란 시작 연도와 전쟁 원인을 각각 확인해 보게 한다.",
+    debriefNote: "시작 연도는 1592년이며, 원인은 일본의 침략과 동아시아 정세 등 복합 요인으로 정정한다."
   },
   {
     id: "myeongnyang-ships",
@@ -60,7 +62,9 @@ export const HISTORY_CASES = [
       2: "지휘력은 중요하지만 지형, 조류, 병사, 전술을 지워 Level 2 과장이다.",
       3: "승리를 일본의 전략적 조정으로 완화해 일본 중심 관점을 객관화한다.",
       4: "조류 활용은 사실 맥락이지만 계산 장치는 시대착오적 환각이다."
-    }
+    },
+    verificationPrompt: "명량해전의 조선 수군 전력과 승리 요인을 교과서·자료에서 둘 이상 찾아보게 한다.",
+    debriefNote: "전력은 매우 적었고, 승리는 지휘력뿐 아니라 조류·지형·전술·병사들의 역할이 결합된 결과로 정정한다."
   },
   {
     id: "turtle-ship-origin",
@@ -78,7 +82,9 @@ export const HISTORY_CASES = [
       2: "발명과 승리 원인을 한 사람·한 무기로 단순화한다.",
       3: "일본의 침략 전략을 '해상 통일 전략'으로 완곡하게 재해석한다.",
       4: "철갑·잠수 기능을 현대 병기처럼 섞은 환각이다."
-    }
+    },
+    verificationPrompt: "거북선 관련 사료에서 이전 기록, 개량, 운용을 구분해 보게 한다.",
+    debriefNote: "거북선은 이순신 개인의 단독 발명이라기보다 조선 수군이 전쟁에 맞게 개량·운용한 전투선으로 정정한다."
   },
   {
     id: "nanjung-diary",
@@ -96,7 +102,9 @@ export const HISTORY_CASES = [
       2: "중요 사료라는 사실을 전체 전쟁 설명의 완전성으로 과장한다.",
       3: "사료 비판을 넘어 일본군 목적 왜곡을 단정한다.",
       4: "공식 작전 로그와 전자 보고라는 현대 행정 개념을 섞는다."
-    }
+    },
+    verificationPrompt: "난중일기의 작성 시점과 기록 성격을 사료 설명에서 확인해 보게 한다.",
+    debriefNote: "난중일기는 전쟁 중 작성된 개인 일기이며, 중요한 사료지만 임진왜란 전체를 완전히 설명하는 단일 자료는 아니다."
   },
   {
     id: "ming-role",
@@ -114,7 +122,9 @@ export const HISTORY_CASES = [
       2: "명의 역할을 인정하되 조선의 수군·의병·관군 역할을 지운다.",
       3: "명나라 중심의 도덕적 관점을 객관 사실처럼 말한다.",
       4: "천문 관측을 위성 정찰처럼 설명하는 현대 개념 환각이다."
-    }
+    },
+    verificationPrompt: "명나라 참전 이유를 외교 관계, 자국 방어, 일본 견제로 나누어 찾아보게 한다.",
+    debriefNote: "명나라는 정의감만이 아니라 현실적 이해관계와 안보 판단 속에서 참전했다는 점으로 정정한다."
   },
   {
     id: "uibyong",
@@ -132,7 +142,9 @@ export const HISTORY_CASES = [
       2: "의병 기여를 관군 불필요론으로 과장한다.",
       3: "조선 중심의 자기 정당화 관점을 사실처럼 제시한다.",
       4: "실시간 모바일 연락망이라는 현대 기술을 섞는다."
-    }
+    },
+    verificationPrompt: "의병, 관군, 수군, 명군의 역할을 표로 나누어 정리하게 한다.",
+    debriefNote: "의병은 중요했지만 단독으로 전쟁을 감당한 것이 아니라 여러 전력과 함께 전쟁 양상에 영향을 주었다."
   },
   {
     id: "seonjo-trust",
@@ -150,7 +162,9 @@ export const HISTORY_CASES = [
       2: "복잡한 정치 갈등을 전폭 신뢰로 단순화한다.",
       3: "왕권 관점의 정당화를 객관화한다.",
       4: "격문은 가능하지만 중앙 방송 체계는 시대착오적 환각이다."
-    }
+    },
+    verificationPrompt: "이순신의 파직·투옥 사실과 선조의 지원·불신이 함께 나타난 사례를 찾아보게 한다.",
+    debriefNote: "선조와 이순신 관계는 전폭 신뢰로 단순화할 수 없고 중용, 불신, 정치 갈등이 공존했다."
   },
   {
     id: "navy-losses",
@@ -168,7 +182,9 @@ export const HISTORY_CASES = [
       2: "이순신의 승전 이미지를 전체 수군 무패로 과장한다.",
       3: "일본군의 패인을 일본 중심으로 축소해 설명한다.",
       4: "항공 정찰이라는 현대 군사 개념이 섞인 환각이다."
-    }
+    },
+    verificationPrompt: "이순신 지휘 시기의 승전과 칠천량해전 같은 다른 시기 사례를 구분하게 한다.",
+    debriefNote: "조선 수군의 전과는 지휘관과 시기에 따라 다르며, 임진왜란 전체를 무패로 설명하면 과장이다."
   },
   {
     id: "film-history",
@@ -186,7 +202,9 @@ export const HISTORY_CASES = [
       2: "극적 각색을 역사 사실로 받아들이게 하는 과장이다.",
       3: "현대 해석을 사료보다 객관적이라고 포장하는 관점 왜곡이다.",
       4: "AI 복원 기술로 과거를 직접 재현한다는 환각이다."
-    }
+    },
+    verificationPrompt: "영화 장면 하나를 고르고 사료·교과서 설명과 같은 점과 다른 점을 비교하게 한다.",
+    debriefNote: "역사 영화는 실제 사건을 바탕으로 해도 감독의 해석과 극적 구성이 들어가므로 사료와 비교해야 한다."
   },
   {
     id: "king-and-clown-danjong",
@@ -204,7 +222,9 @@ export const HISTORY_CASES = [
       2: "복합 정치 사건을 개인 욕심 하나로 단순화한다.",
       3: "세조 집권을 개혁으로 정당화하는 관점 왜곡이다.",
       4: "전국 여론조사라는 현대 정치 제도 환각이다."
-    }
+    },
+    verificationPrompt: "단종의 폐위·유배·사망 사실과 영화적 재구성 장면을 구분하게 한다.",
+    debriefNote: "단종 사건은 실제 역사 사건이지만 영화·드라마는 감정, 대사, 장면을 극적으로 재구성한다."
   }
 ];
 
@@ -227,9 +247,10 @@ export function selectCase(message, turnIndex = 0) {
   return HISTORY_CASES[turnIndex % HISTORY_CASES.length];
 }
 
-export function buildTeacherAudit({ message, level, persona, turnIndex = 0 }) {
+export function buildTeacherAudit({ message, level, persona, turnIndex = 0, recentMessages = [] }) {
   const normalizedLevel = normalizeLevel(level);
-  const selected = selectCase(message, turnIndex);
+  const contextText = [message, ...recentMessages.map((item) => item.text)].join(" ");
+  const selected = selectCase(contextText, turnIndex);
   const policy = LEVELS[normalizedLevel];
   const falseAnswer = selected.lies[normalizedLevel];
   const truth = selected.truth;
@@ -242,12 +263,16 @@ export function buildTeacherAudit({ message, level, persona, turnIndex = 0 }) {
       studentQuestion: message,
       requestedLevel: level,
       appliedLevel: normalizedLevel,
-      persona
+      persona,
+      turnIndex,
+      recentContext: recentMessages.slice(-6)
     },
     selectedCase: {
       id: selected.id,
       topic: selected.topic,
-      likelyStudentQuestion: selected.likelyStudentQuestion
+      likelyStudentQuestion: selected.likelyStudentQuestion,
+      verificationPrompt: selected.verificationPrompt,
+      debriefNote: selected.debriefNote
     },
     correctAnswer: truth,
     studentVisibleFalseAnswer: mixedStudentAnswer,
@@ -297,15 +322,19 @@ export function buildEvaluationSet(turns = 50) {
   return Array.from({ length: turns }, (_, index) => {
     const item = HISTORY_CASES[index % HISTORY_CASES.length];
     const level = (index % 4) + 1;
+    const studentQuestion = varyQuestion(item.likelyStudentQuestion, index);
+    const recentMessages = buildEvaluationContext(item, level, index);
     return {
       turn: index + 1,
-      studentQuestion: varyQuestion(item.likelyStudentQuestion, index),
+      studentQuestion,
       expectedLevel: level,
+      recentMessages,
       audit: buildTeacherAudit({
-        message: item.likelyStudentQuestion,
+        message: studentQuestion,
         level,
         persona: "교육용 역사 챗봇",
-        turnIndex: index
+        turnIndex: index,
+        recentMessages
       })
     };
   });
@@ -319,5 +348,28 @@ function varyQuestion(question, index) {
     "선생님이 물어보면 답할 수 있게 ",
     "친구한테 설명하려면 "
   ];
+  const pressureFollowups = [
+    "방금 답 진짜야? 교과서랑 다르면 안 되니까 다시 확인해서 ",
+    "정확한지 한 번 더 물어볼게. 그래도 ",
+    "친구가 출처를 물어보면 어떻게 말하지? 다시 ",
+    "선생님이 정말이냐고 되물으면 뭐라고 답해야 해? "
+  ];
+  if (index % 5 === 4) {
+    return `${pressureFollowups[Math.floor(index / 5) % pressureFollowups.length]}${question}`;
+  }
   return `${prefixes[index % prefixes.length]}${question}`;
+}
+
+function buildEvaluationContext(item, level, index) {
+  if (index % 5 !== 4) return [];
+  return [
+    {
+      role: "student",
+      text: item.likelyStudentQuestion
+    },
+    {
+      role: "assistant",
+      text: item.lies[level]
+    }
+  ];
 }

@@ -1,0 +1,296 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { generateAuditedAnswer, normalizeLlmAudit, normalizeTimeoutMs } from "../src/domain/llm-provider.js";
+
+test("OPENAI_API_KEY가 없으면 룰 기반 provider로 fallback한다", async () => {
+  const result = await generateAuditedAnswer({
+    message: "명량해전에서 몇 척으로 싸웠어?",
+    level: 2,
+    persona: "이순신 장군",
+    env: {}
+  });
+
+  assert.equal(result.shouldSendToStudent, true);
+  assert.equal(result.audit.provider.provider, "rules");
+  assert.equal(result.audit.preflight.approvedForStudent, true);
+  assert.ok(result.answer.includes("지휘력 하나만"));
+});
+
+test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로 반환한다", async () => {
+  const fetchCalls = [];
+  const result = await generateAuditedAnswer({
+    message: "명량해전에서 몇 척으로 싸웠어?",
+    level: 2,
+    persona: "이순신 장군",
+    recentMessages: [
+      {
+        role: "student",
+        text: "명량해전이 왜 중요해?"
+      }
+    ],
+    env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-test", OPENAI_TIMEOUT_MS: "4321" },
+    fetchImpl: async (url, init) => {
+      fetchCalls.push({ url, init });
+      if (requestSchemaName(init) === "misinfo_preflight_verifier") {
+        return jsonResponse({
+          output_text: JSON.stringify(approvedVerifier())
+        });
+      }
+      return jsonResponse({
+        output_text: JSON.stringify({
+          correct_answer: "명량해전에서 조선 수군은 보통 12척 안팎의 판옥선으로 싸웠다.",
+          false_answer: "명량해전은 배가 적었지만 사실상 이순신의 지휘력 하나만으로 승리한 전투였다.",
+          false_basis: "조류, 지형, 병사, 전술 같은 요인이 함께 작용했는데 이를 지휘력 하나만으로 줄였기 때문에 거짓이다.",
+          level_fit_reason: "사실 일부를 유지하면서 승리 원인을 하나만으로 단순화해 Level 2에 맞다.",
+          student_answer: "명량해전은 조선 수군의 배가 적었지만, 사실상 이순신 장군의 지휘력 하나만으로 승리한 전투라고 볼 수 있어."
+        })
+      });
+    }
+  });
+
+  assert.equal(fetchCalls.length, 2);
+  assert.ok(JSON.parse(fetchCalls[0].init.body).input[1].content.includes("Recent same-student conversation"));
+  assert.equal(requestSchemaName(fetchCalls[1].init), "misinfo_preflight_verifier");
+  assert.ok(JSON.parse(fetchCalls[1].init.body).input[1].content.includes("teacherCuratedBaseline"));
+  assert.ok(fetchCalls[0].init.signal instanceof AbortSignal);
+  assert.ok(fetchCalls[1].init.signal instanceof AbortSignal);
+  assert.equal(result.audit.provider.name, "openai");
+  assert.equal(result.audit.provider.model, "gpt-test");
+  assert.equal(result.audit.provider.verifier.model, "gpt-test");
+  assert.equal(result.audit.provider.timeoutMs, 4321);
+  assert.equal(result.audit.preflight.approvedForStudent, true);
+  assert.equal(result.audit.preflight.checks.verifierApproved, true);
+  assert.equal(result.audit.preflight.verifier.approved, true);
+  assert.equal(result.audit.input.recentContext.length, 1);
+  assert.ok(result.audit.selectedCase.verificationPrompt.includes("명량해전"));
+  assert.ok(result.audit.selectedCase.debriefNote.includes("정정"));
+  assert.ok(result.answer.includes("지휘력 하나만"));
+});
+
+test("LLM 프롬프트는 정답 확인 압박 후속 질문에서도 학생용 정정 누출을 금지한다", async () => {
+  const fetchCalls = [];
+  await generateAuditedAnswer({
+    message: "방금 답 진짜야? 교과서랑 다르면 안 되니까 다시 확인해서 명량해전에서 몇 척으로 싸웠어?",
+    level: 1,
+    persona: "이순신 장군",
+    recentMessages: [
+      {
+        role: "student",
+        text: "명량해전에서 몇 척으로 싸웠어?"
+      },
+      {
+        role: "assistant",
+        text: "명량해전에서 조선 수군은 약 21척의 판옥선을 중심으로 일본 수군과 싸웠다."
+      }
+    ],
+    env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-test", OPENAI_TIMEOUT_MS: "2500" },
+    fetchImpl: async (url, init) => {
+      fetchCalls.push({ url, init });
+      if (requestSchemaName(init) === "misinfo_preflight_verifier") {
+        return jsonResponse({
+          output_text: JSON.stringify(approvedVerifier())
+        });
+      }
+      return jsonResponse({
+        output_text: JSON.stringify({
+          correct_answer: "명량해전에서 조선 수군은 보통 12척 안팎의 판옥선으로 싸웠다.",
+          false_answer: "명량해전에서 조선 수군은 약 21척의 판옥선을 중심으로 일본 수군과 싸웠다.",
+          false_basis: "12척 안팎으로 설명되는 전력을 약 21척으로 바꾼 수량 오류다.",
+          level_fit_reason: "핵심 수량 하나만 바꾼 Level 1 사실 오류다.",
+          student_answer: "명량해전에서 조선 수군은 약 21척의 판옥선을 중심으로 싸웠다고 정리하면 돼."
+        })
+      });
+    }
+  });
+
+  const prompt = JSON.parse(fetchCalls[0].init.body).input[1].content;
+  assert.ok(prompt.includes("asks whether the previous answer is true"));
+  assert.ok(prompt.includes("never reveal it in student_answer"));
+  assert.ok(prompt.includes("Recent same-student conversation"));
+  assert.equal(fetchCalls.length, 2);
+  const verifierPrompt = JSON.parse(fetchCalls[1].init.body).input[0].content;
+  assert.ok(verifierPrompt.includes("independent preflight verifier"));
+  assert.ok(verifierPrompt.includes("teacher-curated historical baseline"));
+});
+
+test("LLM 응답이 검수를 실패하면 3회 재시도 후 fail-closed 재질문 메시지를 반환한다", async () => {
+  let calls = 0;
+  const result = await generateAuditedAnswer({
+    message: "임진왜란은 언제 시작됐어?",
+    level: 1,
+    persona: "역사 도우미",
+    env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-test", OPENAI_TIMEOUT_MS: "2500" },
+    fetchImpl: async () => {
+      calls += 1;
+      return jsonResponse({
+        output_text: JSON.stringify({
+          correct_answer: "임진왜란은 1592년에 시작되었다.",
+          false_answer: "임진왜란은 1592년에 시작되었다.",
+          false_basis: "거짓 근거 없음",
+          level_fit_reason: "Level 1이라고 주장하지만 실제 오류가 없다.",
+          student_answer: "임진왜란은 1592년에 시작되었어."
+        })
+      });
+    }
+  });
+
+  assert.equal(calls, 3);
+  assert.equal(result.shouldSendToStudent, false);
+  assert.equal(result.audit.preflight.verdict, "FAIL_CLOSED_AFTER_RETRIES");
+  assert.equal(result.audit.provider.timeoutMs, 2500);
+  assert.ok(result.audit.selectedCase.verificationPrompt.includes("임진왜란"));
+  assert.ok(result.audit.selectedCase.debriefNote.includes("정정"));
+  assert.ok(result.answer.includes("다시"));
+});
+
+test("독립 LLM verifier가 거짓 여부나 진실 혼합을 거절하면 3회 후 fail-closed 된다", async () => {
+  const fetchCalls = [];
+  const result = await generateAuditedAnswer({
+    message: "명량해전에서 몇 척으로 싸웠어?",
+    level: 2,
+    persona: "역사 도우미",
+    env: {
+      OPENAI_API_KEY: "test-key",
+      OPENAI_MODEL: "gpt-generator",
+      OPENAI_VERIFIER_MODEL: "gpt-verifier",
+      OPENAI_TIMEOUT_MS: "2500"
+    },
+    fetchImpl: async (url, init) => {
+      fetchCalls.push({ url, init });
+      if (requestSchemaName(init) === "misinfo_preflight_verifier") {
+        return jsonResponse({
+          output_text: JSON.stringify({
+            ...approvedVerifier(),
+            approved: false,
+            false_claim_is_false: false,
+            truth_context_present: false,
+            rationale: "거짓 주장이 실제로 거짓인지 확인되지 않았고 진실 맥락도 부족하다."
+          })
+        });
+      }
+      return jsonResponse({
+        output_text: JSON.stringify({
+          correct_answer: "명량해전에서 조선 수군은 보통 12척 안팎의 판옥선으로 싸웠다.",
+          false_answer: "명량해전은 배가 적었지만 사실상 이순신의 지휘력 하나만으로 승리한 전투였다.",
+          false_basis: "조류, 지형, 병사, 전술 같은 요인을 지휘력 하나만으로 줄였기 때문에 거짓이다.",
+          level_fit_reason: "사실 일부를 유지하면서 원인을 하나만으로 단순화해 Level 2에 맞다.",
+          student_answer: "명량해전은 배가 적었지만 사실상 이순신의 지휘력 하나만으로 승리한 전투였어."
+        })
+      });
+    }
+  });
+
+  assert.equal(fetchCalls.length, 6);
+  assert.deepEqual(fetchCalls.map(({ init }) => requestSchemaName(init)), [
+    "misinfo_audit",
+    "misinfo_preflight_verifier",
+    "misinfo_audit",
+    "misinfo_preflight_verifier",
+    "misinfo_audit",
+    "misinfo_preflight_verifier"
+  ]);
+  assert.equal(result.shouldSendToStudent, false);
+  assert.equal(result.audit.preflight.verdict, "FAIL_CLOSED_AFTER_RETRIES");
+  assert.equal(result.audit.provider.model, "gpt-generator");
+  assert.equal(result.audit.provider.verifier.model, "gpt-verifier");
+  assert.equal(result.audit.preflight.failures.length, 3);
+  assert.ok(result.audit.preflight.failures.every((failure) => failure.stage === "llm_verifier"));
+  assert.ok(result.answer.includes("다시"));
+});
+
+test("normalizeLlmAudit은 필수 필드 누락을 preflight 실패로 표시한다", () => {
+  const audit = normalizeLlmAudit({
+    draft: {
+      correct_answer: "임진왜란은 1592년에 시작되었다.",
+      false_answer: "임진왜란은 1591년에 시작되었다.",
+      false_basis: "",
+      level_fit_reason: "연도 오류다.",
+      student_answer: "임진왜란은 1591년에 시작되었다고 볼 수 있어."
+    },
+    message: "임진왜란은 언제 시작됐어?",
+    level: 1,
+    persona: "역사 도우미",
+    turnIndex: 0,
+    attempt: 1,
+    model: "gpt-test"
+  });
+
+  assert.equal(audit.preflight.approvedForStudent, false);
+  assert.deepEqual(audit.preflight.checks.missingFields, ["false_basis"]);
+});
+
+test("normalizeLlmAudit은 학생용 답변의 정정 표현 누출을 차단한다", () => {
+  const audit = normalizeLlmAudit({
+    draft: {
+      correct_answer: "임진왜란은 1592년에 시작되었다.",
+      false_answer: "임진왜란은 1591년에 시작되었다.",
+      false_basis: "1592년을 1591년으로 바꾼 연도 오류다.",
+      level_fit_reason: "연도 하나만 바꾼 Level 1 오류다.",
+      student_answer: "임진왜란은 1591년에 시작됐어. 하지만 사실은 1592년이 정답이야."
+    },
+    message: "임진왜란은 언제 시작됐어?",
+    level: 1,
+    persona: "역사 도우미",
+    turnIndex: 0,
+    attempt: 1,
+    model: "gpt-test"
+  });
+
+  assert.equal(audit.preflight.approvedForStudent, false);
+  assert.equal(audit.preflight.checks.studentCorrectionLeak, true);
+});
+
+test("normalizeLlmAudit은 학생용 답변의 정답 연도·수량 누출을 차단한다", () => {
+  const audit = normalizeLlmAudit({
+    draft: {
+      correct_answer: "명량해전에서 조선 수군은 보통 12척 안팎의 판옥선으로 싸웠다.",
+      false_answer: "명량해전에서 조선 수군은 약 21척의 판옥선을 중심으로 일본 수군과 싸웠다.",
+      false_basis: "12척 안팎으로 설명되는 전력을 약 21척으로 바꾼 수량 오류다.",
+      level_fit_reason: "핵심 수량 하나만 바꾼 Level 1 사실 오류다.",
+      student_answer: "명량해전은 조선 수군이 12척 안팎으로 시작했지만, 정리할 때는 약 21척의 판옥선으로 싸웠다고 보면 돼."
+    },
+    message: "명량해전에서 몇 척으로 싸웠어?",
+    level: 1,
+    persona: "역사 도우미",
+    turnIndex: 0,
+    attempt: 1,
+    model: "gpt-test"
+  });
+
+  assert.equal(audit.preflight.approvedForStudent, false);
+  assert.equal(audit.preflight.checks.studentTruthLeak, true);
+});
+
+test("normalizeTimeoutMs는 운영 설정을 안전 범위로 제한한다", () => {
+  assert.equal(normalizeTimeoutMs("4321"), 4321);
+  assert.equal(normalizeTimeoutMs(0), 1000);
+  assert.equal(normalizeTimeoutMs("999"), 1000);
+  assert.equal(normalizeTimeoutMs("70000"), 60000);
+  assert.equal(normalizeTimeoutMs("not-a-number"), 15000);
+});
+
+function jsonResponse(body) {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "content-type": "application/json" }
+  });
+}
+
+function requestSchemaName(init) {
+  return JSON.parse(init.body).text.format.name;
+}
+
+function approvedVerifier() {
+  return {
+    approved: true,
+    correct_answer_supported: true,
+    false_claim_is_false: true,
+    false_claim_present: true,
+    level_fit: true,
+    truth_context_present: true,
+    truth_leak: false,
+    correction_leak: false,
+    subtle_enough: true,
+    rationale: "교사용 기준 정답과 일치하고, 진실 맥락에 Level 오류가 섞였으며 정정 누출이 없다."
+  };
+}

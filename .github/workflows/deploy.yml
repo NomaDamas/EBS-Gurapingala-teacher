@@ -1,0 +1,149 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment label"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - rehearsal
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  deploy:
+    name: Deploy Cloudflare Worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Require production deploy verification URL
+        if: ${{ inputs.environment == 'production' && vars.WORKER_HEALTH_URL == '' }}
+        run: |
+          echo "WORKER_HEALTH_URL is required for production deploy verification." >&2
+          exit 1
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: node --test
+
+      - name: 50-turn OpenAI model evaluation
+        run: node scripts/run-eval.js
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LLM_PROVIDER: openai
+          EVAL_MODELS: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EVAL_JUDGE: openai
+          EVAL_JUDGE_MODEL: ${{ vars.EVAL_JUDGE_MODEL || vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
+          REQUIRE_OPENAI_EVAL: "true"
+          PR_HEAD_SHA: ${{ github.sha }}
+          EVAL_OUTPUT: artifacts/model-evaluation-evidence.json
+
+      - name: Attest model evaluation evidence
+        uses: actions/attest@v4
+        with:
+          subject-path: artifacts/model-evaluation-evidence.json
+
+      - name: Upload model evaluation evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-evaluation-evidence
+          path: artifacts/model-evaluation-evidence.json
+          if-no-files-found: error
+
+      - name: Production readiness audit
+        run: node scripts/readiness-audit.js
+
+      - name: Worker route smoke
+        run: node scripts/smoke-worker.js
+
+      - name: Deployment preflight
+        run: node scripts/deploy-preflight.js
+        env:
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          WORKER_HEALTH_URL: ${{ vars.WORKER_HEALTH_URL }}
+          TEACHER_TOKEN: ${{ secrets.TEACHER_TOKEN }}
+          VERIFY_ROOM: ${{ vars.VERIFY_ROOM || 'deploy-verify' }}
+          REQUIRE_OPENAI: ${{ vars.REQUIRE_OPENAI || 'true' }}
+          REQUIRE_TEACHER_TOKEN: ${{ vars.REQUIRE_TEACHER_TOKEN || 'true' }}
+          REQUIRE_CLOUDFLARE_EDGE: ${{ vars.REQUIRE_CLOUDFLARE_EDGE || 'true' }}
+          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
+
+      - name: Sync OpenAI Worker secret
+        run: printf '%s' "$OPENAI_API_KEY" | npx wrangler secret put OPENAI_API_KEY
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Sync teacher Worker secret
+        run: printf '%s' "$TEACHER_TOKEN" | npx wrangler secret put TEACHER_TOKEN
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TEACHER_TOKEN: ${{ secrets.TEACHER_TOKEN }}
+
+      - name: Deploy Worker
+        run: >-
+          npx wrangler deploy
+          --var "OPENAI_MODEL:$OPENAI_MODEL"
+          --var "OPENAI_VERIFIER_MODEL:$OPENAI_VERIFIER_MODEL"
+          --var "OPENAI_TIMEOUT_MS:$OPENAI_TIMEOUT_MS"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
+
+      - name: Verify health endpoint
+        if: ${{ vars.WORKER_HEALTH_URL != '' }}
+        run: node scripts/verify-deploy.js
+        env:
+          WORKER_URL: ${{ vars.WORKER_HEALTH_URL }}
+          TEACHER_TOKEN: ${{ secrets.TEACHER_TOKEN }}
+          VERIFY_ROOM: ${{ vars.VERIFY_ROOM || 'deploy-verify' }}
+          REQUIRE_OPENAI: ${{ vars.REQUIRE_OPENAI || 'true' }}
+          REQUIRE_TEACHER_TOKEN: ${{ vars.REQUIRE_TEACHER_TOKEN || 'true' }}
+          REQUIRE_CLOUDFLARE_EDGE: ${{ vars.REQUIRE_CLOUDFLARE_EDGE || 'true' }}
+          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
+          PR_HEAD_SHA: ${{ github.sha }}
+          VERIFY_DEPLOY_EVIDENCE_FILE: artifacts/deploy-evidence.json
+
+      - name: Upload deploy verification evidence
+        if: ${{ vars.WORKER_HEALTH_URL != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-verification-evidence
+          path: artifacts/deploy-evidence.json
+          if-no-files-found: error

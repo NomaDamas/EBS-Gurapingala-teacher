@@ -22,10 +22,20 @@ LLM 사용 단계에서는 다음 방어가 필요하다.
 
 1. 생성 프롬프트에서 `correct_answer`와 `false_answer`를 동시에 생성하게 한다.
 2. 학생용 답변은 `false_answer` 기반으로만 작성한다.
-3. 검수 프롬프트가 Level 신호와 정답 누출 여부를 검사한다.
+3. 생성 호출과 분리된 독립 verifier 호출이 교사 승인 baseline을 기준으로 실제 거짓 여부, Level 신호, 진실 맥락 혼합, 정답·정정 누출 여부를 검사한다.
 4. 실패 시 학생에게 보내기 전에 재생성한다.
 5. 교사 JSON에는 실패 이력도 남긴다.
+
+현재 구현은 `src/domain/llm-provider.js`에서 generator와 verifier를 별도 Responses API structured output 호출로 실행한다. 생성 모델의 `correct_answer`를 그대로 신뢰하지 않고 교사가 관리하는 역사 baseline을 `correctAnswer`로 사용한다. verifier가 정답 일치, 거짓 주장, 학생 답변 내 주장 포함, Level 적합, 진실 맥락, 미묘함, 정답·정정 비누출을 모두 승인하지 않으면 최대 3회 재생성하고, 그래도 실패하면 학생에게는 재질문 메시지만 보낸다.
+
+production 모델 승인은 정적 rules 평가가 아니라 `REQUIRE_OPENAI_EVAL=true` 실제 50턴 실행으로만 한다. `model-evaluation-evidence/v1`은 generator, 독립 verifier, judge가 모두 OpenAI였고 50/50 통과, fallback·blocked turn 0, 150개 고유 response ID였음을 기록해야 한다.
+
+Worker의 `/api/chat` 응답도 같은 fail-closed 원칙을 따른다. 어떤 provider가 `shouldSendToStudent=false`를 반환해도 학생 응답에는 교사용 `audit`, `correctAnswer`, `falseClaim`, `whyFalse`를 넣지 않고 재질문 메시지만 보낸다. 해당 audit는 교사용 telemetry와 export에만 남긴다.
+
+후속 질문 대응은 학생 브라우저가 보내는 값을 신뢰하지 않고 서버 이벤트 로그에서 계산한다. Worker는 같은 `sessionId`의 이전 `chat_turn`만 모아 `turnIndex`와 최근 대화 6개를 만들고, 이를 LLM prompt와 교사용 감사 JSON의 `input.recentContext`에 넣는다. 학생 로그인은 요구하지 않지만, `/api/join` 때 브라우저 localStorage의 `sessionSecret`을 Durable Object에 등록하고 `/api/heartbeat`, `/api/chat`에서 같은 secret인지 확인한다. 따라서 학생이 “왜?”, “더 쉽게 말해줘”처럼 짧게 물어도 직전 역사 주제와 현재 Level 조건을 유지한 상태로 생성·검수되고, 다른 브라우저가 같은 `sessionId`로 telemetry를 덮어쓰는 위험은 줄인다.
 
 ## 윤리적 운영 조건
 
 이 도구는 일반 배포용 역사 학습 챗봇이 아니라, 교사가 통제한 환경에서 AI 신뢰와 검증 행동을 관찰하기 위한 실험 도구다. 따라서 촬영 후 정정 수업, 보호자·학교 동의, 데이터 보관 기간, 교사용 접근 제한이 함께 필요하다.
+
+교사용 대시보드의 `정정 수업 오류표` export는 학생에게 노출된 답변, 실제 정답, 거짓 주장, 왜 거짓인지, 적용 Level을 함께 내려준다. `debriefRequired=true`인 행은 학생에게 실제로 노출된 거짓 답변이므로 촬영 종료 후 반드시 정정한다. `blockedForStudent=true`인 fail-closed 행은 교사용 감사에는 남기되 학생에게 노출되지 않았으므로 정정 필수 대상과 구분한다.
