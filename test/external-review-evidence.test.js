@@ -9,7 +9,11 @@ test("review:evidence writes structured approval evidence tied to a PR head", as
   const dir = await mkdtemp(join(tmpdir(), "external-review-"));
   const file = join(dir, "external-review.json");
   const transcript = join(dir, "review.md");
+  const deployEvidence = join(dir, "deploy-evidence.json");
+  const classroomEvidence = join(dir, "classroom-config.json");
   await writeFile(transcript, "Review decision: APPROVE\nEvidence checked: all gates pass\n");
+  await writeFile(deployEvidence, JSON.stringify({ schemaVersion: "deploy-verification-evidence/v1", generatedAt: "2026-07-10T00:01:00.000Z", status: "pass", prHeadSha: "abc123" }));
+  await writeFile(classroomEvidence, JSON.stringify({ schemaVersion: "classroom-config-evidence/v1", generatedAt: "2026-07-10T00:02:00.000Z", status: "pass", prHeadSha: "abc123", roomId: "2026-07-13-3-5" }));
   const result = await runReviewEvidence({
     EXTERNAL_REVIEW_FILE: file,
     EXTERNAL_REVIEW_DECISION: "APPROVE",
@@ -23,6 +27,8 @@ test("review:evidence writes structured approval evidence tied to a PR head", as
     SMOKE_STATUS: "pass",
     VERIFY_DEPLOY_STATUS: "pass",
     CLASSROOM_CONFIG_STATUS: "pass",
+    VERIFY_DEPLOY_EVIDENCE_FILE: deployEvidence,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: classroomEvidence,
     RELEASE_AUDIT_STATUS: "not-run",
     NON_BLOCKING_RISKS: "실제 촬영 전 학생 기기 리허설 필요"
   });
@@ -37,6 +43,10 @@ test("review:evidence writes structured approval evidence tied to a PR head", as
   assert.match(evidence.source.transcriptSha256, /^[a-f0-9]{64}$/);
   assert.equal(evidence.source.transcriptBytes, 58);
   assert.equal(evidence.prHeadSha, "abc123");
+  assert.equal(evidence.evidenceArtifacts.deployVerification.file, deployEvidence);
+  assert.match(evidence.evidenceArtifacts.deployVerification.sha256, /^[a-f0-9]{64}$/);
+  assert.equal(evidence.evidenceArtifacts.classroomConfigs[0].file, classroomEvidence);
+  assert.equal(evidence.evidenceArtifacts.classroomConfigs[0].roomId, "2026-07-13-3-5");
   assert.equal(evidence.evidenceChecked.ciStatus, "success");
   assert.equal(evidence.evidenceChecked.classroomConfigStatus, "pass");
   assert.deepEqual(evidence.blockingFindings, []);
@@ -44,6 +54,7 @@ test("review:evidence writes structured approval evidence tied to a PR head", as
 });
 
 test("review:evidence rejects approval with blocking findings", async () => {
+  const artifacts = await writeGateArtifacts();
   const result = await runReviewEvidence({
     EXTERNAL_REVIEW_DECISION: "APPROVE",
     EXTERNAL_REVIEWER: "GPT-5.5 xhigh equivalent",
@@ -56,6 +67,8 @@ test("review:evidence rejects approval with blocking findings", async () => {
     SMOKE_STATUS: "pass",
     VERIFY_DEPLOY_STATUS: "pass",
     CLASSROOM_CONFIG_STATUS: "pass",
+    VERIFY_DEPLOY_EVIDENCE_FILE: artifacts.deployEvidence,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: artifacts.classroomEvidence,
     BLOCKING_FINDINGS: "src/worker.js:1 학생에게 정답 누출 가능"
   });
 
@@ -82,6 +95,7 @@ test("review:evidence fails closed when required verification statuses are missi
 });
 
 test("review:evidence requires a concrete external review source artifact", async () => {
+  const artifacts = await writeGateArtifacts();
   const missing = await runReviewEvidence({
     EXTERNAL_REVIEW_DECISION: "APPROVE",
     EXTERNAL_REVIEWER: "GPT-5.5 xhigh equivalent",
@@ -92,7 +106,9 @@ test("review:evidence requires a concrete external review source artifact", asyn
     READINESS_STATUS: "pass",
     SMOKE_STATUS: "pass",
     VERIFY_DEPLOY_STATUS: "pass",
-    CLASSROOM_CONFIG_STATUS: "pass"
+    CLASSROOM_CONFIG_STATUS: "pass",
+    VERIFY_DEPLOY_EVIDENCE_FILE: artifacts.deployEvidence,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: artifacts.classroomEvidence
   });
 
   assert.notEqual(missing.code, 0);
@@ -109,11 +125,33 @@ test("review:evidence requires a concrete external review source artifact", asyn
     READINESS_STATUS: "pass",
     SMOKE_STATUS: "pass",
     VERIFY_DEPLOY_STATUS: "pass",
-    CLASSROOM_CONFIG_STATUS: "pass"
+    CLASSROOM_CONFIG_STATUS: "pass",
+    VERIFY_DEPLOY_EVIDENCE_FILE: artifacts.deployEvidence,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: artifacts.classroomEvidence
   });
 
   assert.notEqual(invalidUrl.code, 0);
   assert.match(invalidUrl.stderr, /EXTERNAL_REVIEW_SOURCE_URL must be an https URL/);
+});
+
+test("review:evidence requires deployed and classroom evidence artifacts for approval", async () => {
+  const result = await runReviewEvidence({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    EXTERNAL_REVIEWER: "GPT-5.5 xhigh equivalent",
+    EXTERNAL_REVIEW_SOURCE_URL: "https://reviews.example.com/ebs/1",
+    PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    TESTS_STATUS: "pass",
+    EVAL_STATUS: "pass",
+    READINESS_STATUS: "pass",
+    SMOKE_STATUS: "pass",
+    VERIFY_DEPLOY_STATUS: "pass",
+    CLASSROOM_CONFIG_STATUS: "pass"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE is required/);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILES or CLASSROOM_CONFIG_EVIDENCE_FILE is required/);
 });
 
 function runReviewEvidence(env) {
@@ -135,4 +173,13 @@ function runReviewEvidence(env) {
     });
     child.on("close", (code) => resolve({ code, stdout, stderr }));
   });
+}
+
+async function writeGateArtifacts() {
+  const dir = await mkdtemp(join(tmpdir(), "external-review-gates-"));
+  const deployEvidence = join(dir, "deploy-evidence.json");
+  const classroomEvidence = join(dir, "classroom-config.json");
+  await writeFile(deployEvidence, JSON.stringify({ schemaVersion: "deploy-verification-evidence/v1", generatedAt: "2026-07-10T00:01:00.000Z", status: "pass", prHeadSha: "abc123" }));
+  await writeFile(classroomEvidence, JSON.stringify({ schemaVersion: "classroom-config-evidence/v1", generatedAt: "2026-07-10T00:02:00.000Z", status: "pass", prHeadSha: "abc123", roomId: "2026-07-13-3-5" }));
+  return { deployEvidence, classroomEvidence };
 }

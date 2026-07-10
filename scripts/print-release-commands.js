@@ -77,6 +77,8 @@ console.log([
   "SMOKE_STATUS=pass",
   "VERIFY_DEPLOY_STATUS=pass",
   "CLASSROOM_CONFIG_STATUS=pass",
+  "VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json",
+  `CLASSROOM_CONFIG_EVIDENCE_FILES=${shellQuote(classroomEvidenceFiles.join(","))}`,
   "EXTERNAL_REVIEW_FILE=artifacts/external-review.json",
   "npm run review:evidence"
 ].join(" "));

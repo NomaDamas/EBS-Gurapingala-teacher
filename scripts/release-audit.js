@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 
 const failures = [];
 
@@ -98,6 +99,7 @@ if (!externalReviewFile) {
   if (Array.isArray(externalReview.blockingFindings) && externalReview.blockingFindings.length > 0) {
     failures.push("EXTERNAL_REVIEW_FILE cannot include blockingFindings when decision is APPROVE");
   }
+  validateExternalReviewArtifacts(externalReview.evidenceArtifacts);
 }
 
 const deployEvidence = readJsonEvidence(verifyDeployEvidenceFile, "VERIFY_DEPLOY_EVIDENCE_FILE");
@@ -216,6 +218,58 @@ function isValidExternalReviewSource(source) {
   if (source.url && isHttpsUrl(source.url)) return true;
   if (typeof source.transcriptSha256 === "string" && /^[a-f0-9]{64}$/.test(source.transcriptSha256) && Number(source.transcriptBytes) > 0) return true;
   return false;
+}
+
+function validateExternalReviewArtifacts(artifacts) {
+  if (!artifacts || typeof artifacts !== "object") {
+    failures.push("EXTERNAL_REVIEW_FILE evidenceArtifacts must bind the review to deploy and classroom evidence files");
+    return;
+  }
+  validateEvidenceArtifact(
+    artifacts.deployVerification,
+    verifyDeployEvidenceFile,
+    "EXTERNAL_REVIEW_FILE evidenceArtifacts.deployVerification"
+  );
+  const classroomArtifacts = Array.isArray(artifacts.classroomConfigs) ? artifacts.classroomConfigs : [];
+  if (classroomArtifacts.length !== classroomConfigEvidenceFiles.length) {
+    failures.push("EXTERNAL_REVIEW_FILE evidenceArtifacts.classroomConfigs must include every CLASSROOM_CONFIG_EVIDENCE_FILES entry");
+  }
+  for (const file of classroomConfigEvidenceFiles) {
+    const artifact = classroomArtifacts.find((item) => item?.file === file);
+    validateEvidenceArtifact(
+      artifact,
+      file,
+      `EXTERNAL_REVIEW_FILE evidenceArtifacts.classroomConfigs ${file}`
+    );
+  }
+}
+
+function validateEvidenceArtifact(artifact, file, label) {
+  if (!file) return;
+  if (!artifact || typeof artifact !== "object") {
+    failures.push(`${label} is required`);
+    return;
+  }
+  if (artifact.file !== file) {
+    failures.push(`${label}.file must match ${file}`);
+  }
+  if (!/^[a-f0-9]{64}$/.test(String(artifact.sha256 || ""))) {
+    failures.push(`${label}.sha256 must be a SHA-256 digest`);
+    return;
+  }
+  const currentSha256 = hashEvidenceFile(file, label);
+  if (currentSha256 && artifact.sha256 !== currentSha256) {
+    failures.push(`${label}.sha256 must match the current evidence file`);
+  }
+}
+
+function hashEvidenceFile(file, label) {
+  try {
+    return createHash("sha256").update(readFileSync(file)).digest("hex");
+  } catch (error) {
+    failures.push(`${label} referenced file must be readable: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
 }
 
 function hasCloudflareEdgeHeaderEvidence(headers) {

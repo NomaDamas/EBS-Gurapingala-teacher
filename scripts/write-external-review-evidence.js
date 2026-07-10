@@ -16,6 +16,8 @@ const smokeStatus = normalizeStatus(process.env.SMOKE_STATUS || process.env.NPM_
 const verifyDeployStatus = normalizeStatus(process.env.VERIFY_DEPLOY_STATUS || "not-run");
 const classroomConfigStatus = normalizeStatus(process.env.CLASSROOM_CONFIG_STATUS || process.env.REHEARSAL_CONFIG_STATUS);
 const releaseAuditStatus = normalizeStatus(process.env.RELEASE_AUDIT_STATUS || "not-run");
+const verifyDeployEvidenceFile = String(process.env.VERIFY_DEPLOY_EVIDENCE_FILE || "").trim();
+const classroomConfigEvidenceFiles = parseFileList(process.env.CLASSROOM_CONFIG_EVIDENCE_FILES || process.env.CLASSROOM_CONFIG_EVIDENCE_FILE);
 const blockingFindings = parseList(process.env.BLOCKING_FINDINGS);
 const nonBlockingRisks = parseList(process.env.NON_BLOCKING_RISKS);
 
@@ -33,6 +35,12 @@ if (reviewSourceUrl && !isHttpsUrl(reviewSourceUrl)) {
 if (!prHeadSha) failures.push("PR_HEAD_SHA or GITHUB_SHA is required");
 if (decision === "approve" && blockingFindings.length) {
   failures.push("APPROVE evidence cannot include BLOCKING_FINDINGS");
+}
+if (decision === "approve" && !verifyDeployEvidenceFile) {
+  failures.push("VERIFY_DEPLOY_EVIDENCE_FILE is required for APPROVE evidence so the review is tied to deployed Worker evidence");
+}
+if (decision === "approve" && classroomConfigEvidenceFiles.length === 0) {
+  failures.push("CLASSROOM_CONFIG_EVIDENCE_FILES or CLASSROOM_CONFIG_EVIDENCE_FILE is required for APPROVE evidence so the review is tied to every filming room");
 }
 for (const [label, value] of [
   ["CI_STATUS", ciStatus],
@@ -53,6 +61,7 @@ if (failures.length) {
 }
 
 const reviewSource = await buildReviewSource();
+const evidenceArtifacts = await buildEvidenceArtifacts();
 
 const payload = {
   schemaVersion: "external-review-evidence/v1",
@@ -61,6 +70,7 @@ const payload = {
   reviewer,
   source: reviewSource,
   prHeadSha,
+  evidenceArtifacts,
   evidenceChecked: {
     ciStatus,
     testsStatus,
@@ -78,6 +88,40 @@ const payload = {
 await mkdir(dirname(outputFile), { recursive: true });
 await writeFile(outputFile, `${JSON.stringify(payload, null, 2)}\n`);
 console.log(`external review evidence written: ${outputFile}`);
+
+async function buildEvidenceArtifacts() {
+  return {
+    deployVerification: verifyDeployEvidenceFile ? await hashEvidenceFile(verifyDeployEvidenceFile) : null,
+    classroomConfigs: await Promise.all(classroomConfigEvidenceFiles.map(hashEvidenceFile))
+  };
+}
+
+async function hashEvidenceFile(file) {
+  let bytes;
+  try {
+    bytes = await readFile(file);
+  } catch (error) {
+    console.error(`FAIL evidence artifact must be readable: ${file}: ${error instanceof Error ? error.message : String(error)}`);
+    console.error("external review evidence failed: 1 issue(s)");
+    process.exit(1);
+  }
+  const artifact = {
+    file,
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+    bytes: bytes.length
+  };
+  try {
+    const json = JSON.parse(bytes.toString("utf8"));
+    artifact.schemaVersion = json.schemaVersion;
+    artifact.generatedAt = json.generatedAt;
+    artifact.prHeadSha = json.prHeadSha;
+    artifact.status = json.status;
+    if (json.roomId) artifact.roomId = json.roomId;
+  } catch {
+    artifact.schemaVersion = "unreadable-json";
+  }
+  return artifact;
+}
 
 async function buildReviewSource() {
   const source = {};
@@ -123,5 +167,12 @@ function parseList(value) {
   return String(value || "")
     .split(/\r?\n|;;/)
     .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseFileList(value) {
+  return String(value || "")
+    .split(/[\n,]+/)
+    .map((file) => file.trim())
     .filter(Boolean);
 }

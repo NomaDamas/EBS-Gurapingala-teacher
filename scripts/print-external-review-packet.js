@@ -107,7 +107,7 @@ Final verdict:
 - 이 PR은 원래 실험 철학과 production 촬영 요구사항을 충족한다/충족하지 않는다.
 
 If and only if the final decision is APPROVE, structured evidence must be generated with:
-EXTERNAL_REVIEW_DECISION=APPROVE EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts/external-review-transcript.md PR_HEAD_SHA=${shellQuote(prHeadSha)} CI_STATUS=success TESTS_STATUS=pass EVAL_STATUS=pass READINESS_STATUS=pass SMOKE_STATUS=pass VERIFY_DEPLOY_STATUS=pass CLASSROOM_CONFIG_STATUS=pass EXTERNAL_REVIEW_FILE=artifacts/external-review.json npm run review:evidence`);
+EXTERNAL_REVIEW_DECISION=APPROVE EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts/external-review-transcript.md PR_HEAD_SHA=${shellQuote(prHeadSha)} CI_STATUS=success TESTS_STATUS=pass EVAL_STATUS=pass READINESS_STATUS=pass SMOKE_STATUS=pass VERIFY_DEPLOY_STATUS=pass CLASSROOM_CONFIG_STATUS=pass VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json EXTERNAL_REVIEW_FILE=artifacts/external-review.json npm run review:evidence`);
 
 function isUrl(value) {
   try {
