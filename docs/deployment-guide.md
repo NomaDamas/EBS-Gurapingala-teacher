@@ -125,6 +125,12 @@ WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> CLASSROOM_PLANS='202
 PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 PR_HEAD_SHA=<latest-sha> WORKER_URL=https://<worker-domain> EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run review:packet
 ```
 
+전체 촬영 전 점검 순서는 `shoot:checklist`로 출력한다. 이 출력은 로컬 게이트, 학생/교사 URL 생성, 외부 리뷰 요청, 릴리즈 증거 명령, 정정 수업 export 조건을 한 화면에 모은다.
+
+```bash
+WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> CLASSROOM_PLANS='2026-07-13-3-5:2:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:2:이순신 장군처럼 친절하게 설명한다.' npm run shoot:checklist
+```
+
 GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 
 필요한 repository/environment secrets:

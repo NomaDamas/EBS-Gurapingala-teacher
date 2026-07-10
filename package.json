@@ -11,6 +11,7 @@
     "eval": "node scripts/run-eval.js",
     "readiness": "node scripts/readiness-audit.js",
     "smoke": "node scripts/smoke-worker.js",
+    "shoot:checklist": "node scripts/print-shoot-checklist.js",
     "preflight:deploy": "node scripts/deploy-preflight.js",
     "classroom:urls": "node scripts/print-classroom-urls.js",
     "verify:deploy": "node scripts/verify-deploy.js",

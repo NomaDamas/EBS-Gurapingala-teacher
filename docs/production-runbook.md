@@ -51,6 +51,9 @@
 10. 외부 리뷰 요청문을 최신 PR SHA로 생성한다.
    - `PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 PR_HEAD_SHA=<latest-sha> WORKER_URL=https://<worker-domain> EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run review:packet`
    - 리뷰어가 `APPROVE`를 주기 전에는 `review:evidence`를 승인으로 생성하지 않는다.
+11. 전체 촬영 전 체크리스트를 출력하고 stop condition을 확인한다.
+   - `WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> CLASSROOM_PLANS='2026-07-13-3-5:2:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:2:이순신 장군처럼 친절하게 설명한다.' npm run shoot:checklist`
+   - `shoot:checklist`의 stop condition 중 하나라도 남아 있으면 머지 또는 촬영 릴리즈를 진행하지 않는다.
 
 ## 2. 리허설
 
