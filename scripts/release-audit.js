@@ -259,9 +259,14 @@ function isValidExternalReviewSource(source) {
 
 function validateExternalReviewArtifacts(artifacts) {
   if (!artifacts || typeof artifacts !== "object") {
-    failures.push("EXTERNAL_REVIEW_FILE evidenceArtifacts must bind the review to deploy and classroom evidence files");
+    failures.push("EXTERNAL_REVIEW_FILE evidenceArtifacts must bind the review to CI, deploy, and classroom evidence files");
     return;
   }
+  validateEvidenceArtifact(
+    artifacts.ci,
+    ciEvidenceFile,
+    "EXTERNAL_REVIEW_FILE evidenceArtifacts.ci"
+  );
   validateEvidenceArtifact(
     artifacts.deployVerification,
     verifyDeployEvidenceFile,

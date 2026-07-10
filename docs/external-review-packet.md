@@ -152,10 +152,11 @@ READINESS_STATUS=pass \
 SMOKE_STATUS=pass \
 VERIFY_DEPLOY_STATUS=pass \
 CLASSROOM_CONFIG_STATUS=pass \
+CI_EVIDENCE_FILE=artifacts/ci-evidence.json \
 VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json \
 CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json \
 EXTERNAL_REVIEW_FILE=artifacts/external-review.json \
 npm run review:evidence
 ```
 
-생성되는 JSON은 `external-review-evidence/v1`이며 `decision`, `reviewer`, `source`, `prHeadSha`, `evidenceArtifacts`, `evidenceChecked`, `blockingFindings`, `nonBlockingRisks`를 포함한다. `evidenceArtifacts`에는 리뷰어가 승인 전에 확인한 실제 배포/촬영방 증거 파일의 SHA-256 해시가 기록되어야 한다.
+생성되는 JSON은 `external-review-evidence/v1`이며 `decision`, `reviewer`, `source`, `prHeadSha`, `evidenceArtifacts`, `evidenceChecked`, `blockingFindings`, `nonBlockingRisks`를 포함한다. `evidenceArtifacts`에는 리뷰어가 승인 전에 확인한 실제 CI/배포/촬영방 증거 파일의 SHA-256 해시가 기록되어야 한다.

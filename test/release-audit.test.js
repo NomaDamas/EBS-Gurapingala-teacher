@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -265,6 +265,40 @@ test("release audit rejects external review evidence not bound to current deploy
   assert.match(result.stderr, /evidenceArtifacts\.deployVerification\.file must match/);
   assert.match(result.stderr, /evidenceArtifacts\.deployVerification\.sha256 must match the current evidence file/);
   assert.match(result.stderr, /evidenceArtifacts\.classroomConfigs must include every CLASSROOM_CONFIG_EVIDENCE_FILES entry/);
+});
+
+test("release audit rejects external review evidence not bound to current CI artifact", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/"
+  });
+  const review = JSON.parse(await readFile(evidence.externalReviewFile, "utf8"));
+  review.evidenceArtifacts.ci = {
+    file: "artifacts/old-ci-evidence.json",
+    sha256: "0".repeat(64),
+    bytes: 10
+  };
+  await writeFile(evidence.externalReviewFile, `${JSON.stringify(review, null, 2)}\n`);
+
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /evidenceArtifacts\.ci\.file must match/);
+  assert.match(result.stderr, /evidenceArtifacts\.ci\.sha256 must match the current evidence file/);
 });
 
 test("release audit rejects deploy evidence that was not strict OpenAI teacher-token verification", async () => {
@@ -884,7 +918,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
   await writeFile(deployEvidenceFile, deployEvidenceJson);
   await writeFile(classroomConfigEvidenceFile, classroomEvidenceJson);
   await writeFile(secondClassroomConfigEvidenceFile, secondClassroomEvidenceJson);
-  await writeFile(ciEvidenceFile, JSON.stringify({
+  const ciEvidenceJson = JSON.stringify({
     schemaVersion: "ci-evidence/v1",
     generatedAt: "2026-07-10T00:00:30.000Z",
     status: "pass",
@@ -905,7 +939,8 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
       completedAt: "2026-07-10T00:00:20Z"
     },
     totalCheckRuns: 1
-  }, null, 2));
+  }, null, 2);
+  await writeFile(ciEvidenceFile, ciEvidenceJson);
   await writeFile(externalReviewFile, JSON.stringify({
     schemaVersion: "external-review-evidence/v1",
     generatedAt: "2026-07-10T00:03:00.000Z",
@@ -916,6 +951,11 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     },
     prHeadSha,
     evidenceArtifacts: {
+      ci: {
+        file: ciEvidenceFile,
+        sha256: sha256(ciEvidenceJson),
+        bytes: Buffer.byteLength(ciEvidenceJson)
+      },
       deployVerification: {
         file: deployEvidenceFile,
         sha256: sha256(deployEvidenceJson),

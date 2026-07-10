@@ -16,6 +16,7 @@ const smokeStatus = normalizeStatus(process.env.SMOKE_STATUS || process.env.NPM_
 const verifyDeployStatus = normalizeStatus(process.env.VERIFY_DEPLOY_STATUS || "not-run");
 const classroomConfigStatus = normalizeStatus(process.env.CLASSROOM_CONFIG_STATUS || process.env.REHEARSAL_CONFIG_STATUS);
 const releaseAuditStatus = normalizeStatus(process.env.RELEASE_AUDIT_STATUS || "not-run");
+const ciEvidenceFile = String(process.env.CI_EVIDENCE_FILE || "").trim();
 const verifyDeployEvidenceFile = String(process.env.VERIFY_DEPLOY_EVIDENCE_FILE || "").trim();
 const classroomConfigEvidenceFiles = parseFileList(process.env.CLASSROOM_CONFIG_EVIDENCE_FILES || process.env.CLASSROOM_CONFIG_EVIDENCE_FILE);
 const blockingFindings = parseList(process.env.BLOCKING_FINDINGS);
@@ -38,6 +39,9 @@ if (decision === "approve" && blockingFindings.length) {
 }
 if (decision === "approve" && !verifyDeployEvidenceFile) {
   failures.push("VERIFY_DEPLOY_EVIDENCE_FILE is required for APPROVE evidence so the review is tied to deployed Worker evidence");
+}
+if (decision === "approve" && !ciEvidenceFile) {
+  failures.push("CI_EVIDENCE_FILE is required for APPROVE evidence so the review is tied to latest PR CI evidence");
 }
 if (decision === "approve" && classroomConfigEvidenceFiles.length === 0) {
   failures.push("CLASSROOM_CONFIG_EVIDENCE_FILES or CLASSROOM_CONFIG_EVIDENCE_FILE is required for APPROVE evidence so the review is tied to every filming room");
@@ -91,6 +95,7 @@ console.log(`external review evidence written: ${outputFile}`);
 
 async function buildEvidenceArtifacts() {
   return {
+    ci: ciEvidenceFile ? await hashEvidenceFile(ciEvidenceFile) : null,
     deployVerification: verifyDeployEvidenceFile ? await hashEvidenceFile(verifyDeployEvidenceFile) : null,
     classroomConfigs: await Promise.all(classroomConfigEvidenceFiles.map(hashEvidenceFile))
   };

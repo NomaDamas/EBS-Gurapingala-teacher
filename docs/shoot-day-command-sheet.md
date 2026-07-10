@@ -135,6 +135,7 @@ READINESS_STATUS=pass \
 SMOKE_STATUS=pass \
 VERIFY_DEPLOY_STATUS=pass \
 CLASSROOM_CONFIG_STATUS=pass \
+CI_EVIDENCE_FILE=artifacts/ci-evidence.json \
 VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json \
 CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json \
 EXTERNAL_REVIEW_FILE=artifacts/external-review.json \
