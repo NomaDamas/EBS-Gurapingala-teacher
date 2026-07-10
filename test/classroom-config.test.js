@@ -12,12 +12,16 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
     ["2026-07-16-3-1", { level: 1, persona: "초기값" }]
   ]);
   const events = [];
+  let teacherPageAuthAttempts = 0;
+  let teacherApiAuthAttempts = 0;
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, "http://127.0.0.1");
     const room = url.searchParams.get("room") || "default-classroom";
     if (url.pathname === "/") return html(res, "질문의 온도 교사용 대시보드에 기록됩니다 이름 외 개인정보는 입력하지 마세요");
     if (url.pathname === "/teacher") {
       if (url.searchParams.get("token") !== "teacher-secret") return text(res, "Teacher token required", 401);
+      teacherPageAuthAttempts += 1;
+      if (teacherPageAuthAttempts === 1) return text(res, "Teacher token propagation pending", 401);
       return html(res, "실시간 교실 관찰");
     }
     if (url.pathname === "/api/health") {
@@ -32,6 +36,8 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
     }
     if (url.pathname === "/api/config") {
       if (req.headers["x-teacher-token"] !== "teacher-secret") return text(res, "Teacher token required", 401);
+      teacherApiAuthAttempts += 1;
+      if (teacherApiAuthAttempts === 1) return text(res, "Teacher token propagation pending", 401);
       if (req.method === "POST") {
         const body = JSON.parse(await readBody(req));
         configs.set(room, { level: body.level, persona: body.persona });
@@ -114,7 +120,8 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       EXPECTED_OPENAI_MODEL: "gpt-5.5",
       EXPECTED_OPENAI_TIMEOUT_MS: "15000",
       PR_HEAD_SHA: "abc123",
-      CLASSROOM_CONFIG_EVIDENCE_FILE: evidenceFile
+      CLASSROOM_CONFIG_EVIDENCE_FILE: evidenceFile,
+      VERIFY_AUTH_RETRY_DELAY_MS: "1"
     });
 
     assert.equal(result.code, 0, result.stdout + result.stderr);
@@ -155,6 +162,8 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
     });
     assert.equal(JSON.stringify(evidence).includes("teacher-secret"), false);
     assert.equal(evidence.observedConfig.persona, "이순신 장군처럼 친절하게 설명한다.");
+    assert.equal(teacherPageAuthAttempts, 2);
+    assert.equal(teacherApiAuthAttempts >= 2, true);
 
     const applyResult = await runNode(["scripts/verify-classroom-config.js"], {
       WORKER_URL: workerUrl,

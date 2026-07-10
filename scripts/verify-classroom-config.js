@@ -15,6 +15,7 @@ const expectedOpenAITimeoutMs = normalizeExpectedTimeout(process.env.EXPECTED_OP
 const verifyClassroomChat = process.env.VERIFY_CLASSROOM_CHAT === "true";
 const evidenceFile = String(process.env.CLASSROOM_CONFIG_EVIDENCE_FILE || "").trim();
 const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "").trim();
+const teacherAuthRetryDelayMs = normalizeRetryDelay(process.env.VERIFY_AUTH_RETRY_DELAY_MS || "1000");
 
 const failures = [];
 if (!baseUrl) failures.push("WORKER_URL is required");
@@ -55,7 +56,7 @@ await check("teacher URL requires token", async () => {
 
 await check("teacher URL accepts token", async () => {
   if (!teacherToken) return true;
-  const res = await fetchUrl("/teacher", { token: teacherToken });
+  const res = await fetchWithTeacherAuthRetry(() => fetchUrl("/teacher", { token: teacherToken }));
   const body = await res.text();
   return res.status === 200 && body.includes("실시간 교실 관찰");
 });
@@ -230,13 +231,27 @@ function fetchUrl(path, query = {}, init) {
 }
 
 function fetchTeacherUrl(path, init = {}) {
-  return fetchUrl(path, {}, {
+  return fetchWithTeacherAuthRetry(() => fetchUrl(path, {}, {
     ...init,
     headers: {
       ...(init.headers || {}),
       "x-teacher-token": teacherToken
     }
-  });
+  }));
+}
+
+async function fetchWithTeacherAuthRetry(run, attempts = 6) {
+  let response = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    response = await run();
+    if (response.status !== 401 && response.status !== 403) return response;
+    if (attempt < attempts) await delay(teacherAuthRetryDelayMs);
+  }
+  return response;
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function buildSharingUrlEvidence() {
@@ -289,6 +304,12 @@ function normalizeExpectedTimeout(value) {
     console.error("EXPECTED_OPENAI_TIMEOUT_MS must be between 1000 and 60000.");
     process.exit(1);
   }
+  return Math.round(n);
+}
+
+function normalizeRetryDelay(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0 || n > 10000) return 1000;
   return Math.round(n);
 }
 
