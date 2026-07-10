@@ -74,6 +74,7 @@ CLOUDFLARE_API_TOKEN=<token> \
 WORKER_HEALTH_URL=https://<worker-domain> \
 TEACHER_TOKEN=<TEACHER_TOKEN> \
 EXPECTED_OPENAI_MODEL=gpt-5.5 \
+EXPECTED_OPENAI_TIMEOUT_MS=15000 \
 npm run preflight:deploy
 ```
 
@@ -85,8 +86,11 @@ TEACHER_TOKEN=<TEACHER_TOKEN> \
 VERIFY_ROOM=deploy-verify \
 REQUIRE_OPENAI=true \
 REQUIRE_TEACHER_TOKEN=true \
+REQUIRE_CLOUDFLARE_EDGE=true \
 EXPECTED_OPENAI_MODEL=gpt-5.5 \
 EXPECTED_OPENAI_TIMEOUT_MS=15000 \
+PR_HEAD_SHA=<latest-sha> \
+VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json \
 npm run verify:deploy
 ```
 

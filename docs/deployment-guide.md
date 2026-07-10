@@ -80,7 +80,7 @@ npm test
 npm run eval
 npm run readiness
 npm run smoke
-CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> WORKER_HEALTH_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> EXPECTED_OPENAI_MODEL=gpt-5.5 npm run preflight:deploy
+CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> WORKER_HEALTH_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run preflight:deploy
 npm run deploy
 ```
 
