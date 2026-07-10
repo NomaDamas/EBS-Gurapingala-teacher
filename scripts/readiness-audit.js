@@ -123,11 +123,13 @@ const checks = [
   },
   {
     id: "production-runbook-documented",
-    evidence: ["docs/production-runbook.md", "README.md", "docs/deployment-guide.md"],
+    evidence: ["docs/production-runbook.md", "README.md", "docs/deployment-guide.md", "docs/shoot-day-command-sheet.md", "test/shoot-day-command-sheet.test.js"],
     run: async (files) =>
       includesAll(files["docs/production-runbook.md"], ["촬영 전날", "리허설", "촬영 중", "촬영 직후", "데이터 삭제", "Node.js 22", "npm ci", "CLOUDFLARE_ACCOUNT_ID", "openaiModel", "openaiTimeoutMs", "EXPECTED_OPENAI_MODEL", "EXPECTED_OPENAI_TIMEOUT_MS", "/api/config", "teacher_config_updated", "unsafe_persona_instruction", "/api/health", "x-robots-tag: noindex, nofollow", "/api/debrief.csv", "npm run classroom:urls", "학생에게 공유하는 `studentUrl`에는 `token`", "npm run rehearsal:config", "CLASSROOM_ROOM", "EXPECTED_FALSE_LEVEL", "EXPECTED_PERSONA", "APPLY_CLASSROOM_CONFIG", "classroom-config-evidence/v1", "npm run release:commands", "npm run shoot:checklist", "stop condition", "CLASSROOM_PLANS"]) &&
       includesAll(files["README.md"], ["촬영 운영 런북"]) &&
-      includesAll(files["docs/deployment-guide.md"], ["production-runbook.md"])
+      includesAll(files["docs/deployment-guide.md"], ["production-runbook.md"]) &&
+      includesAll(files["docs/shoot-day-command-sheet.md"], ["<latest-pr-head-sha>", "gh pr view 1 --json headRefOid", "npm test", "npm run eval", "npm run readiness", "npm run smoke", "npm run classroom:urls", "npm run review:packet", "VERIFY_ROOM=deploy-verify", "VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json", "CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts/2026-07-13-3-5-config.json", "CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts/2026-07-16-3-1-config.json", "CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json", "EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1", "npm run release:audit", "stop condition", "정정 수업 오류표"]) &&
+      includesAll(files["test/shoot-day-command-sheet.test.js"], ["does not leak secrets", "keeps release evidence tied to the latest PR head", "preserves classroom evidence paths"])
   },
   {
     id: "design-reference-documented",
