@@ -4,6 +4,7 @@ const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || ""
 const classroomPlans = parsePlans(process.env.CLASSROOM_PLANS || "");
 const expectedOpenAIModel = String(process.env.EXPECTED_OPENAI_MODEL || "gpt-5.5").trim();
 const expectedOpenAITimeoutMs = String(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "15000").trim();
+const classroomChatProof = process.env.CLASSROOM_CHAT_PROOF === "true";
 
 const failures = [];
 if (!isUrl(prUrl)) failures.push("PR_URL must be an https GitHub PR URL");
@@ -32,6 +33,7 @@ console.log(`# EBS <생각의 멸종> shoot checklist
 - Do not merge without actual external GPT-5.5 xhigh/equivalent APPROVE review.
 - Do not merge without real Cloudflare verify:deploy evidence.
 - Do not merge without rehearsal:config evidence for every filming room.
+- If classroom chat proof is required, do not merge unless every room evidence includes valid sampleChat.
 - Do not share teacherUrl or TEACHER_TOKEN with students.
 - Do not use deploy-verify as a filming room.
 
@@ -45,10 +47,25 @@ npm run smoke
 WORKER_URL=${shellQuote(workerUrl)} CLASSROOM_ROOMS=${shellQuote(rooms)} npm run classroom:urls
 
 ## 3. External Review Request
-PR_URL=${shellQuote(prUrl)} PR_HEAD_SHA=${shellQuote(prHeadSha)} WORKER_URL=${shellQuote(workerUrl)} EXPECTED_CLASSROOM_ROOMS=${shellQuote(rooms)} npm run review:packet
+${[
+  `PR_URL=${shellQuote(prUrl)}`,
+  `PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
+  `WORKER_URL=${shellQuote(workerUrl)}`,
+  `EXPECTED_CLASSROOM_ROOMS=${shellQuote(rooms)}`,
+  classroomChatProof ? "CLASSROOM_CHAT_PROOF=true" : "",
+  "npm run review:packet"
+].filter(Boolean).join(" ")}
 
 ## 4. Release Evidence Commands
-WORKER_URL=${shellQuote(workerUrl)} PR_HEAD_SHA=${shellQuote(prHeadSha)} EXPECTED_OPENAI_MODEL=${shellQuote(expectedOpenAIModel)} EXPECTED_OPENAI_TIMEOUT_MS=${shellQuote(expectedOpenAITimeoutMs)} CLASSROOM_PLANS=${shellQuote(process.env.CLASSROOM_PLANS)} npm run release:commands
+${[
+  `WORKER_URL=${shellQuote(workerUrl)}`,
+  `PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
+  `EXPECTED_OPENAI_MODEL=${shellQuote(expectedOpenAIModel)}`,
+  `EXPECTED_OPENAI_TIMEOUT_MS=${shellQuote(expectedOpenAITimeoutMs)}`,
+  `CLASSROOM_PLANS=${shellQuote(process.env.CLASSROOM_PLANS)}`,
+  classroomChatProof ? "CLASSROOM_CHAT_PROOF=true" : "",
+  "npm run release:commands"
+].filter(Boolean).join(" ")}
 
 ## 5. Final Gate
 Run the release:commands output in order, then run release:audit only with evidence files generated from this same SHA.

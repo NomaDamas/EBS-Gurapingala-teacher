@@ -24,6 +24,21 @@ test("shoot:checklist prints ordered shoot gates without leaking teacher token",
   assert.equal(result.stdout.includes("token=bad"), false);
 });
 
+test("shoot:checklist carries classroom chat proof into review and release commands", async () => {
+  const result = await runShootChecklist({
+    PR_URL: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1",
+    WORKER_URL: "https://worker.example.com",
+    PR_HEAD_SHA: "abc123",
+    CLASSROOM_CHAT_PROOF: "true",
+    CLASSROOM_PLANS: "2026-07-13-3-5:2:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:2:이순신 장군처럼 친절하게 설명한다."
+  });
+
+  assert.equal(result.code, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /If classroom chat proof is required/);
+  assert.match(result.stdout, /CLASSROOM_CHAT_PROOF=true[\s\S]*npm run review:packet/);
+  assert.match(result.stdout, /CLASSROOM_CHAT_PROOF=true[\s\S]*npm run release:commands/);
+});
+
 test("shoot:checklist rejects incomplete or unsafe shoot setup", async () => {
   const missing = await runShootChecklist({
     WORKER_URL: "https://worker.example.com"
