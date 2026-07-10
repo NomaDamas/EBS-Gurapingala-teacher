@@ -54,6 +54,7 @@ test("review:evidence rejects approval with blocking findings", async () => {
     EVAL_STATUS: "pass",
     READINESS_STATUS: "pass",
     SMOKE_STATUS: "pass",
+    VERIFY_DEPLOY_STATUS: "pass",
     CLASSROOM_CONFIG_STATUS: "pass",
     BLOCKING_FINDINGS: "src/worker.js:1 학생에게 정답 누출 가능"
   });
@@ -76,6 +77,7 @@ test("review:evidence fails closed when required verification statuses are missi
   assert.match(result.stderr, /EVAL_STATUS=pass or success is required/);
   assert.match(result.stderr, /READINESS_STATUS=pass or success is required/);
   assert.match(result.stderr, /SMOKE_STATUS=pass or success is required/);
+  assert.match(result.stderr, /VERIFY_DEPLOY_STATUS=pass or success is required/);
   assert.match(result.stderr, /CLASSROOM_CONFIG_STATUS=pass or success is required/);
 });
 
@@ -89,6 +91,7 @@ test("review:evidence requires a concrete external review source artifact", asyn
     EVAL_STATUS: "pass",
     READINESS_STATUS: "pass",
     SMOKE_STATUS: "pass",
+    VERIFY_DEPLOY_STATUS: "pass",
     CLASSROOM_CONFIG_STATUS: "pass"
   });
 
@@ -105,6 +108,7 @@ test("review:evidence requires a concrete external review source artifact", asyn
     EVAL_STATUS: "pass",
     READINESS_STATUS: "pass",
     SMOKE_STATUS: "pass",
+    VERIFY_DEPLOY_STATUS: "pass",
     CLASSROOM_CONFIG_STATUS: "pass"
   });
 

@@ -40,6 +40,7 @@ for (const [label, value] of [
   ["EVAL_STATUS", evalStatus],
   ["READINESS_STATUS", readinessStatus],
   ["SMOKE_STATUS", smokeStatus],
+  ["VERIFY_DEPLOY_STATUS", verifyDeployStatus],
   ["CLASSROOM_CONFIG_STATUS", classroomConfigStatus]
 ]) {
   if (!isPass(value)) failures.push(`${label}=pass or success is required for external review evidence`);
