@@ -83,10 +83,10 @@ EXTERNAL_REVIEW_DECISION=APPROVE EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" PR
 ```
 
 ```bash
-EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLASSROOM_CONFIG=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts/2026-07-13-3-5-config.json npm run release:audit
+EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLASSROOM_CONFIG=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json npm run release:audit
 ```
 
-`release:audit`는 외부 GPT-5.5 xhigh급 승인 파일, 실제 Worker URL `verify:deploy` 증거 파일, 촬영방 `rehearsal:config` 증거 파일, 최신 PR head CI 통과, OpenAI/교사용 token/촬영방 설정 검증 증거가 모두 같은 commit에 묶였는지 확인한다.
+`release:audit`는 외부 GPT-5.5 xhigh급 승인 파일, 실제 Worker URL `verify:deploy` 증거 파일, 각 촬영방 `rehearsal:config` 증거 파일, 최신 PR head CI 통과, OpenAI/교사용 token/촬영방 설정 검증 증거가 모두 같은 commit에 묶였는지 확인한다.
 
 촬영반별 URL 분리 예시:
 

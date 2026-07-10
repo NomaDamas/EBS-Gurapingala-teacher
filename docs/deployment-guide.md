@@ -99,11 +99,11 @@ EXTERNAL_REVIEW_DECISION=APPROVE EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" PR
 ```
 
 ```bash
-EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLASSROOM_CONFIG=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts/2026-07-13-3-5-config.json npm run release:audit
+EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLASSROOM_CONFIG=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json npm run release:audit
 ```
 
 `EXTERNAL_REVIEW_FILE`은 `decision: "APPROVE"`, `reviewer` 또는 `model`, `prHeadSha`를 포함한 JSON이어야 한다. `VERIFY_DEPLOY_EVIDENCE_FILE`은 `verify:deploy`가 생성한 `deploy-verification-evidence/v1` JSON이어야 하며 같은 `PR_HEAD_SHA`, 같은 `WORKER_URL`, `requireOpenAI=true`, `requireTeacherToken=true`를 기록해야 한다.
-`CLASSROOM_CONFIG_EVIDENCE_FILE`은 `rehearsal:config`가 생성한 `classroom-config-evidence/v1` JSON이어야 하며 같은 `PR_HEAD_SHA`, 같은 `WORKER_URL`, 실제 촬영/리허설 room, 기대 Level/persona와 실제 적용 config 일치를 기록해야 한다.
+`CLASSROOM_CONFIG_EVIDENCE_FILES`는 각 촬영방에서 `rehearsal:config`가 생성한 `classroom-config-evidence/v1` JSON 목록이어야 하며 같은 `PR_HEAD_SHA`, 같은 `WORKER_URL`, 실제 촬영/리허설 room, 기대 Level/persona와 실제 적용 config 일치를 기록해야 한다.
 
 GitHub Actions `Deploy` workflow는 `PR_HEAD_SHA=${{ github.sha }}`와 `VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json`로 실제 URL 검증을 실행하고, 결과를 `deploy-verification-evidence` artifact로 업로드한다. 릴리즈 감사에는 이 artifact의 JSON을 그대로 사용한다.
 

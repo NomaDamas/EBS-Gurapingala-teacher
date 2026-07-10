@@ -16,7 +16,7 @@
 - [ ] GPT-5.5 xhigh or equivalent external review decision is `APPROVE`.
 - [ ] Real Cloudflare Worker URL was verified with `npm run verify:deploy`.
 - [ ] Production verification used `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`, and `REQUIRE_CLASSROOM_CONFIG=true`.
-- [ ] `CLASSROOM_CONFIG_EVIDENCE_FILE` points to the filming/rehearsal room evidence, not `deploy-verify`.
+- [ ] `CLASSROOM_CONFIG_EVIDENCE_FILES` includes every filming/rehearsal room evidence file, and none point to `deploy-verify`.
 - [ ] `npm run release:audit` passed with `PR_HEAD_SHA` and `EXPECTED_PR_HEAD_SHA` set to the latest PR head.
 - [ ] Do not merge if any release gate is unchecked.
 

@@ -22,7 +22,7 @@ test("release audit passes only with review, deploy verification, CI, and commit
     REQUIRE_CLASSROOM_CONFIG: "true",
     EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
     VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
-    CLASSROOM_CONFIG_EVIDENCE_FILE: evidence.classroomConfigEvidenceFile
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(",")
   });
 
   assert.equal(result.code, 0, result.stdout + result.stderr);
@@ -30,7 +30,7 @@ test("release audit passes only with review, deploy verification, CI, and commit
   assert.match(result.stdout, /prHeadSha=abc123/);
   assert.match(result.stdout, /externalReviewFile=/);
   assert.match(result.stdout, /verifyDeployEvidenceFile=/);
-  assert.match(result.stdout, /classroomConfigEvidenceFile=/);
+  assert.match(result.stdout, /classroomConfigEvidenceFiles=.*classroom-config-1\.json.*classroom-config-2\.json/);
 });
 
 test("release audit fails closed without external review and real deploy verification", async () => {
@@ -68,13 +68,13 @@ test("release audit rejects stale review or deploy evidence from an older commit
     REQUIRE_CLASSROOM_CONFIG: "true",
     EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
     VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
-    CLASSROOM_CONFIG_EVIDENCE_FILE: evidence.classroomConfigEvidenceFile
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(",")
   });
 
   assert.notEqual(result.code, 0);
   assert.match(result.stderr, /EXTERNAL_REVIEW_FILE prHeadSha must match PR_HEAD_SHA/);
   assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE prHeadSha must match PR_HEAD_SHA/);
-  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE prHeadSha must match PR_HEAD_SHA/);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* prHeadSha must match PR_HEAD_SHA/);
 });
 
 test("release audit rejects deploy evidence that was not strict OpenAI teacher-token verification", async () => {
@@ -98,7 +98,7 @@ test("release audit rejects deploy evidence that was not strict OpenAI teacher-t
     REQUIRE_CLASSROOM_CONFIG: "true",
     EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
     VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
-    CLASSROOM_CONFIG_EVIDENCE_FILE: evidence.classroomConfigEvidenceFile
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(",")
   });
 
   assert.notEqual(result.code, 0);
@@ -126,11 +126,11 @@ test("release audit rejects classroom config evidence from deploy-verify room", 
     REQUIRE_CLASSROOM_CONFIG: "true",
     EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
     VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
-    CLASSROOM_CONFIG_EVIDENCE_FILE: evidence.classroomConfigEvidenceFile
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(",")
   });
 
   assert.notEqual(result.code, 0);
-  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE roomId must be a filming\/rehearsal room/);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* roomId must be a filming\/rehearsal room/);
 });
 
 test("release audit rejects classroom config evidence with mismatched observed config", async () => {
@@ -156,18 +156,46 @@ test("release audit rejects classroom config evidence with mismatched observed c
     REQUIRE_CLASSROOM_CONFIG: "true",
     EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
     VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
-    CLASSROOM_CONFIG_EVIDENCE_FILE: evidence.classroomConfigEvidenceFile
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(",")
   });
 
   assert.notEqual(result.code, 0);
-  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE observedConfig must match expected Level\/persona/);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* observedConfig must match expected Level\/persona/);
 });
 
-async function writeEvidenceFiles({ prHeadSha, workerUrl, deployOverrides = {}, classroomOverrides = {} }) {
+test("release audit rejects duplicate classroom config evidence rooms", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    classroomTwoOverrides: {
+      roomId: "2026-07-13-3-5"
+    }
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(",")
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /roomId must be unique across CLASSROOM_CONFIG_EVIDENCE_FILES/);
+});
+
+async function writeEvidenceFiles({ prHeadSha, workerUrl, deployOverrides = {}, classroomOverrides = {}, classroomTwoOverrides = {} }) {
   const dir = await mkdtemp(join(tmpdir(), "release-audit-"));
   const externalReviewFile = join(dir, "external-review.json");
   const deployEvidenceFile = join(dir, "deploy-evidence.json");
-  const classroomConfigEvidenceFile = join(dir, "classroom-config-evidence.json");
+  const classroomConfigEvidenceFile = join(dir, "classroom-config-1.json");
+  const secondClassroomConfigEvidenceFile = join(dir, "classroom-config-2.json");
   await writeFile(externalReviewFile, JSON.stringify({
     decision: "APPROVE",
     reviewer: "GPT-5.5 xhigh equivalent",
@@ -204,7 +232,31 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, deployOverrides = {}, 
     ],
     ...classroomOverrides
   }, null, 2));
-  return { externalReviewFile, deployEvidenceFile, classroomConfigEvidenceFile };
+  await writeFile(secondClassroomConfigEvidenceFile, JSON.stringify({
+    schemaVersion: "classroom-config-evidence/v1",
+    status: "pass",
+    workerUrl,
+    roomId: "2026-07-16-3-1",
+    prHeadSha,
+    expectedLevel: 3,
+    expectedPersona: "관점 왜곡 실험용 역사 도우미",
+    requireOpenAI: true,
+    requireTeacherToken: true,
+    observedConfig: {
+      level: 3,
+      persona: "관점 왜곡 실험용 역사 도우미"
+    },
+    checks: [
+      { name: "classroom Level/persona matches expected config", passed: true }
+    ],
+    ...classroomTwoOverrides
+  }, null, 2));
+  return {
+    externalReviewFile,
+    deployEvidenceFile,
+    classroomConfigEvidenceFile,
+    classroomConfigEvidenceFiles: [classroomConfigEvidenceFile, secondClassroomConfigEvidenceFile]
+  };
 }
 
 function runReleaseAudit(env) {
