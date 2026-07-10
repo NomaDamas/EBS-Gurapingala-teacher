@@ -19,7 +19,7 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(worker, /findUnsafePersonaInstruction/);
   assert.match(worker, /await this\.updateConfig\(data, normalizeRoomId\(url\.searchParams\.get\("room"\)\)\)/);
   assert.match(worker, /url\.pathname === "\/config" && request\.method === "POST"[\s\S]*this\.updateConfig\(await request\.json\(\), normalizeRoomId\(url\.searchParams\.get\("room"\)\)\)/);
-  assert.match(worker, /const config = \{\s*level: nextLevel,\s*persona: nextPersona,\s*updatedAt\s*\}/s);
+  assert.match(worker, /const config = \{\s*level: nextLevel,\s*persona: nextPersona,\s*responseMode: nextResponseMode,\s*updatedAt\s*\}/s);
   assert.match(worker, /const recordedEvent = await this\.recordEvent\(event\)/);
   assert.match(worker, /this\.broadcast\(recordedEvent\)/);
 
@@ -79,4 +79,69 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /copyAuditJsonEl\.addEventListener\("click", \(\) => copyText\(auditEl\.textContent, "audit json"\)\)/);
   assert.match(teacher, /네트워크 문제로 다운로드하지 못했습니다/);
   assert.match(teacher, /네트워크 문제로 촬영 로그를 삭제하지 못했습니다/);
+});
+
+test("teacher dashboard preserves response mode and separates teacher-only review evidence", async () => {
+  const teacher = await readFile("src/ui/teacher.js", "utf8");
+
+  assert.match(teacher, /id="responseMode" aria-describedby="responseModeHelp"/);
+  assert.match(teacher, /option value="experiment" selected>실험 · 진실\+거짓/);
+  assert.match(teacher, /option value="truth">진실 · 검수 사실만/);
+  assert.match(teacher, /responseMode: responseModeEl\.value/);
+  assert.match(teacher, /body: JSON\.stringify\(\{\s*responseMode: payload\.responseMode,\s*level: payload\.level,\s*persona: payload\.persona\s*\}\)/s);
+  assert.match(teacher, /config\.responseMode === "experiment" \|\| config\.responseMode === "truth"/);
+  assert.match(teacher, /responseModeEl\.value = config\.responseMode/);
+  assert.match(teacher, /적용됨: " \+ appliedMode/);
+  assert.match(teacher, /responseModeEl\.addEventListener\("change"/);
+
+  assert.match(teacher, /function updateResponseModeUi\(\)/);
+  assert.match(teacher, /const truthMode = responseModeEl\.value === "truth"/);
+  assert.match(teacher, /levelEl\.disabled = truthMode/);
+  assert.match(teacher, /levelEl\.setAttribute\("aria-disabled", String\(truthMode\)\)/);
+  assert.match(teacher, /진실 모드에서는 Level을 적용하지 않습니다/);
+  assert.match(teacher, /event\.teacherAudit\?\.input\?\.responseMode !== "truth"/);
+
+  assert.match(teacher, /id="teacherReviewTitle">교사용 검수 영역/);
+  assert.match(teacher, /교사 전용 · 학생 비노출/);
+  assert.match(teacher, /학생에게 보인 대화/);
+  assert.match(teacher, /function renderTeacherReview\(audit, blockedForStudent = false\)/);
+  assert.match(teacher, /정답 · 교사 기준/);
+  assert.match(teacher, /거짓 · 학생용 생성안/);
+  assert.match(teacher, /왜 거짓인가/);
+  assert.match(teacher, /Level 근거/);
+  assert.match(teacher, /검수 결과/);
+  assert.match(teacher, /truth 모드는 거짓 정보를 생성하거나 노출하지 않음/);
+  assert.match(teacher, /body\.textContent = value \|\| "정보 없음"/);
+  assert.match(teacher, /원시 감사 JSON 보기/);
+
+  assert.match(teacher, /최대 35명/);
+  assert.match(teacher, /#students \{[\s\S]*overflow-y: auto/);
+  assert.match(teacher, /@media \(max-width: 900px\)/);
+  assert.match(teacher, /el\.setAttribute\("role", "button"\)/);
+  assert.match(teacher, /event\.key !== "Enter" && event\.key !== " "/);
+});
+
+test("teacher dashboard prioritizes 35-student live telemetry and audits each conversation turn", async () => {
+  const teacher = await readFile("src/ui/teacher.js", "utf8");
+
+  assert.match(teacher, /data-filter="all" aria-pressed="true">전체/);
+  assert.match(teacher, /data-filter="online" aria-pressed="false">온라인/);
+  assert.match(teacher, /data-filter="attention" aria-pressed="false">주의 필요/);
+  assert.match(teacher, /\.sort\(compareStudentPriority\)/);
+  assert.match(teacher, /function studentMatchesFilter\(session\)/);
+  assert.match(teacher, /function compareStudentPriority\(\[, left\], \[, right\]\)/);
+  assert.match(teacher, /leftAttention !== rightAttention/);
+  assert.match(teacher, /function telemetryAgeLabel\(lastSeenMs\)/);
+  assert.match(teacher, /seconds \+ "초 전"/);
+  assert.match(teacher, /session\.responseMode === "truth" \? "truth" : "experiment"/);
+  assert.match(teacher, /studentFilterEls\.forEach/);
+
+  assert.match(teacher, /audit: event\.teacherAudit/);
+  assert.match(teacher, /audit: event\.teacherAudit,\s*turn/);
+  assert.match(teacher, /function groupMessagesByTurn\(messages\)/);
+  assert.match(teacher, /function findReviewMessage\(session\)/);
+  assert.match(teacher, /reviewButton\.textContent = message\.blockedForStudent \? "차단된 턴 검수" : "이 턴 검수"/);
+  assert.match(teacher, /selectedTurn = message\.turn/);
+  assert.match(teacher, /renderTeacherReview\(selectedAudit/);
+  assert.match(teacher, /auditEl\.textContent = selectedAudit \? JSON\.stringify\(selectedAudit/);
 });

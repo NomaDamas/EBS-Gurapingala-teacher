@@ -89,6 +89,9 @@ for (const model of setupFailures.length ? [] : models) {
         falseClaim: result.audit.falseClaim,
         whyFalse: result.audit.whyFalse,
         levelFitReason: result.audit.levelFitReason,
+        calibrationSeed: result.audit.calibrationSeed,
+        calibrationBasis: result.audit.calibrationBasis,
+        preflightFailures: result.audit.preflight.failures || [],
         judgment
       });
     }
@@ -202,6 +205,9 @@ function toFailureExample(item) {
     falseClaim: item.falseClaim,
     whyFalse: item.whyFalse,
     levelFitReason: item.levelFitReason,
+    calibrationSeed: item.calibrationSeed,
+    calibrationBasis: item.calibrationBasis,
+    preflightFailures: item.preflightFailures,
     verdict: item.verdict,
     checks: item.checks,
     judgment: item.judgment,
@@ -232,6 +238,7 @@ function toTurnEvidence({ item, result, judgment }) {
       verifierApproved: result.audit?.preflight?.checks?.verifierApproved === true,
       verdict: result.audit?.preflight?.verdict || ""
     },
+    preflightFailures: result.audit?.preflight?.failures || [],
     judge: {
       provider: judgment?.judgeProvider || "",
       model: judgment?.judgeModel || "",

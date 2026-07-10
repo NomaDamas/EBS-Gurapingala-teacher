@@ -3,6 +3,7 @@ export function buildDebriefRows(events) {
     .filter((event) => event.type === "chat_turn" && event.teacherAudit)
     .map((event) => {
       const audit = event.teacherAudit;
+      const responseMode = audit.input?.responseMode || "experiment";
       return {
         roomId: event.roomId || "",
         sessionId: event.sessionId,
@@ -10,12 +11,13 @@ export function buildDebriefRows(events) {
         at: event.at,
         latencyMs: event.latencyMs ?? "",
         blockedForStudent: Boolean(event.blockedForStudent),
-        debriefRequired: !event.blockedForStudent,
+        debriefRequired: responseMode === "experiment" && !event.blockedForStudent,
         question: event.studentMessage,
         studentVisibleAnswer: event.studentVisibleAnswer,
         topic: audit.selectedCase?.topic || "",
         verificationPrompt: audit.selectedCase?.verificationPrompt || "",
         debriefNote: audit.selectedCase?.debriefNote || "",
+        responseMode,
         level: audit.input?.appliedLevel,
         correctAnswer: audit.correctAnswer,
         falseClaim: audit.falseClaim,
@@ -41,6 +43,7 @@ export function buildDebriefCsv(events) {
     "topic",
     "verificationPrompt",
     "debriefNote",
+    "responseMode",
     "level",
     "correctAnswer",
     "falseClaim",
@@ -70,6 +73,7 @@ export function summarizeSessions(events, now = Date.now()) {
       latencyTotalMs: 0,
       latencySamples: 0,
       lastLevel: null,
+      lastResponseMode: null,
       levels: new Set()
     };
     existing.studentName = event.studentName || existing.studentName;
@@ -77,9 +81,13 @@ export function summarizeSessions(events, now = Date.now()) {
     if (event.type === "chat_turn") {
       existing.chatTurns += 1;
       if (event.blockedForStudent) existing.blockedTurns += 1;
-      if (!event.blockedForStudent) existing.debriefRequiredTurns += 1;
+      const responseMode = event.teacherAudit?.input?.responseMode || "experiment";
+      if (responseMode === "experiment" && !event.blockedForStudent) {
+        existing.debriefRequiredTurns += 1;
+      }
       existing.lastChatAt = event.at || existing.lastChatAt;
       const level = event.teacherAudit?.input?.appliedLevel;
+      existing.lastResponseMode = responseMode;
       if (level) {
         existing.levels.add(level);
         existing.lastLevel = level;
