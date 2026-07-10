@@ -9,7 +9,7 @@ test("student UI only enters class after successful join and handles network fai
   assert.match(student, /let joining = false/);
   assert.match(student, /const sessionSecretKey = "ebs-session-secret:" \+ roomId/);
   assert.match(student, /const studentNameKey = "ebs-student-name:" \+ roomId/);
-  assert.match(student, /let sessionSecret = crypto\.randomUUID\(\)/);
+  assert.match(student, /let sessionSecret = localStorage\.getItem\(sessionSecretKey\) \|\| crypto\.randomUUID\(\)/);
   assert.match(student, /let studentName = localStorage\.getItem\(studentNameKey\) \|\| ""/);
   assert.match(student, /localStorage\.setItem\(sessionSecretKey, sessionSecret\)/);
   assert.match(student, /if \(joining\) return/);
@@ -89,7 +89,12 @@ test("student UI keeps required privacy copy and accessible composer limits", as
   assert.match(student, /nextStudentName !== studentName\) rotateSessionIdentity\(\)/);
   assert.match(student, /function resetStudentSession\(\)/);
   assert.match(student, /function resetStudentSession\(\) \{\s*if \(submitting\) return;/);
-  assert.match(student, /let sessionId = crypto\.randomUUID\(\)/);
+  assert.match(student, /let sessionId = localStorage\.getItem\(sessionKey\) \|\| crypto\.randomUUID\(\)/);
+  assert.match(student, /const transcriptKey = "ebs-transcript:" \+ roomId/);
+  assert.match(student, /function restoreConversation\(\)/);
+  assert.match(student, /conversationHistory\.push/);
+  assert.match(student, /storeConversation\(\)/);
+  assert.match(student, /localStorage\.removeItem\(transcriptKey\)/);
   assert.match(student, /chat\.replaceChildren\(\)/);
   assert.match(student, /conversationStage\.scrollHeight/);
   assert.match(student, /target\.offsetTop - 24/);

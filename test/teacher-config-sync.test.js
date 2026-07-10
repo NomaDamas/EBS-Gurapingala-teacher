@@ -22,12 +22,16 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(worker, /const config = \{\s*level: nextLevel,\s*persona: nextPersona,\s*responseMode: nextResponseMode,\s*updatedAt\s*\}/s);
   assert.match(worker, /const recordedEvent = await this\.recordEvent\(event\)/);
   assert.match(worker, /this\.broadcast\(recordedEvent\)/);
+  assert.match(worker, /eventId: event\.eventId \|\| crypto\.randomUUID\(\)/);
 
   assert.equal(teacher.includes('updateSocketStatus("online");\n        sendTeacherConfig();'), false);
   assert.match(teacher, /if \(event\.config\) applyTeacherConfig\(event\.config\)/);
   assert.match(teacher, /if \(event\.type === "teacher_config_updated"\)[\s\S]*return;/);
   assert.match(teacher, /if \(event\.type === "teacher_config_rejected"\)[\s\S]*return;/);
   assert.match(teacher, /if \(telemetry\.type !== "snapshot"\) liveTelemetrySinceConnect = true/);
+  assert.match(teacher, /const seenEventIds = new Set\(\)/);
+  assert.match(teacher, /if \(seenEventIds\.has\(event\.eventId\)\) return/);
+  assert.match(teacher, /seenEventIds\.add\(event\.eventId\)/);
   assert.match(teacher, /if \(event\.type === "snapshot"\)[\s\S]*if \(!liveTelemetrySinceConnect\) \{[\s\S]*sessions\.clear\(\);[\s\S]*selected = null;[\s\S]*for \(const item of event\.events \|\| \[\]\) handleTelemetry\(item\);[\s\S]*if \(previousSelected && sessions\.has\(previousSelected\)\) selected = previousSelected;[\s\S]*return;/);
   assert.match(teacher, /if \(event\.type === "events_purged"\)[\s\S]*sessions\.clear\(\);[\s\S]*selected = null;[\s\S]*renderEmptyChat\("촬영 로그가 삭제되었습니다\."\);[\s\S]*return;/);
   assert.match(teacher, /function applyTeacherConfig\(config\)/);

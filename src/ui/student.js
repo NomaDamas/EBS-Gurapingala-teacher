@@ -887,12 +887,22 @@ export const studentHtml = `<!doctype html>
     const sessionKey = "ebs-session-id:" + roomId;
     const sessionSecretKey = "ebs-session-secret:" + roomId;
     const studentNameKey = "ebs-student-name:" + roomId;
+    const transcriptKey = "ebs-transcript:" + roomId;
+    const clientVersionKey = "ebs-client-version:" + roomId;
+    if (localStorage.getItem(clientVersionKey) !== "2") {
+      localStorage.removeItem(sessionKey);
+      localStorage.removeItem(sessionSecretKey);
+      localStorage.removeItem(studentNameKey);
+      localStorage.removeItem(transcriptKey);
+      localStorage.setItem(clientVersionKey, "2");
+    }
     roomStatus.textContent = "수업 코드 " + roomId;
     roomStatus.title = roomId;
-    // A reload starts a new visible conversation so server context cannot outlive the UI transcript.
-    let sessionId = crypto.randomUUID();
-    let sessionSecret = crypto.randomUUID();
+    let sessionId = localStorage.getItem(sessionKey) || crypto.randomUUID();
+    let sessionSecret = localStorage.getItem(sessionSecretKey) || crypto.randomUUID();
     let studentName = localStorage.getItem(studentNameKey) || "";
+    let conversationHistory = readStoredConversation();
+    let conversationRestored = false;
     let heartbeatTimer = null;
     let heartbeatFailures = 0;
     let joining = false;
@@ -971,6 +981,37 @@ export const studentHtml = `<!doctype html>
       return el;
     }
 
+    function readStoredConversation() {
+      try {
+        const stored = JSON.parse(localStorage.getItem(transcriptKey) || "[]");
+        return Array.isArray(stored)
+          ? stored.filter((item) =>
+            (item?.role === "me" || item?.role === "bot") &&
+            typeof item.text === "string" &&
+            Number.isInteger(item.turn)
+          ).slice(-40)
+          : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function storeConversation() {
+      localStorage.setItem(transcriptKey, JSON.stringify(conversationHistory.slice(-40)));
+    }
+
+    function restoreConversation() {
+      if (conversationRestored) return;
+      conversationRestored = true;
+      chat.replaceChildren();
+      for (const item of conversationHistory) {
+        addMessage(item.role, item.text, { turn: item.turn });
+        completedTurns = Math.max(completedTurns, item.turn);
+      }
+      welcome.classList.toggle("hidden", completedTurns > 0);
+      updateConversationProgress();
+    }
+
     function addPendingMessage() {
       const el = document.createElement("article");
       el.className = "message bot";
@@ -1037,6 +1078,7 @@ export const studentHtml = `<!doctype html>
         join.classList.add("hidden");
         welcome.classList.remove("hidden");
         composerWrap.classList.remove("hidden");
+        restoreConversation();
         setConnectionState(studentName + " · 접속 중", "online");
         messageInput.focus();
       } catch (error) {
@@ -1091,9 +1133,12 @@ export const studentHtml = `<!doctype html>
       localStorage.removeItem(sessionKey);
       localStorage.removeItem(sessionSecretKey);
       localStorage.removeItem(studentNameKey);
+      localStorage.removeItem(transcriptKey);
       sessionId = crypto.randomUUID();
       sessionSecret = crypto.randomUUID();
       studentName = "";
+      conversationHistory = [];
+      conversationRestored = false;
       completedTurns = 0;
       localStorage.setItem(sessionKey, sessionId);
       localStorage.setItem(sessionSecretKey, sessionSecret);
@@ -1177,6 +1222,11 @@ export const studentHtml = `<!doctype html>
           return;
         }
         addMessage("bot", data.answer, { turn: activeTurn });
+        conversationHistory.push(
+          { role: "me", text: message, turn: activeTurn },
+          { role: "bot", text: data.answer, turn: activeTurn }
+        );
+        storeConversation();
         completedTurns = activeTurn;
         updateConversationProgress();
         setConnectionState("앞선 대화와 연결됨", "online");

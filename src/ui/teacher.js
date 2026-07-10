@@ -455,6 +455,7 @@ export const teacherHtml = `<!doctype html>
     const copyAuditJsonEl = document.querySelector("#copyAuditJson");
     const studentFilterEls = [...document.querySelectorAll("[data-filter]")];
     const sessions = new Map();
+    const seenEventIds = new Set();
     const params = new URLSearchParams(location.search);
     const teacherToken = params.get("token") || localStorage.getItem("teacher-token") || "";
     const roomId = normalizeRoomId(params.get("room") || "default-classroom");
@@ -563,6 +564,7 @@ export const teacherHtml = `<!doctype html>
         const previousReviewPinned = reviewPinned;
         if (!liveTelemetrySinceConnect) {
           sessions.clear();
+          seenEventIds.clear();
           selected = null;
         }
         if (event.config) applyTeacherConfig(event.config);
@@ -580,6 +582,10 @@ export const teacherHtml = `<!doctype html>
         if (selected) renderSelected();
         else renderEmptyChat("학생 카드를 클릭하면 대화가 표시됩니다.");
         return;
+      }
+      if (event.eventId) {
+        if (seenEventIds.has(event.eventId)) return;
+        seenEventIds.add(event.eventId);
       }
       if (event.type === "teacher_config_updated") {
         applyTeacherConfig(event.config || event);
@@ -600,6 +606,7 @@ export const teacherHtml = `<!doctype html>
       if (event.type === "events_purged") {
         auditEl.textContent = JSON.stringify(event, null, 2);
         sessions.clear();
+        seenEventIds.clear();
         selected = null;
         selectedTurn = null;
         renderStudents();

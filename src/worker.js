@@ -297,7 +297,10 @@ export class ClassroomRoom {
 
   async recordEvent(event, ttlHours = 24) {
     const events = await this.readEvents(ttlHours);
-    const safeEvent = redactSensitiveFields(event);
+    const safeEvent = redactSensitiveFields({
+      ...event,
+      eventId: event.eventId || crypto.randomUUID()
+    });
     events.push(safeEvent);
     await this.state.storage.put("events", events.slice(-1000));
     return safeEvent;
