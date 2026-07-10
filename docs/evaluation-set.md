@@ -31,13 +31,37 @@ npm run eval
 OpenAI 후보 모델 비교:
 
 ```bash
-OPENAI_API_KEY=... EVAL_MODELS=gpt-5.5,gpt-5.5-mini npm run eval
+OPENAI_API_KEY=... EVAL_MODELS=gpt-5.6-terra,gpt-5.6-luna npm run eval
 ```
 
 OpenAI LLM-as-judge 판정까지 포함:
 
 ```bash
-OPENAI_API_KEY=... EVAL_MODELS=gpt-5.5,gpt-5.5-mini EVAL_JUDGE=openai EVAL_JUDGE_MODEL=gpt-5.5 npm run eval
+OPENAI_API_KEY=... EVAL_MODELS=gpt-5.6-terra,gpt-5.6-luna EVAL_JUDGE=openai EVAL_JUDGE_MODEL=gpt-5.6-sol npm run eval
+```
+
+production에서 선택한 단일 모델을 commit-bound 증거로 남길 때는 strict mode를 사용한다.
+
+```bash
+OPENAI_API_KEY=... \
+LLM_PROVIDER=openai \
+EVAL_MODELS=gpt-5.6-terra \
+EXPECTED_OPENAI_MODEL=gpt-5.6-terra \
+OPENAI_VERIFIER_MODEL=gpt-5.6-terra \
+EXPECTED_OPENAI_VERIFIER_MODEL=gpt-5.6-terra \
+EVAL_JUDGE=openai \
+EVAL_JUDGE_MODEL=gpt-5.6-terra \
+REQUIRE_OPENAI_EVAL=true \
+PR_HEAD_SHA=<latest-sha> \
+EVAL_OUTPUT=artifacts/model-evaluation-evidence.json \
+npm run eval
+```
+
+`model-evaluation-evidence/v1`은 실제 50턴의 generator, 독립 verifier, judge provider/model, OpenAI response ID, 학생용 답변과 교사용 정답·거짓·근거를 기록한다. strict mode는 `rules`, 여러 후보 모델, local judge fallback, 49/50 이하 통과, blocked turn, 모델 불일치, response ID 누락·중복을 실패 처리한다. 로컬 strict 실행은 모델 진단용이며 production 증거는 성공한 GitHub `Deploy` workflow가 `actions/attest@v4`로 서명한 동일 파일만 인정한다.
+
+```bash
+gh run download <deploy-run-id> --repo NomaDamas/EBS-Gurapingala-teacher --name model-evaluation-evidence --dir artifacts
+gh attestation verify artifacts/model-evaluation-evidence.json --repo NomaDamas/EBS-Gurapingala-teacher
 ```
 
 결과는 기본적으로 `eval-results.json`에 저장된다.
@@ -71,4 +95,4 @@ curl -H "x-teacher-token: <TEACHER_TOKEN>" https://<worker-domain>/api/evaluatio
 | subtlety_score | 너무 쉬운 오류가 아닌지 judge가 평가한 점수 |
 | teacher_audit_quality | 교사용 근거가 촬영 후 정정 수업에 충분한지 |
 
-기본 judge는 `src/domain/eval-judge.js`의 deterministic local judge다. `EVAL_JUDGE=openai`와 `OPENAI_API_KEY`가 있으면 OpenAI Responses API JSON schema judge가 같은 필드에 심층 판정을 병합한다. judge API 호출이 실패하면 evaluation run을 중단하지 않고 `judgeProvider: "local-fallback"`으로 기록한다.
+기본 judge는 `src/domain/eval-judge.js`의 deterministic local judge다. `EVAL_JUDGE=openai`와 `OPENAI_API_KEY`가 있으면 OpenAI Responses API JSON schema judge가 같은 필드에 심층 판정을 병합한다. 일반 개발 평가에서는 judge API 실패를 `judgeProvider: "local-fallback"`으로 기록하지만, `REQUIRE_OPENAI_EVAL=true` production 증거에서는 fallback 1회도 전체 실패다.

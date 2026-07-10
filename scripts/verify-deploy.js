@@ -9,6 +9,7 @@ const requireOpenAI = process.env.REQUIRE_OPENAI === "true";
 const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN === "true";
 const requireCloudflareEdge = process.env.REQUIRE_CLOUDFLARE_EDGE === "true";
 const expectedOpenAIModel = process.env.EXPECTED_OPENAI_MODEL || "";
+const expectedOpenAIVerifierModel = process.env.EXPECTED_OPENAI_VERIFIER_MODEL || expectedOpenAIModel;
 const expectedOpenAITimeoutMs = normalizeExpectedTimeout(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "");
 const deployEvidenceFile = String(process.env.VERIFY_DEPLOY_EVIDENCE_FILE || "").trim();
 const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "").trim();
@@ -66,6 +67,7 @@ const checks = [
       body.ok === true &&
       typeof body.openaiConfigured === "boolean" &&
       typeof body.openaiModel === "string" &&
+      typeof body.openaiVerifierModel === "string" &&
       Number.isFinite(body.openaiTimeoutMs) &&
       body.openaiTimeoutMs >= 1000 &&
       body.openaiTimeoutMs <= 60000 &&
@@ -90,7 +92,8 @@ const checks = [
     const res = await fetchUrl("/api/health");
     const body = await res.json();
     return res.status === 200 &&
-      body.openaiModel === expectedOpenAIModel;
+      body.openaiModel === expectedOpenAIModel &&
+      body.openaiVerifierModel === expectedOpenAIVerifierModel;
   }],
   ["OpenAI timeout matches expectation when provided", async () => {
     if (!expectedOpenAITimeoutMs) return true;
@@ -302,21 +305,30 @@ const checks = [
       "preflightVerdict",
       "provider"
     ];
-    const headerLine = csvBody.split(/\r?\n/, 1)[0] || "";
+    const rows = parseCsvRecords(csvBody);
+    const verifyRow = rows.find((row) => row.sessionId === verifySessionId);
+    const formulaRow = rows.find((row) => row.sessionId === formulaSessionId);
     return res.status === 200 &&
       disposition.includes(`${verifyRoomId}-debrief-table.csv`) &&
-      requiredHeaders.every((header) => headerLine.includes(header)) &&
-      csvBody.includes(verifyRoomId) &&
-      csvBody.includes(verifySessionId) &&
-      csvBody.includes("배포검증") &&
-      csvBody.includes("명량해전") &&
-      csvBody.includes(formulaSessionId) &&
-      csvBody.includes("\"'=배포검증\"") &&
-      csvBody.includes("\"'=명량해전 CSV 수식 방어 검증: 명량해전에서 이순신은 배 몇 척으로 싸웠어?\"") &&
+      requiredHeaders.every((header) => rows.headers.includes(header)) &&
+      verifyRow?.roomId === verifyRoomId &&
+      verifyRow?.studentName === "배포검증" &&
+      verifyRow?.question?.includes("명량해전") &&
+      verifyRow?.studentVisibleAnswer?.length > 0 &&
+      verifyRow?.verificationPrompt?.length > 0 &&
+      verifyRow?.debriefNote?.length > 0 &&
+      verifyRow?.level === "3" &&
+      verifyRow?.correctAnswer?.length > 0 &&
+      verifyRow?.falseClaim?.length > 0 &&
+      verifyRow?.whyFalse?.length > 0 &&
+      verifyRow?.preflightVerdict === "PASS_LEVEL_CALIBRATED_FALSEHOOD" &&
+      verifyRow?.provider?.length > 0 &&
+      (!requireOpenAI || verifyRow.provider === "openai") &&
+      formulaRow?.roomId === verifyRoomId &&
+      formulaRow?.studentName === "'=배포검증" &&
+      formulaRow?.question === `'${formulaQuestion}` &&
       csvBody.includes("배포 검증용 역사 도우미") === false &&
-      csvBody.includes("이순신의 지휘력 하나만으로 승리했다") &&
-      csvBody.includes("지형, 조류, 병사, 전술") &&
-      csvBody.includes("PASS_LEVEL_CALIBRATED_FALSEHOOD");
+      formulaRow?.debriefRequired === "true";
   }],
   ["deploy verification telemetry is exportable", async () => {
     if (!teacherToken) return true;
@@ -342,7 +354,13 @@ const checks = [
         event.sessionId === verifySessionId &&
         event.type === "chat_turn" &&
         event.teacherAudit?.input?.appliedLevel === 3 &&
-        event.teacherAudit?.input?.persona === "배포 검증용 역사 도우미"
+        event.teacherAudit?.input?.persona === "배포 검증용 역사 도우미" &&
+        (!requireOpenAI || (
+          event.teacherAudit?.provider?.name === "openai" &&
+          event.teacherAudit?.provider?.verifier?.name === "openai" &&
+          event.teacherAudit?.provider?.verifier?.model === expectedOpenAIVerifierModel &&
+          event.teacherAudit?.preflight?.checks?.verifierApproved === true
+        ))
       ) &&
       body.events.some((event) =>
         event.sessionId === formulaSessionId &&
@@ -415,6 +433,7 @@ async function writeDeployEvidence(file, passed, results) {
     health,
     sharingUrls: buildSharingUrlEvidence(),
     expectedOpenAIModel,
+    expectedOpenAIVerifierModel,
     expectedOpenAITimeoutMs: expectedOpenAITimeoutMs || null,
     passedChecks: results.filter((result) => result.passed).length,
     totalChecks: results.length,
@@ -450,6 +469,7 @@ async function getHealthEvidence() {
       provider: safeString(body.provider),
       openaiConfigured: body.openaiConfigured === true,
       openaiModel: safeString(body.openaiModel),
+      openaiVerifierModel: safeString(body.openaiVerifierModel),
       openaiTimeoutMs: Number.isFinite(body.openaiTimeoutMs) ? body.openaiTimeoutMs : null,
       teacherProtected: body.teacherProtected === true,
       chatRateLimitPerMinute: Number.isFinite(body.chatRateLimitPerMinute) ? body.chatRateLimitPerMinute : null,
@@ -530,6 +550,54 @@ function normalizeExpectedTimeout(value) {
     process.exit(1);
   }
   return Math.round(n);
+}
+
+function parseCsvRecords(csvText) {
+  const matrix = [];
+  let row = [];
+  let field = "";
+  let quoted = false;
+  const text = String(csvText || "");
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (quoted) {
+      if (char === '"' && text[index + 1] === '"') {
+        field += '"';
+        index += 1;
+      } else if (char === '"') {
+        quoted = false;
+      } else {
+        field += char;
+      }
+      continue;
+    }
+    if (char === '"') {
+      quoted = true;
+    } else if (char === ",") {
+      row.push(field);
+      field = "";
+    } else if (char === "\n" || char === "\r") {
+      if (char === "\r" && text[index + 1] === "\n") index += 1;
+      row.push(field);
+      matrix.push(row);
+      row = [];
+      field = "";
+    } else {
+      field += char;
+    }
+  }
+  if (field || row.length) {
+    row.push(field);
+    matrix.push(row);
+  }
+
+  const [headers = [], ...bodyRows] = matrix;
+  const records = bodyRows
+    .filter((values) => values.some((value) => value !== ""))
+    .map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index] || ""])));
+  records.headers = headers;
+  return records;
 }
 
 function normalizeRoomId(value) {

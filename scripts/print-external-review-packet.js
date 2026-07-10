@@ -31,6 +31,7 @@ const reviewEvidenceCommandParts = [
   requireClassroomChatProof ? "REQUIRE_CLASSROOM_CHAT_PROOF=true" : "",
   "CI_EVIDENCE_FILE=artifacts/ci-evidence.json",
   "EVALUATION_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json",
+  "MODEL_EVALUATION_EVIDENCE_FILE=artifacts/model-evaluation-evidence.json",
   "VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json",
   `CLASSROOM_CONFIG_EVIDENCE_FILES=${shellQuote(classroomConfigEvidenceFiles)}`,
   `EXPECTED_CLASSROOM_ROOMS=${shellQuote(classroomRoomList.join(","))}`,
@@ -68,7 +69,7 @@ Review target:
 - 학생 no-login URL 입장과 교사용 token 보호가 의도대로 분리되는지 확인하세요.
 - WebSocket telemetry, room 격리, export/debrief/purge가 촬영 운영에 안전한지 확인하세요.
 - OpenAI Responses API structured output, 3회 preflight 재생성, fail-closed 경로가 학생에게 정답/audit를 누출하지 않는지 확인하세요.
-- 50턴 평가 세트와 LLM-as-judge가 모델 선택 근거로 충분한지 확인하세요.
+- model-evaluation-evidence/v1이 실제 OpenAI generator/verifier/judge 50턴, 고유 response ID 150개, fallback 0회를 증명하는지 확인하세요.
 - Cloudflare Worker 배포 workflow와 verify-deploy가 실제 production 오설정을 잡는지 확인하세요.
 - 보안 헤더, token URL 제거, 서버-side 단일 API key, rate limit, 데이터 삭제/TTL을 확인하세요.
 - 교사용 persona 설정이 정답 공개, 거짓 공개, 정정 지시, 시스템/검수 우회 지시로 거짓 유지 정책을 약화하지 못하는지 확인하세요.
@@ -84,6 +85,7 @@ Review target:
 - OpenAI key 또는 teacher token이 브라우저나 /api/health에 노출됨.
 - 임시 촬영 URL/API 응답이 캐시되거나 검색 색인될 수 있음.
 - 50턴 eval에서 falsehood, levelFit, truthLeak 중 하나라도 기준을 만족하지 못함.
+- 50턴 production eval이 rules/local-fallback을 사용했거나 OpenAI response ID 증거가 없음.
 - release:audit가 외부 리뷰, 실제 배포 검증, 촬영방별 rehearsal config 증거를 최신 SHA에 묶지 못함.
 
 Evidence checked before review request:
@@ -100,6 +102,7 @@ ${classroomChatProofEvidence}
 Approval stop condition:
 - Do not return APPROVE if verify:deploy is not pass/success against the real Worker URL with REQUIRE_OPENAI=true, REQUIRE_TEACHER_TOKEN=true, REQUIRE_CLOUDFLARE_EDGE=true, EXPECTED_OPENAI_MODEL, and EXPECTED_OPENAI_TIMEOUT_MS.
 - Do not return APPROVE if rehearsal:config is not pass/success for every expected filming room.
+- Do not return APPROVE if MODEL_EVALUATION_EVIDENCE_FILE is missing, stale, not 50/50, or records any fallback.
 - Do not return APPROVE if classroom chat proof mode is required and any room lacks verifyClassroomChat=true or valid sampleChat audit evidence.
 - Do not generate external-review-evidence/v1 until those deploy and classroom statuses are pass/success for this exact PR head.
 

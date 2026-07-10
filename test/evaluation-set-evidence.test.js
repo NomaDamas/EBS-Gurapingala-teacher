@@ -18,6 +18,7 @@ test("eval:set writes teacher-reviewable 50-turn evidence without leaking audit 
 
   const evidence = JSON.parse(await readFile(outputFile, "utf8"));
   assert.equal(evidence.schemaVersion, "evaluation-set-evidence/v1");
+  assert.equal(evidence.status, "pass");
   assert.equal(evidence.prHeadSha, "abc123");
   assert.equal(evidence.totalTurns, 50);
   assert.equal(evidence.teacherAuditIncluded, true);

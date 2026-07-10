@@ -61,15 +61,15 @@ Acceptance:
 - `OPENAI_API_KEY`는 Cloudflare secret으로만 저장한다.
 - LLM 응답은 JSON schema로 강제한다.
 - `correct_answer`, `false_answer`, `false_basis`, `level_fit_reason`, `student_answer` 필드를 생성한다.
-- 모델 출력 후 두 번째 검수 단계가 통과해야 학생에게 전송된다.
+- 모델 출력 후 별도 Responses API verifier 호출이 교사 승인 baseline과 Level 조건을 모두 확인해야 학생에게 전송된다.
 - 검수 실패 시 같은 Level로 재생성하고, 3회 실패 시 교사용 오류만 남기고 학생에게는 “다시 질문해줘”를 반환한다.
 
 현재 상태: 구현됨.
 
 Implementation notes:
-- `src/domain/llm-provider.js`가 OpenAI Responses API JSON schema 호출을 담당한다.
+- `src/domain/llm-provider.js`가 generator와 verifier OpenAI Responses API JSON schema 호출을 각각 담당한다.
 - `OPENAI_API_KEY`가 없거나 `LLM_PROVIDER=rules`이면 룰 기반 `buildTeacherAudit`로 fallback한다.
-- 검수 실패는 학생에게 바로 전송하지 않고 최대 3회 재생성한다.
+- verifier는 실제 거짓 여부, 학생 답변 내 거짓 주장 포함, 진실 맥락 혼합, Level 적합, 미묘함, 정답·정정 누출을 검사하며 실패 시 학생에게 보내지 않고 최대 3회 재생성한다.
 - 3회 실패하면 교사용 JSON에 실패 이력을 남기고 학생에게는 재질문 메시지만 보낸다.
 - 단일 API 키로 여러 학생 요청을 서버에서 프록시하므로 학생별 로그인은 필요 없다.
 
@@ -84,7 +84,7 @@ Acceptance:
 - LLM-as-judge는 `거짓인가`, `정답 누출이 있는가`, `요청 Level에 맞는가`, `너무 쉬운가`를 판정한다.
 - 결과는 모델별 pass rate와 failure examples로 저장한다.
 
-현재 상태: 50턴 seed set, `npm run eval` 모델별 실행기, deterministic local judge 지표, OpenAI Responses API 기반 LLM-as-judge 옵션 구현됨.
+현재 상태: 50턴 seed set, `npm run eval` 모델별 실행기, deterministic local judge 지표, OpenAI Responses API 기반 LLM-as-judge 옵션 구현됨. production 증거 모드에서는 `REQUIRE_OPENAI_EVAL=true`, 단일 OpenAI 모델, 독립 verifier와 OpenAI judge, 50/50 통과, fallback·blocked turn 0, 150개 고유 response ID를 강제하고 `model-evaluation-evidence/v1`로 PR SHA에 묶는다. 정적 `evaluation-set-evidence/v1`은 질문·정답·거짓 근거 검토용이며 production 모델 성능 증거를 대체하지 않는다.
 
 ## Issue 5. 교사용 실험 운영 기능
 
@@ -110,7 +110,7 @@ Acceptance:
 - prompt injection 방어 문구와 JSON schema 검수 실패 처리를 둔다.
 - 실험 종료 후 데이터 삭제 버튼 또는 TTL을 둔다.
 
-현재 상태: `TEACHER_TOKEN` 기반 교사용 URL/API/WebSocket 보호, unsafe persona 설정 거절, 학생 session별 분당 rate limit, 이벤트 TTL, `/api/purge` 삭제 API와 대시보드 삭제 버튼, no-store 및 noindex 보안 헤더 구현됨. Cloudflare Access 연동은 선택 운영 설정으로 남는다.
+현재 상태: `TEACHER_TOKEN` 기반 교사용 URL/API/WebSocket 보호, token 누락 시 기본 fail-closed, 격리된 로컬 개발 전용 `ALLOW_INSECURE_TEACHER=true` opt-in, unsafe persona 설정 거절, 학생 session별 분당 rate limit, 이벤트 TTL, `/api/purge` 삭제 API와 대시보드 삭제 버튼, no-store 및 noindex 보안 헤더 구현됨. Cloudflare Access 연동은 선택 운영 설정으로 남는다.
 
 ## Issue 7. UI 고도화와 참고 디자인 반영
 
@@ -145,7 +145,7 @@ Checklist:
 - 실험 후 학생에게 확실히 정정할 자료가 자동 생성되는가?
 - 방송·학교·윤리·개인정보 요구사항이 모두 문서화됐는가?
 
-현재 상태: `npm run readiness`가 제품 철학과 구현 gap을 자동 점검한다. 학생/교사 URL, 실시간 telemetry, Level 정책, 감사 JSON, LLM 재생성, 50턴 평가, LLM-as-judge, 단일 API 키, Cloudflare 배포, 교사용 보호, 정정 수업 export, gap 문서화를 배포 전 게이트로 검사한다.
+현재 상태: `npm run readiness`가 제품 철학과 구현 gap을 자동 점검한다. 학생/교사 URL, 실시간 telemetry, Level 정책, 감사 JSON, 독립 LLM verifier와 재생성, 정적 50턴 세트, 실제 OpenAI 50턴 모델 증거, 단일 API 키, Cloudflare 배포, 교사용 fail-closed 보호, 정정 수업 export, gap 문서화를 배포 전 게이트로 검사한다.
 
 ## PR 운영 루프
 

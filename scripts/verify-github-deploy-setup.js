@@ -9,6 +9,7 @@ const requiredSecrets = [
 const requiredVariables = [
   "WORKER_HEALTH_URL",
   "EXPECTED_OPENAI_MODEL",
+  "EXPECTED_OPENAI_VERIFIER_MODEL",
   "EXPECTED_OPENAI_TIMEOUT_MS"
 ];
 
@@ -37,7 +38,11 @@ if (failures.length) {
   console.error("Required setup commands:");
   for (const name of missingSecrets) console.error(`  gh secret set ${name}`);
   for (const name of missingVariables) {
-    const suffix = name === "WORKER_HEALTH_URL" ? " --body https://<worker-domain>" : name === "EXPECTED_OPENAI_MODEL" ? " --body gpt-5.5" : " --body 15000";
+    const suffix = name === "WORKER_HEALTH_URL"
+      ? " --body https://<worker-domain>"
+      : name === "EXPECTED_OPENAI_MODEL" || name === "EXPECTED_OPENAI_VERIFIER_MODEL"
+        ? " --body gpt-5.6-terra"
+        : " --body 15000";
     console.error(`  gh variable set ${name}${suffix}`);
   }
   console.error(`github deploy setup verification failed: ${failures.length} issue(s)`);

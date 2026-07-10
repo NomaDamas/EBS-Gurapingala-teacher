@@ -2,9 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
+import { EVALUATION_SET_50 } from "../src/domain/evaluation-set.js";
 
 test("release audit passes only with review, deploy verification, CI, and commit evidence", async () => {
   const evidence = await writeEvidenceFiles({
@@ -54,6 +55,7 @@ test("release audit fails closed without external review and real deploy verific
   assert.match(result.stderr, /real https Cloudflare Worker URL/);
   assert.match(result.stderr, /EXTERNAL_REVIEW_FILE is required/);
   assert.match(result.stderr, /EVALUATION_SET_EVIDENCE_FILE is required/);
+  assert.match(result.stderr, /MODEL_EVALUATION_EVIDENCE_FILE is required/);
   assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE is required/);
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE is required/);
 });
@@ -193,6 +195,89 @@ test("release audit rejects review evidence generated before CI evidence", async
 
   assert.notEqual(result.code, 0);
   assert.match(result.stderr, /EXTERNAL_REVIEW_FILE generatedAt must be after CI_EVIDENCE_FILE generatedAt/);
+});
+
+test("release audit rejects review evidence generated before model evaluation evidence", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    externalReviewOverrides: {
+      generatedAt: "2026-07-10T00:00:38.000Z"
+    }
+  });
+  const result = await runReleaseAudit(validReleaseEnv(evidence));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /EXTERNAL_REVIEW_FILE generatedAt must be after MODEL_EVALUATION_EVIDENCE_FILE generatedAt/);
+});
+
+test("release audit rejects model evaluation fallback and duplicate response IDs", async () => {
+  const fallbackEvidence = buildModelEvaluationEvidence("abc123");
+  fallbackEvidence.models[0].execution.fallbackTurns = 1;
+  const fallbackArtifacts = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    modelEvaluationOverrides: fallbackEvidence
+  });
+  const fallback = await runReleaseAudit(validReleaseEnv(fallbackArtifacts));
+
+  assert.notEqual(fallback.code, 0);
+  assert.match(fallback.stderr, /zero fallback or blocked turns/);
+
+  const duplicateEvidence = buildModelEvaluationEvidence("abc123");
+  duplicateEvidence.models[0].turns[1].provider.responseId =
+    duplicateEvidence.models[0].turns[0].provider.responseId;
+  const duplicateArtifacts = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    modelEvaluationOverrides: duplicateEvidence
+  });
+  const duplicate = await runReleaseAudit(validReleaseEnv(duplicateArtifacts));
+
+  assert.notEqual(duplicate.code, 0);
+  assert.match(duplicate.stderr, /150 unique OpenAI response IDs/);
+});
+
+test("release audit rejects model evaluation evidence without trusted GitHub attestation provenance", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/"
+  });
+  const result = await runReleaseAudit({
+    ...validReleaseEnv(evidence),
+    TEST_ATTESTATION_WORKFLOW: ".github/workflows/untrusted.yml"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /GitHub attestation must bind the current model evidence SHA-256 to the trusted Deploy workflow and PR_HEAD_SHA/);
+});
+
+test("release audit rejects deployment models that differ from model evaluation", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    deployOverrides: {
+      expectedOpenAIModel: "gpt-other",
+      expectedOpenAIVerifierModel: "gpt-other-verifier",
+      health: {
+        status: 200,
+        ok: true,
+        provider: "openai",
+        openaiConfigured: true,
+        openaiModel: "gpt-other",
+        openaiVerifierModel: "gpt-other-verifier",
+        openaiTimeoutMs: 15000,
+        teacherProtected: true,
+        chatRateLimitPerMinute: 60,
+        eventTtlHours: 24
+      }
+    }
+  });
+  const result = await runReleaseAudit(validReleaseEnv(evidence));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /expectedOpenAIModel must match MODEL_EVALUATION_EVIDENCE_FILE expectedGeneratorModel/);
+  assert.match(result.stderr, /expectedOpenAIVerifierModel must match MODEL_EVALUATION_EVIDENCE_FILE expectedVerifierModel/);
 });
 
 test("release audit rejects CI evidence with invalid check-run timestamps", async () => {
@@ -539,7 +624,8 @@ test("release audit rejects deploy evidence with mismatched expected OpenAI mode
     prHeadSha: "abc123",
     workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
     deployOverrides: {
-      expectedOpenAIModel: "gpt-other"
+      expectedOpenAIModel: "gpt-other",
+      expectedOpenAIVerifierModel: "gpt-verifier-other"
     }
   });
   const modelResult = await runReleaseAudit({
@@ -560,6 +646,7 @@ test("release audit rejects deploy evidence with mismatched expected OpenAI mode
 
   assert.notEqual(modelResult.code, 0);
   assert.match(modelResult.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE health\.openaiModel must match expectedOpenAIModel/);
+  assert.match(modelResult.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE health\.openaiVerifierModel must match expectedOpenAIVerifierModel/);
 
   const timeoutEvidence = await writeEvidenceFiles({
     prHeadSha: "abc123",
@@ -1076,11 +1163,12 @@ test("release audit rejects unexpected classroom room evidence", async () => {
   assert.match(result.stderr, /contains unexpected filming room 2026-07-16-3-1/);
 });
 
-async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverrides = {}, deployOverrides = {}, classroomOverrides = {}, classroomTwoOverrides = {}, ciOverrides = {} }) {
+async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverrides = {}, deployOverrides = {}, classroomOverrides = {}, classroomTwoOverrides = {}, ciOverrides = {}, modelEvaluationOverrides = {} }) {
   const dir = await mkdtemp(join(tmpdir(), "release-audit-"));
   const externalReviewFile = join(dir, "external-review.json");
   const ciEvidenceFile = join(dir, "ci-evidence.json");
   const evaluationSetEvidenceFile = join(dir, "evaluation-set-evidence.json");
+  const modelEvaluationEvidenceFile = join(dir, "model-evaluation-evidence.json");
   const deployEvidenceFile = join(dir, "deploy-evidence.json");
   const classroomConfigEvidenceFile = join(dir, "classroom-config-1.json");
   const secondClassroomConfigEvidenceFile = join(dir, "classroom-config-2.json");
@@ -1095,6 +1183,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     requireTeacherToken: true,
     requireCloudflareEdge: true,
     expectedOpenAIModel: "gpt-5.5",
+    expectedOpenAIVerifierModel: "gpt-5.5",
     expectedOpenAITimeoutMs: 15000,
     cloudflareEdge: {
       present: true,
@@ -1108,6 +1197,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
       provider: "openai",
       openaiConfigured: true,
       openaiModel: "gpt-5.5",
+      openaiVerifierModel: "gpt-5.5",
       openaiTimeoutMs: 15000,
       teacherProtected: true,
       chatRateLimitPerMinute: 60,
@@ -1136,6 +1226,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     requireOpenAI: true,
     requireTeacherToken: true,
     expectedOpenAIModel: "gpt-5.5",
+    expectedOpenAIVerifierModel: "gpt-5.5",
     expectedOpenAITimeoutMs: 15000,
     sharingUrls: {
       studentUrl: `${workerUrl}?room=2026-07-13-3-5`,
@@ -1148,6 +1239,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
       ok: true,
       openaiConfigured: true,
       openaiModel: "gpt-5.5",
+      openaiVerifierModel: "gpt-5.5",
       openaiTimeoutMs: 15000,
       teacherProtected: true
     },
@@ -1172,6 +1264,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     requireOpenAI: true,
     requireTeacherToken: true,
     expectedOpenAIModel: "gpt-5.5",
+    expectedOpenAIVerifierModel: "gpt-5.5",
     expectedOpenAITimeoutMs: 15000,
     sharingUrls: {
       studentUrl: `${workerUrl}?room=2026-07-16-3-1`,
@@ -1184,6 +1277,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
       ok: true,
       openaiConfigured: true,
       openaiModel: "gpt-5.5",
+      openaiVerifierModel: "gpt-5.5",
       openaiTimeoutMs: 15000,
       teacherProtected: true
     },
@@ -1224,7 +1318,13 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
   }, null, 2);
   await writeFile(ciEvidenceFile, ciEvidenceJson);
   const evaluationSetEvidenceJson = JSON.stringify(buildEvaluationSetEvidence(prHeadSha), null, 2);
+  const modelEvaluationEvidenceJson = JSON.stringify(
+    buildModelEvaluationEvidence(prHeadSha, modelEvaluationOverrides),
+    null,
+    2
+  );
   await writeFile(evaluationSetEvidenceFile, evaluationSetEvidenceJson);
+  await writeFile(modelEvaluationEvidenceFile, modelEvaluationEvidenceJson);
   await writeFile(externalReviewFile, JSON.stringify({
     schemaVersion: "external-review-evidence/v1",
     generatedAt: "2026-07-10T00:03:00.000Z",
@@ -1244,6 +1344,15 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
         file: evaluationSetEvidenceFile,
         sha256: sha256(evaluationSetEvidenceJson),
         bytes: Buffer.byteLength(evaluationSetEvidenceJson)
+      },
+      modelEvaluation: {
+        file: modelEvaluationEvidenceFile,
+        sha256: sha256(modelEvaluationEvidenceJson),
+        bytes: Buffer.byteLength(modelEvaluationEvidenceJson),
+        attestation: buildAttestationMetadata(
+          sha256(modelEvaluationEvidenceJson),
+          prHeadSha
+        )
       },
       deployVerification: {
         file: deployEvidenceFile,
@@ -1283,6 +1392,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     externalReviewFile,
     ciEvidenceFile,
     evaluationSetEvidenceFile,
+    modelEvaluationEvidenceFile,
     deployEvidenceFile,
     classroomConfigEvidenceFile,
     classroomConfigEvidenceFiles: [classroomConfigEvidenceFile, secondClassroomConfigEvidenceFile]
@@ -1325,8 +1435,104 @@ function buildEvaluationSetEvidence(prHeadSha, overrides = {}) {
   };
 }
 
+function buildModelEvaluationEvidence(prHeadSha, overrides = {}) {
+  const model = "gpt-5.5";
+  const turns = EVALUATION_SET_50.map((item) => ({
+    turn: item.turn,
+    expectedLevel: item.expectedLevel,
+    question: item.studentQuestion,
+    shouldSendToStudent: true,
+    provider: {
+      name: "openai",
+      model,
+      responseId: `resp-generator-${item.turn}`,
+      responseModel: model,
+      verifier: {
+        name: "openai",
+        model,
+        responseId: `resp-verifier-${item.turn}`,
+        responseModel: model
+      }
+    },
+    preflight: {
+      approvedForStudent: true,
+      verifierApproved: true,
+      verdict: "PASS_LEVEL_CALIBRATED_FALSEHOOD"
+    },
+    judge: {
+      provider: "openai",
+      model,
+      responseId: `resp-judge-${item.turn}`,
+      responseModel: model,
+      pass: true
+    }
+  }));
+  return {
+    schemaVersion: "model-evaluation-evidence/v1",
+    startedAt: "2026-07-10T00:00:31.000Z",
+    completedAt: "2026-07-10T00:00:38.000Z",
+    generatedAt: "2026-07-10T00:00:39.000Z",
+    status: "pass",
+    prHeadSha,
+    requireOpenAIEvaluation: true,
+    expectedGeneratorModel: model,
+    expectedVerifierModel: model,
+    expectedJudgeModel: model,
+    totalTurnsPerModel: 50,
+    pressureTurnCount: 10,
+    evaluationSetSha256: createHash("sha256")
+      .update(JSON.stringify(EVALUATION_SET_50))
+      .digest("hex"),
+    selectionCriteria: {
+      minimums: {
+        averageSubtletyScore: 0.6
+      }
+    },
+    recommendedModel: {
+      model,
+      eligible: true
+    },
+    models: [{
+      model,
+      total: 50,
+      passed: 50,
+      failed: 0,
+      metrics: {
+        falsehoodRate: 1,
+        levelFitRate: 1,
+        truthLeakRate: 0,
+        averageSubtletyScore: 0.8,
+        averageTeacherAuditQuality: 1
+      },
+      execution: {
+        totalTurns: 50,
+        openaiGeneratedTurns: 50,
+        openaiVerifiedTurns: 50,
+        openaiJudgedTurns: 50,
+        fallbackTurns: 0,
+        blockedTurns: 0
+      },
+      turns
+    }],
+    ...overrides
+  };
+}
+
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function buildAttestationMetadata(evidenceSha256, prHeadSha) {
+  return {
+    ok: true,
+    schemaVersion: "model-evaluation-attestation/v1",
+    repository: "NomaDamas/EBS-Gurapingala-teacher",
+    workflowPath: ".github/workflows/deploy.yml",
+    prHeadSha,
+    evidenceSha256,
+    predicateType: "https://slsa.dev/provenance/v1",
+    invocationId: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/actions/runs/123/attempts/1"
+  };
 }
 
 function buildSampleChatEvidence(level, persona) {
@@ -1338,20 +1544,49 @@ function buildSampleChatEvidence(level, persona) {
       persona
     },
     preflightVerdict: "PASS_LEVEL_CALIBRATED_FALSEHOOD",
+    verifier: {
+      name: "openai",
+      model: "gpt-5.5",
+      approved: true
+    },
     debriefRequired: true
   };
 }
 
-function runReleaseAudit(env) {
+function validReleaseEnv(evidence) {
+  return {
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    REQUIRE_CLOUDFLARE_EDGE: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  };
+}
+
+async function runReleaseAudit(env) {
+  const ghBin = await getFakeGhBin();
   return new Promise((resolve) => {
     const child = spawn(process.execPath, ["scripts/release-audit.js"], {
       cwd: process.cwd(),
       env: {
-        PATH: process.env.PATH,
+        PATH: `${dirname(ghBin)}${delimiter}${process.env.PATH || ""}`,
         CI_HEAD_SHA: env.CI_HEAD_SHA ?? env.PR_HEAD_SHA,
         CI_EVIDENCE_FILE: env.CI_EVIDENCE_FILE ?? (env.EXTERNAL_REVIEW_FILE ? join(dirname(env.EXTERNAL_REVIEW_FILE), "ci-evidence.json") : undefined),
         EVALUATION_SET_EVIDENCE_FILE: env.EVALUATION_SET_EVIDENCE_FILE ?? (env.EXTERNAL_REVIEW_FILE ? join(dirname(env.EXTERNAL_REVIEW_FILE), "evaluation-set-evidence.json") : undefined),
-        ...env
+        MODEL_EVALUATION_EVIDENCE_FILE: env.MODEL_EVALUATION_EVIDENCE_FILE ?? (env.EXTERNAL_REVIEW_FILE ? join(dirname(env.EXTERNAL_REVIEW_FILE), "model-evaluation-evidence.json") : undefined),
+        ...env,
+        GH_BIN: "/attacker/fake-gh-must-be-ignored",
+        MODEL_EVALUATION_ATTESTATION_REPOSITORY: "attacker/forged-repository",
+        MODEL_EVALUATION_ATTESTATION_WORKFLOW: ".github/workflows/forged.yml"
       }
     });
     let stdout = "";
@@ -1364,4 +1599,66 @@ function runReleaseAudit(env) {
     });
     child.on("close", (code) => resolve({ code, stdout, stderr }));
   });
+}
+
+let fakeGhBinPromise;
+
+function getFakeGhBin() {
+  if (!fakeGhBinPromise) fakeGhBinPromise = createFakeGhBin();
+  return fakeGhBinPromise;
+}
+
+async function createFakeGhBin() {
+  const dir = await mkdtemp(join(tmpdir(), "release-audit-fake-gh-"));
+  const file = join(dir, "gh");
+  await writeFile(file, `#!/usr/bin/env node
+const { createHash } = require("node:crypto");
+const { readFileSync } = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+const evidenceFile = args[2];
+const repoIndex = args.indexOf("--repo");
+const repository = repoIndex >= 0 ? args[repoIndex + 1] : "";
+if (process.env.TEST_ATTESTATION_FAIL === "true") {
+  process.stderr.write("attestation verification failed\\n");
+  process.exit(1);
+}
+const sha256 = process.env.TEST_ATTESTATION_EVIDENCE_SHA ||
+  createHash("sha256").update(readFileSync(evidenceFile)).digest("hex");
+const headSha = process.env.TEST_ATTESTATION_HEAD_SHA || process.env.PR_HEAD_SHA || "";
+const workflowPath = process.env.TEST_ATTESTATION_WORKFLOW || ".github/workflows/deploy.yml";
+process.stdout.write(JSON.stringify([{
+  verificationResult: {
+    statement: {
+      subject: [{ name: path.basename(evidenceFile), digest: { sha256 } }],
+      predicateType: "https://slsa.dev/provenance/v1",
+      predicate: {
+        buildDefinition: {
+          externalParameters: {
+            workflow: {
+              repository: "https://github.com/" + repository,
+              path: workflowPath
+            }
+          },
+          internalParameters: {
+            github: { event_name: "workflow_dispatch" }
+          },
+          resolvedDependencies: [{
+            uri: "git+https://github.com/" + repository + "@refs/heads/issue-3-llm-provider",
+            digest: { gitCommit: headSha }
+          }]
+        },
+        runDetails: {
+          builder: { id: "https://github.com/actions/runner/github-hosted" },
+          metadata: {
+            invocationId: "https://github.com/" + repository + "/actions/runs/123/attempts/1"
+          }
+        }
+      }
+    }
+  }
+}]));
+`);
+  await chmod(file, 0o755);
+  return file;
 }

@@ -6,6 +6,7 @@ test("/api/health returns safe deployment metadata without secrets", async () =>
   const res = await worker.fetch(new Request("https://example.com/api/health"), {
     OPENAI_API_KEY: "secret-openai-key",
     OPENAI_MODEL: "gpt-test-history",
+    OPENAI_VERIFIER_MODEL: "gpt-test-verifier",
     TEACHER_TOKEN: "secret-teacher-token",
     DEFAULT_FALSE_LEVEL: "3",
     CHAT_RATE_LIMIT_PER_MINUTE: "9",
@@ -22,6 +23,7 @@ test("/api/health returns safe deployment metadata without secrets", async () =>
   assert.equal(body.schemaVersion, "health/v1");
   assert.equal(body.openaiConfigured, true);
   assert.equal(body.openaiModel, "gpt-test-history");
+  assert.equal(body.openaiVerifierModel, "gpt-test-verifier");
   assert.equal(body.teacherProtected, true);
   assert.equal(body.defaultFalseLevel, 3);
   assert.equal(body.chatRateLimitPerMinute, 9);

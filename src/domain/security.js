@@ -20,7 +20,7 @@ export const SECURITY_HEADERS = {
 
 export function isTeacherAuthorized(request, env) {
   const token = env.TEACHER_TOKEN;
-  if (!token) return true;
+  if (!token) return env.ALLOW_INSECURE_TEACHER === "true";
   const url = new URL(request.url);
   const supplied =
     request.headers.get("x-teacher-token") ||

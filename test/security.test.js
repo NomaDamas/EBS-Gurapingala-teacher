@@ -8,9 +8,11 @@ import {
   unauthorized
 } from "../src/domain/security.js";
 
-test("isTeacherAuthorized는 TEACHER_TOKEN이 없으면 통과시킨다", () => {
+test("isTeacherAuthorized는 TEACHER_TOKEN 누락 시 기본적으로 fail-closed 한다", () => {
   const request = new Request("https://example.com/teacher");
-  assert.equal(isTeacherAuthorized(request, {}), true);
+  assert.equal(isTeacherAuthorized(request, {}), false);
+  assert.equal(isTeacherAuthorized(request, { ALLOW_INSECURE_TEACHER: "false" }), false);
+  assert.equal(isTeacherAuthorized(request, { ALLOW_INSECURE_TEACHER: "true" }), true);
 });
 
 test("isTeacherAuthorized는 teacher page query token, API header, WebSocket protocol token을 허용한다", () => {

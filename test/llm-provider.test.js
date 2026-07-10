@@ -31,6 +31,11 @@ test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로
     env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-test", OPENAI_TIMEOUT_MS: "4321" },
     fetchImpl: async (url, init) => {
       fetchCalls.push({ url, init });
+      if (requestSchemaName(init) === "misinfo_preflight_verifier") {
+        return jsonResponse({
+          output_text: JSON.stringify(approvedVerifier())
+        });
+      }
       return jsonResponse({
         output_text: JSON.stringify({
           correct_answer: "명량해전에서 조선 수군은 보통 12척 안팎의 판옥선으로 싸웠다.",
@@ -43,13 +48,19 @@ test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로
     }
   });
 
-  assert.equal(fetchCalls.length, 1);
+  assert.equal(fetchCalls.length, 2);
   assert.ok(JSON.parse(fetchCalls[0].init.body).input[1].content.includes("Recent same-student conversation"));
+  assert.equal(requestSchemaName(fetchCalls[1].init), "misinfo_preflight_verifier");
+  assert.ok(JSON.parse(fetchCalls[1].init.body).input[1].content.includes("teacherCuratedBaseline"));
   assert.ok(fetchCalls[0].init.signal instanceof AbortSignal);
+  assert.ok(fetchCalls[1].init.signal instanceof AbortSignal);
   assert.equal(result.audit.provider.name, "openai");
   assert.equal(result.audit.provider.model, "gpt-test");
+  assert.equal(result.audit.provider.verifier.model, "gpt-test");
   assert.equal(result.audit.provider.timeoutMs, 4321);
   assert.equal(result.audit.preflight.approvedForStudent, true);
+  assert.equal(result.audit.preflight.checks.verifierApproved, true);
+  assert.equal(result.audit.preflight.verifier.approved, true);
   assert.equal(result.audit.input.recentContext.length, 1);
   assert.ok(result.audit.selectedCase.verificationPrompt.includes("명량해전"));
   assert.ok(result.audit.selectedCase.debriefNote.includes("정정"));
@@ -75,6 +86,11 @@ test("LLM 프롬프트는 정답 확인 압박 후속 질문에서도 학생용 
     env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-test", OPENAI_TIMEOUT_MS: "2500" },
     fetchImpl: async (url, init) => {
       fetchCalls.push({ url, init });
+      if (requestSchemaName(init) === "misinfo_preflight_verifier") {
+        return jsonResponse({
+          output_text: JSON.stringify(approvedVerifier())
+        });
+      }
       return jsonResponse({
         output_text: JSON.stringify({
           correct_answer: "명량해전에서 조선 수군은 보통 12척 안팎의 판옥선으로 싸웠다.",
@@ -91,6 +107,10 @@ test("LLM 프롬프트는 정답 확인 압박 후속 질문에서도 학생용 
   assert.ok(prompt.includes("asks whether the previous answer is true"));
   assert.ok(prompt.includes("never reveal it in student_answer"));
   assert.ok(prompt.includes("Recent same-student conversation"));
+  assert.equal(fetchCalls.length, 2);
+  const verifierPrompt = JSON.parse(fetchCalls[1].init.body).input[0].content;
+  assert.ok(verifierPrompt.includes("independent preflight verifier"));
+  assert.ok(verifierPrompt.includes("teacher-curated historical baseline"));
 });
 
 test("LLM 응답이 검수를 실패하면 3회 재시도 후 fail-closed 재질문 메시지를 반환한다", async () => {
@@ -120,6 +140,61 @@ test("LLM 응답이 검수를 실패하면 3회 재시도 후 fail-closed 재질
   assert.equal(result.audit.provider.timeoutMs, 2500);
   assert.ok(result.audit.selectedCase.verificationPrompt.includes("임진왜란"));
   assert.ok(result.audit.selectedCase.debriefNote.includes("정정"));
+  assert.ok(result.answer.includes("다시"));
+});
+
+test("독립 LLM verifier가 거짓 여부나 진실 혼합을 거절하면 3회 후 fail-closed 된다", async () => {
+  const fetchCalls = [];
+  const result = await generateAuditedAnswer({
+    message: "명량해전에서 몇 척으로 싸웠어?",
+    level: 2,
+    persona: "역사 도우미",
+    env: {
+      OPENAI_API_KEY: "test-key",
+      OPENAI_MODEL: "gpt-generator",
+      OPENAI_VERIFIER_MODEL: "gpt-verifier",
+      OPENAI_TIMEOUT_MS: "2500"
+    },
+    fetchImpl: async (url, init) => {
+      fetchCalls.push({ url, init });
+      if (requestSchemaName(init) === "misinfo_preflight_verifier") {
+        return jsonResponse({
+          output_text: JSON.stringify({
+            ...approvedVerifier(),
+            approved: false,
+            false_claim_is_false: false,
+            truth_context_present: false,
+            rationale: "거짓 주장이 실제로 거짓인지 확인되지 않았고 진실 맥락도 부족하다."
+          })
+        });
+      }
+      return jsonResponse({
+        output_text: JSON.stringify({
+          correct_answer: "명량해전에서 조선 수군은 보통 12척 안팎의 판옥선으로 싸웠다.",
+          false_answer: "명량해전은 배가 적었지만 사실상 이순신의 지휘력 하나만으로 승리한 전투였다.",
+          false_basis: "조류, 지형, 병사, 전술 같은 요인을 지휘력 하나만으로 줄였기 때문에 거짓이다.",
+          level_fit_reason: "사실 일부를 유지하면서 원인을 하나만으로 단순화해 Level 2에 맞다.",
+          student_answer: "명량해전은 배가 적었지만 사실상 이순신의 지휘력 하나만으로 승리한 전투였어."
+        })
+      });
+    }
+  });
+
+  assert.equal(fetchCalls.length, 6);
+  assert.deepEqual(fetchCalls.map(({ init }) => requestSchemaName(init)), [
+    "misinfo_audit",
+    "misinfo_preflight_verifier",
+    "misinfo_audit",
+    "misinfo_preflight_verifier",
+    "misinfo_audit",
+    "misinfo_preflight_verifier"
+  ]);
+  assert.equal(result.shouldSendToStudent, false);
+  assert.equal(result.audit.preflight.verdict, "FAIL_CLOSED_AFTER_RETRIES");
+  assert.equal(result.audit.provider.model, "gpt-generator");
+  assert.equal(result.audit.provider.verifier.model, "gpt-verifier");
+  assert.equal(result.audit.preflight.failures.length, 3);
+  assert.ok(result.audit.preflight.failures.every((failure) => failure.stage === "llm_verifier"));
   assert.ok(result.answer.includes("다시"));
 });
 
@@ -199,4 +274,23 @@ function jsonResponse(body) {
     status: 200,
     headers: { "content-type": "application/json" }
   });
+}
+
+function requestSchemaName(init) {
+  return JSON.parse(init.body).text.format.name;
+}
+
+function approvedVerifier() {
+  return {
+    approved: true,
+    correct_answer_supported: true,
+    false_claim_is_false: true,
+    false_claim_present: true,
+    level_fit: true,
+    truth_context_present: true,
+    truth_leak: false,
+    correction_leak: false,
+    subtle_enough: true,
+    rationale: "교사용 기준 정답과 일치하고, 진실 맥락에 Level 오류가 섞였으며 정정 누출이 없다."
+  };
 }

@@ -491,6 +491,7 @@ function buildHealthPayload(env) {
     ok: true,
     provider: env.OPENAI_API_KEY && env.LLM_PROVIDER !== "rules" ? "openai" : "rules",
     openaiModel: env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
+    openaiVerifierModel: env.OPENAI_VERIFIER_MODEL || env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
     openaiConfigured: Boolean(env.OPENAI_API_KEY),
     teacherProtected: Boolean(env.TEACHER_TOKEN),
     defaultFalseLevel: Number(env.DEFAULT_FALSE_LEVEL || 2),

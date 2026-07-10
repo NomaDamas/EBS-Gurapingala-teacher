@@ -10,6 +10,7 @@ const applyExpectedConfig = process.env.APPLY_CLASSROOM_CONFIG === "true";
 const requireOpenAI = process.env.REQUIRE_OPENAI !== "false";
 const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN !== "false";
 const expectedOpenAIModel = String(process.env.EXPECTED_OPENAI_MODEL || "").trim();
+const expectedOpenAIVerifierModel = String(process.env.EXPECTED_OPENAI_VERIFIER_MODEL || expectedOpenAIModel).trim();
 const expectedOpenAITimeoutMs = normalizeExpectedTimeout(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "");
 const verifyClassroomChat = process.env.VERIFY_CLASSROOM_CHAT === "true";
 const evidenceFile = String(process.env.CLASSROOM_CONFIG_EVIDENCE_FILE || "").trim();
@@ -67,6 +68,7 @@ await check("health matches classroom requirements", async () => {
     ok: body.ok === true,
     openaiConfigured: body.openaiConfigured === true,
     openaiModel: safeString(body.openaiModel),
+    openaiVerifierModel: safeString(body.openaiVerifierModel),
     openaiTimeoutMs: Number.isFinite(body.openaiTimeoutMs) ? body.openaiTimeoutMs : null,
     teacherProtected: body.teacherProtected === true
   };
@@ -74,6 +76,7 @@ await check("health matches classroom requirements", async () => {
     body.ok === true &&
     (!requireOpenAI || body.openaiConfigured === true) &&
     (!expectedOpenAIModel || body.openaiModel === expectedOpenAIModel) &&
+    (!expectedOpenAIVerifierModel || body.openaiVerifierModel === expectedOpenAIVerifierModel) &&
     (!expectedOpenAITimeoutMs || body.openaiTimeoutMs === expectedOpenAITimeoutMs) &&
     (!requireTeacherToken || body.teacherProtected === true) &&
     res.headers.get("cache-control") === "no-store" &&
@@ -139,12 +142,22 @@ if (verifyClassroomChat) {
         persona: event?.teacherAudit?.input?.persona || ""
       },
       preflightVerdict: event?.teacherAudit?.preflight?.verdict || "",
-      debriefRequired: event?.teacherAudit?.debriefRequired === true
+      verifier: {
+        name: event?.teacherAudit?.provider?.verifier?.name || "",
+        model: event?.teacherAudit?.provider?.verifier?.model || "",
+        approved: event?.teacherAudit?.preflight?.checks?.verifierApproved === true
+      },
+      debriefRequired: Boolean(event) && event.blockedForStudent !== true
     };
     return exported.status === 200 &&
       sampleChat.studentVisibleAnswerLength > 0 &&
       sampleChat.auditInput.appliedLevel === expectedLevel &&
       sampleChat.auditInput.persona === expectedPersona &&
+      (!requireOpenAI || (
+        sampleChat.verifier.name === "openai" &&
+        sampleChat.verifier.model === expectedOpenAIVerifierModel &&
+        sampleChat.verifier.approved === true
+      )) &&
       sampleChat.debriefRequired === true;
   });
 }
@@ -193,6 +206,7 @@ async function writeEvidence(passed) {
     requireOpenAI,
     requireTeacherToken,
     expectedOpenAIModel,
+    expectedOpenAIVerifierModel,
     expectedOpenAITimeoutMs: expectedOpenAITimeoutMs || null,
     verifyClassroomChat,
     sharingUrls,

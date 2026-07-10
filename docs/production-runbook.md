@@ -13,7 +13,7 @@
 3. Cloudflare secret을 설정한다.
    - `OPENAI_API_KEY`: 서버에서만 사용하는 단일 OpenAI API 키다.
    - `TEACHER_TOKEN`: 교사용 대시보드와 export API 보호용 token이다.
-   - GitHub Actions 배포를 쓰면 `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `OPENAI_API_KEY`, `TEACHER_TOKEN` secret과 `WORKER_HEALTH_URL`, `EXPECTED_OPENAI_MODEL`, `EXPECTED_OPENAI_TIMEOUT_MS` variable을 먼저 설정한다.
+   - GitHub Actions 배포를 쓰면 `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `OPENAI_API_KEY`, `TEACHER_TOKEN` secret과 `WORKER_HEALTH_URL`, `EXPECTED_OPENAI_MODEL`, `EXPECTED_OPENAI_VERIFIER_MODEL`, `EXPECTED_OPENAI_TIMEOUT_MS` variable을 먼저 설정한다.
    - `npm run verify:github-setup`으로 필수 이름이 모두 존재하는지 확인한다. 이 명령은 secret 값을 출력하지 않는다.
 4. 배포 전 로컬 게이트를 실행한다.
    - Node.js 22 이상을 사용한다.
@@ -22,29 +22,35 @@
    - `npm run eval`
    - `npm run readiness`
    - `npm run smoke`
-   - `CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> OPENAI_API_KEY=<openai-key> WORKER_HEALTH_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run preflight:deploy`
+   - `CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> OPENAI_API_KEY=<openai-key> WORKER_HEALTH_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.6-terra EXPECTED_OPENAI_VERIFIER_MODEL=gpt-5.6-terra EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run preflight:deploy`
+   - `OPENAI_API_KEY=<openai-key> LLM_PROVIDER=openai EVAL_MODELS=gpt-5.6-terra EXPECTED_OPENAI_MODEL=gpt-5.6-terra OPENAI_VERIFIER_MODEL=gpt-5.6-terra EXPECTED_OPENAI_VERIFIER_MODEL=gpt-5.6-terra EVAL_JUDGE=openai EVAL_JUDGE_MODEL=gpt-5.6-terra REQUIRE_OPENAI_EVAL=true PR_HEAD_SHA=<latest-sha> EVAL_OUTPUT=artifacts/model-evaluation-evidence.json npm run eval`
+   - 위 로컬 strict eval은 모델 진단용이며 production 릴리즈 증거로 사용하지 않는다.
 5. GitHub Actions `Deploy` workflow를 사용할 경우 environment를 선택하고 실행한다.
    - `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `OPENAI_API_KEY`, `TEACHER_TOKEN`이 GitHub secret으로 설정되어 있어야 한다.
    - workflow는 `OPENAI_API_KEY`와 `TEACHER_TOKEN`을 Cloudflare Worker secret으로 동기화한 뒤 `wrangler deploy`를 실행한다.
    - Cloudflare 계정이 여러 개이면 `CLOUDFLARE_ACCOUNT_ID`가 없을 때 Wrangler가 계정을 고르지 못해 배포가 실패한다.
    - production environment에는 `WORKER_HEALTH_URL`이 반드시 설정되어 있어야 한다. 비어 있으면 workflow가 배포 전에 실패한다.
    - workflow의 배포 후 검증은 기본 `VERIFY_ROOM=deploy-verify`, `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`로 실행된다.
+   - 성공한 workflow의 `model-evaluation-evidence` artifact만 production 증거로 사용한다. 최신 `gh` CLI로 `gh run download <deploy-run-id> --repo NomaDamas/EBS-Gurapingala-teacher --name model-evaluation-evidence --dir artifacts`를 실행한다.
+   - 이어서 `gh attestation verify artifacts/model-evaluation-evidence.json --repo NomaDamas/EBS-Gurapingala-teacher`가 성공해야 한다.
+   - attested `model-evaluation-evidence/v1`이 50/50, fallback 0, response ID 150개, trusted `.github/workflows/deploy.yml`, `workflow_dispatch`, 같은 PR head SHA를 증명하지 않으면 중단한다.
 6. 배포 후 `/api/health`를 확인한다.
    - `ok`가 `true`인지 확인한다.
    - `teacherProtected`가 `true`인지 확인한다.
    - `openaiConfigured`가 의도한 값인지 확인한다.
    - `openaiModel`이 촬영에 사용할 모델과 일치하는지 확인한다.
+   - `openaiVerifierModel`이 독립 검수에 사용할 모델과 일치하는지 확인한다.
    - `openaiTimeoutMs`가 촬영에 사용할 timeout과 일치하는지 확인한다.
    - `chatRateLimitPerMinute`, `eventTtlHours`가 촬영 규모에 맞는지 확인한다.
    - 응답 헤더의 `cache-control: no-store`, `x-content-type-options: nosniff`, `x-robots-tag: noindex, nofollow`, `referrer-policy: no-referrer`, `content-security-policy`, `permissions-policy`를 확인한다.
 7. 배포 URL 전체 검증을 실행한다.
-   - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 PR_HEAD_SHA=<latest-sha> VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json npm run verify:deploy`
+   - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.6-terra EXPECTED_OPENAI_VERIFIER_MODEL=gpt-5.6-terra EXPECTED_OPENAI_TIMEOUT_MS=15000 PR_HEAD_SHA=<latest-sha> VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json npm run verify:deploy`
    - 학생 페이지와 관찰 고지, health, OpenAI provider 설정, 평가 세트, 학생 join/chat, 교사용 보호, token 접속, export telemetry, purge 정리가 모두 통과해야 한다.
    - `REQUIRE_CLOUDFLARE_EDGE=true`일 때 `verify:deploy` 증거 JSON에는 Cloudflare 응답 헤더와 sanitized `/api/health` 요약이 남아야 한다.
    - export, debrief, purge, full evaluation API 검증은 URL query token 대신 `x-teacher-token` header로 수행되어야 한다. `/teacher` 최초 입장을 제외한 교사용 API query token은 401이어야 한다.
    - `verify:deploy`는 `/api/purge`를 호출하므로 실제 촬영방 room을 쓰지 않는다. 검증 전용 room은 `deploy-verify` 또는 `deploy-verify-<suffix>`로만 둔다.
 8. 실제 촬영방 Level/persona 설정을 자동 검증한다.
-   - 읽기 전용 확인: `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> CLASSROOM_ROOM=2026-07-13-3-5 EXPECTED_FALSE_LEVEL=2 EXPECTED_PERSONA="이순신 장군처럼 친절하게 설명한다." REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 PR_HEAD_SHA=<latest-sha> CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts/2026-07-13-3-5-config.json npm run rehearsal:config`
+   - 읽기 전용 확인: `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> CLASSROOM_ROOM=2026-07-13-3-5 EXPECTED_FALSE_LEVEL=2 EXPECTED_PERSONA="이순신 장군처럼 친절하게 설명한다." REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXPECTED_OPENAI_MODEL=gpt-5.6-terra EXPECTED_OPENAI_VERIFIER_MODEL=gpt-5.6-terra EXPECTED_OPENAI_TIMEOUT_MS=15000 PR_HEAD_SHA=<latest-sha> CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts/2026-07-13-3-5-config.json npm run rehearsal:config`
    - 설정까지 적용해야 할 때만 `APPLY_CLASSROOM_CONFIG=true`를 붙인다.
    - 교사 설정이 실제 `/api/chat` 감사 JSON에 반영되는지까지 증거가 필요하면 `VERIFY_CLASSROOM_CHAT=true`를 붙인다. 이 경우 room에 검증 채팅 1턴이 남으므로 촬영 직전 실제 학생 로그와 섞이지 않게 운영자가 의도적으로만 사용한다.
    - `CLASSROOM_ROOM`은 실제 촬영/리허설 room이어야 하며 `deploy-verify` room은 거절된다.
@@ -52,13 +58,13 @@
 9. 릴리즈 증거 명령을 한 번에 출력해 운영자가 같은 SHA/room/evidence path를 쓰는지 확인한다.
    - `WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> CLASSROOM_PLANS='2026-07-13-3-5:2:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:2:이순신 장군처럼 친절하게 설명한다.' npm run release:commands`
    - 각 촬영방에서 실제 `/api/chat` 감사 JSON까지 Level/persona 반영 증거를 남기려면 의도적으로 `CLASSROOM_CHAT_PROOF=true`를 추가한다. 이 플래그는 모든 촬영방 `rehearsal:config` 명령에 `VERIFY_CLASSROOM_CHAT=true`를 붙이고, `review:evidence`와 `release:audit`에는 `REQUIRE_CLASSROOM_CHAT_PROOF=true`를 붙여 샘플 채팅 증거를 필수로 만든다. 방마다 `설정검증` 채팅 1턴이 남는다.
-   - 출력된 명령은 `verify:ci`, `eval:set`, `verify:deploy`, 각 촬영방 `rehearsal:config`, `review:evidence`, `release:audit` 순서로 실행한다.
+   - 출력된 명령은 `verify:ci`, attested OpenAI eval artifact 다운로드·검증, `eval:set`, `verify:deploy`, 각 촬영방 `rehearsal:config`, `review:evidence`, `release:audit` 순서로 실행한다.
    - 최종 `release:audit` 명령의 `CI_HEAD_SHA`는 GitHub CI가 통과한 최신 PR head와 같아야 한다.
    - `release:commands`는 `deploy-verify`를 촬영방으로 쓰는 계획을 거절한다.
 10. 외부 리뷰 요청문을 최신 PR SHA로 생성한다.
    - `PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 PR_HEAD_SHA=<latest-sha> WORKER_URL=https://<worker-domain> EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run review:packet`
    - 리뷰어가 `APPROVE`를 주기 전에는 `review:evidence`를 승인으로 생성하지 않는다.
-   - 승인 JSON을 만들 때는 `CI_EVIDENCE_FILE`, `VERIFY_DEPLOY_EVIDENCE_FILE`, 모든 `CLASSROOM_CONFIG_EVIDENCE_FILES`를 함께 넘겨 외부 리뷰 증거가 실제 CI/배포/촬영방 증거 해시와 묶이게 한다.
+   - 승인 JSON을 만들 때는 `CI_EVIDENCE_FILE`, `EVALUATION_SET_EVIDENCE_FILE`, `MODEL_EVALUATION_EVIDENCE_FILE`, `VERIFY_DEPLOY_EVIDENCE_FILE`, 모든 `CLASSROOM_CONFIG_EVIDENCE_FILES`를 함께 넘긴다.
 11. 전체 촬영 전 체크리스트를 출력하고 stop condition을 확인한다.
    - `WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> CLASSROOM_PLANS='2026-07-13-3-5:2:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:2:이순신 장군처럼 친절하게 설명한다.' npm run shoot:checklist`
    - `shoot:checklist`의 stop condition 중 하나라도 남아 있으면 머지 또는 촬영 릴리즈를 진행하지 않는다.

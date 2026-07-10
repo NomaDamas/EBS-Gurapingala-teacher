@@ -1,6 +1,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname } from "node:path";
+import { EVALUATION_SET_50 } from "../src/domain/evaluation-set.js";
+import {
+  TRUSTED_MODEL_EVALUATION_REPOSITORY,
+  TRUSTED_MODEL_EVALUATION_WORKFLOW,
+  verifyModelEvaluationAttestation
+} from "../src/domain/model-evidence-attestation.js";
 
 const outputFile = String(process.env.EXTERNAL_REVIEW_FILE || "artifacts/external-review.json").trim();
 const decision = normalizeDecision(process.env.EXTERNAL_REVIEW_DECISION);
@@ -18,6 +24,7 @@ const classroomConfigStatus = normalizeStatus(process.env.CLASSROOM_CONFIG_STATU
 const releaseAuditStatus = normalizeStatus(process.env.RELEASE_AUDIT_STATUS || "not-run");
 const ciEvidenceFile = String(process.env.CI_EVIDENCE_FILE || "").trim();
 const evaluationSetEvidenceFile = String(process.env.EVALUATION_SET_EVIDENCE_FILE || "").trim();
+const modelEvaluationEvidenceFile = String(process.env.MODEL_EVALUATION_EVIDENCE_FILE || "").trim();
 const verifyDeployEvidenceFile = String(process.env.VERIFY_DEPLOY_EVIDENCE_FILE || "").trim();
 const classroomConfigEvidenceFiles = parseFileList(process.env.CLASSROOM_CONFIG_EVIDENCE_FILES || process.env.CLASSROOM_CONFIG_EVIDENCE_FILE);
 const expectedClassroomRooms = parseFileList(process.env.EXPECTED_CLASSROOM_ROOMS);
@@ -49,6 +56,9 @@ if (decision === "approve" && !ciEvidenceFile) {
 if (decision === "approve" && !evaluationSetEvidenceFile) {
   failures.push("EVALUATION_SET_EVIDENCE_FILE is required for APPROVE evidence so the review is tied to the 50-turn teacher-review set");
 }
+if (decision === "approve" && !modelEvaluationEvidenceFile) {
+  failures.push("MODEL_EVALUATION_EVIDENCE_FILE is required for APPROVE evidence so the review is tied to the real OpenAI 50-turn run");
+}
 if (decision === "approve" && classroomConfigEvidenceFiles.length === 0) {
   failures.push("CLASSROOM_CONFIG_EVIDENCE_FILES or CLASSROOM_CONFIG_EVIDENCE_FILE is required for APPROVE evidence so the review is tied to every filming room");
 }
@@ -75,6 +85,17 @@ if (failures.length) {
 
 const reviewSource = await buildReviewSource();
 const evidenceArtifacts = await buildEvidenceArtifacts();
+if (decision === "approve") {
+  const attestation = verifyModelEvaluationAttestation({
+    evidenceFile: modelEvaluationEvidenceFile,
+    expectedHeadSha: prHeadSha
+  });
+  if (!attestation.ok) {
+    failures.push(...attestation.failures.map((failure) => `MODEL_EVALUATION_EVIDENCE_FILE ${failure}`));
+  } else {
+    evidenceArtifacts.modelEvaluation.attestation = attestation;
+  }
+}
 validateApprovalEvidenceArtifacts(evidenceArtifacts);
 
 if (failures.length) {
@@ -114,6 +135,7 @@ async function buildEvidenceArtifacts() {
   return {
     ci: ciEvidenceFile ? await hashEvidenceFile(ciEvidenceFile) : null,
     evaluationSet: evaluationSetEvidenceFile ? await hashEvidenceFile(evaluationSetEvidenceFile) : null,
+    modelEvaluation: modelEvaluationEvidenceFile ? await hashEvidenceFile(modelEvaluationEvidenceFile) : null,
     deployVerification: verifyDeployEvidenceFile ? await hashEvidenceFile(verifyDeployEvidenceFile) : null,
     classroomConfigs: await Promise.all(classroomConfigEvidenceFiles.map(hashEvidenceFile))
   };
@@ -133,12 +155,20 @@ function validateApprovalEvidenceArtifacts(artifacts) {
     requireRoom: false
   });
   validateEvaluationSetEvidenceArtifact(artifacts.evaluationSet);
+  validateArtifact(artifacts.modelEvaluation, {
+    label: "MODEL_EVALUATION_EVIDENCE_FILE",
+    schemaVersion: "model-evaluation-evidence/v1",
+    requireRoom: false
+  });
+  validateModelEvaluationEvidenceArtifact(artifacts.modelEvaluation);
+  validateModelEvaluationAttestation(artifacts.modelEvaluation);
   validateArtifact(artifacts.deployVerification, {
     label: "VERIFY_DEPLOY_EVIDENCE_FILE",
     schemaVersion: "deploy-verification-evidence/v1",
     requireRoom: false
   });
   validateDeployEvidenceArtifact(artifacts.deployVerification);
+  validateModelDeploymentConsistency(artifacts.modelEvaluation, artifacts.deployVerification);
   for (const artifact of artifacts.classroomConfigs) {
     validateArtifact(artifact, {
       label: `CLASSROOM_CONFIG_EVIDENCE_FILE ${artifact?.file || ""}`.trim(),
@@ -146,8 +176,52 @@ function validateApprovalEvidenceArtifacts(artifacts) {
       requireRoom: true
     });
     validateClassroomEvidenceArtifact(artifact, artifacts.deployVerification?.workerUrl);
+    validateClassroomModelConsistency(artifact, artifacts.modelEvaluation, artifacts.deployVerification);
   }
   validateExpectedClassroomRooms(artifacts.classroomConfigs);
+}
+
+function validateModelEvaluationAttestation(artifact) {
+  const attestation = artifact?.attestation;
+  if (attestation?.ok !== true ||
+    attestation.schemaVersion !== "model-evaluation-attestation/v1" ||
+    attestation.prHeadSha !== prHeadSha ||
+    attestation.evidenceSha256 !== artifact.sha256 ||
+    attestation.repository !== TRUSTED_MODEL_EVALUATION_REPOSITORY ||
+    attestation.workflowPath !== TRUSTED_MODEL_EVALUATION_WORKFLOW) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE must have a verified GitHub Actions attestation for the current evidence SHA-256 and PR_HEAD_SHA");
+  }
+}
+
+function validateModelDeploymentConsistency(modelEvaluation, deployVerification) {
+  if (!modelEvaluation || !deployVerification) return;
+  if (deployVerification.expectedOpenAIModel !== modelEvaluation.expectedGeneratorModel) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE expectedOpenAIModel must match MODEL_EVALUATION_EVIDENCE_FILE expectedGeneratorModel");
+  }
+  if (deployVerification.expectedOpenAIVerifierModel !== modelEvaluation.expectedVerifierModel) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE expectedOpenAIVerifierModel must match MODEL_EVALUATION_EVIDENCE_FILE expectedVerifierModel");
+  }
+}
+
+function validateClassroomModelConsistency(classroom, modelEvaluation, deployVerification) {
+  if (!classroom) return;
+  const label = `CLASSROOM_CONFIG_EVIDENCE_FILE ${classroom.file || ""}`.trim();
+  if (deployVerification &&
+    classroom.expectedOpenAIModel !== deployVerification.expectedOpenAIModel) {
+    failures.push(`${label} expectedOpenAIModel must match VERIFY_DEPLOY_EVIDENCE_FILE expectedOpenAIModel`);
+  }
+  if (deployVerification &&
+    classroom.expectedOpenAIVerifierModel !== deployVerification.expectedOpenAIVerifierModel) {
+    failures.push(`${label} expectedOpenAIVerifierModel must match VERIFY_DEPLOY_EVIDENCE_FILE expectedOpenAIVerifierModel`);
+  }
+  if (modelEvaluation &&
+    classroom.expectedOpenAIModel !== modelEvaluation.expectedGeneratorModel) {
+    failures.push(`${label} expectedOpenAIModel must match MODEL_EVALUATION_EVIDENCE_FILE expectedGeneratorModel`);
+  }
+  if (modelEvaluation &&
+    classroom.expectedOpenAIVerifierModel !== modelEvaluation.expectedVerifierModel) {
+    failures.push(`${label} expectedOpenAIVerifierModel must match MODEL_EVALUATION_EVIDENCE_FILE expectedVerifierModel`);
+  }
 }
 
 function validateEvaluationSetEvidenceArtifact(artifact) {
@@ -172,6 +246,105 @@ function validateEvaluationSetEvidenceArtifact(artifact) {
     if (!bucket || !Number.isFinite(bucket.total) || bucket.total <= 0 || bucket.passedPreflight !== bucket.total) {
       failures.push(`EVALUATION_SET_EVIDENCE_FILE byLevel.${level} must have all turns passing preflight`);
     }
+  }
+}
+
+function validateModelEvaluationEvidenceArtifact(artifact) {
+  if (!artifact || typeof artifact !== "object") return;
+  if (artifact.requireOpenAIEvaluation !== true) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE must record requireOpenAIEvaluation=true");
+  }
+  if (artifact.totalTurnsPerModel !== 50) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE totalTurnsPerModel must be 50");
+  }
+  if (artifact.pressureTurnCount !== 10) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE pressureTurnCount must be 10");
+  }
+  const expectedSetSha256 = createHash("sha256")
+    .update(JSON.stringify(EVALUATION_SET_50))
+    .digest("hex");
+  if (artifact.evaluationSetSha256 !== expectedSetSha256) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE evaluationSetSha256 must match the current 50-turn set");
+  }
+  const startedAt = parseEvidenceTimestamp(artifact.startedAt);
+  const completedAt = parseEvidenceTimestamp(artifact.completedAt);
+  const generatedAt = parseEvidenceTimestamp(artifact.generatedAt);
+  if (!startedAt || !completedAt || !generatedAt ||
+    completedAt < startedAt ||
+    generatedAt < completedAt) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE timestamps must be valid and ordered startedAt <= completedAt <= generatedAt");
+  }
+  const generatorModel = String(artifact.expectedGeneratorModel || "").trim();
+  const verifierModel = String(artifact.expectedVerifierModel || "").trim();
+  const judgeModel = String(artifact.expectedJudgeModel || "").trim();
+  if (!generatorModel || !verifierModel || !judgeModel) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE must record expected generator, verifier, and judge models");
+  }
+  if (artifact.recommendedModel?.model !== generatorModel ||
+    artifact.recommendedModel?.eligible !== true) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE recommendedModel must be the eligible expectedGeneratorModel");
+  }
+  const result = Array.isArray(artifact.models)
+    ? artifact.models.find((item) => item?.model === generatorModel)
+    : null;
+  if (!result) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE must include the expected generator model result");
+    return;
+  }
+  if (result.total !== 50 || result.passed !== 50 || result.failed !== 0) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE expected model must pass all 50 turns");
+  }
+  if (result.execution?.openaiGeneratedTurns !== 50 ||
+    result.execution?.openaiVerifiedTurns !== 50 ||
+    result.execution?.openaiJudgedTurns !== 50 ||
+    result.execution?.fallbackTurns !== 0 ||
+    result.execution?.blockedTurns !== 0) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE must prove 50 OpenAI generator/verifier/judge turns with zero fallback or blocked turns");
+  }
+  if (result.metrics?.falsehoodRate !== 1 ||
+    result.metrics?.levelFitRate !== 1 ||
+    result.metrics?.truthLeakRate !== 0 ||
+    Number(result.metrics?.averageSubtletyScore) < Number(artifact.selectionCriteria?.minimums?.averageSubtletyScore) ||
+    Number(result.metrics?.averageTeacherAuditQuality) < 0.75) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE metrics must satisfy production selection minimums");
+  }
+  if (!Array.isArray(result.turns) || result.turns.length !== 50 ||
+    result.turns.some((turn) =>
+      turn?.shouldSendToStudent !== true ||
+      turn?.provider?.name !== "openai" ||
+      turn?.provider?.model !== generatorModel ||
+      turn?.provider?.verifier?.name !== "openai" ||
+      turn?.provider?.verifier?.model !== verifierModel ||
+      turn?.preflight?.approvedForStudent !== true ||
+      turn?.preflight?.verifierApproved !== true ||
+      turn?.judge?.provider !== "openai" ||
+      turn?.judge?.model !== judgeModel ||
+      turn?.judge?.pass !== true
+  )) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE every turn must prove expected OpenAI generator/verifier/judge approval");
+  }
+  if (!Array.isArray(result.turns)) return;
+  const expectedByTurn = new Map(EVALUATION_SET_50.map((item) => [item.turn, item.expectedLevel]));
+  if (new Set(result.turns.map((turn) => turn?.turn)).size !== 50 ||
+    result.turns.some((turn) => expectedByTurn.get(turn?.turn) !== turn?.expectedLevel)) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE must preserve all 50 unique turn numbers and expected levels");
+  }
+  const responseIds = result.turns.flatMap((turn) => [
+    turn?.provider?.responseId,
+    turn?.provider?.verifier?.responseId,
+    turn?.judge?.responseId
+  ]);
+  const responseModels = result.turns.flatMap((turn) => [
+    turn?.provider?.responseModel,
+    turn?.provider?.verifier?.responseModel,
+    turn?.judge?.responseModel
+  ]);
+  if (responseIds.some((value) => !String(value || "").trim()) ||
+    new Set(responseIds).size !== 150) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE must contain 150 unique OpenAI response IDs");
+  }
+  if (responseModels.some((value) => !String(value || "").trim())) {
+    failures.push("MODEL_EVALUATION_EVIDENCE_FILE every API call must record the observed response model");
   }
 }
 
@@ -230,6 +403,11 @@ function validateDeployEvidenceArtifact(artifact) {
     failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must record expectedOpenAIModel");
   } else if (artifact.health?.openaiModel !== artifact.expectedOpenAIModel) {
     failures.push("VERIFY_DEPLOY_EVIDENCE_FILE health.openaiModel must match expectedOpenAIModel");
+  }
+  if (!String(artifact.expectedOpenAIVerifierModel || "").trim()) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must record expectedOpenAIVerifierModel");
+  } else if (artifact.health?.openaiVerifierModel !== artifact.expectedOpenAIVerifierModel) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE health.openaiVerifierModel must match expectedOpenAIVerifierModel");
   }
   if (!Number.isFinite(artifact.expectedOpenAITimeoutMs)) {
     failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must record expectedOpenAITimeoutMs");
@@ -302,6 +480,11 @@ function validateClassroomEvidenceArtifact(artifact, expectedWorkerUrl) {
   } else if (artifact.observedHealth?.openaiModel !== artifact.expectedOpenAIModel) {
     failures.push(`${label} observedHealth.openaiModel must match expectedOpenAIModel`);
   }
+  if (!String(artifact.expectedOpenAIVerifierModel || "").trim()) {
+    failures.push(`${label} must record expectedOpenAIVerifierModel`);
+  } else if (artifact.observedHealth?.openaiVerifierModel !== artifact.expectedOpenAIVerifierModel) {
+    failures.push(`${label} observedHealth.openaiVerifierModel must match expectedOpenAIVerifierModel`);
+  }
   if (!Number.isFinite(artifact.expectedOpenAITimeoutMs)) {
     failures.push(`${label} must record expectedOpenAITimeoutMs`);
   } else if (artifact.observedHealth?.openaiTimeoutMs !== artifact.expectedOpenAITimeoutMs) {
@@ -321,7 +504,7 @@ function validateClassroomEvidenceArtifact(artifact, expectedWorkerUrl) {
     failures.push(`${label} must record verifyClassroomChat=true when REQUIRE_CLASSROOM_CHAT_PROOF=true`);
   }
   if (artifact.verifyClassroomChat === true &&
-    !hasValidSampleClassroomChat(artifact.sampleChat, artifact.expectedLevel, artifact.expectedPersona)) {
+    !hasValidSampleClassroomChat(artifact.sampleChat, artifact.expectedLevel, artifact.expectedPersona, artifact.expectedOpenAIVerifierModel)) {
     failures.push(`${label} sampleChat must prove /api/chat audit used expected Level/persona`);
   }
 }
@@ -378,11 +561,24 @@ async function hashEvidenceFile(file) {
     if (json.cloudflareEdge) artifact.cloudflareEdge = json.cloudflareEdge;
     if (json.health) artifact.health = json.health;
     if (json.expectedOpenAIModel !== undefined) artifact.expectedOpenAIModel = json.expectedOpenAIModel;
+    if (json.expectedOpenAIVerifierModel !== undefined) artifact.expectedOpenAIVerifierModel = json.expectedOpenAIVerifierModel;
     if (json.expectedOpenAITimeoutMs !== undefined) artifact.expectedOpenAITimeoutMs = json.expectedOpenAITimeoutMs;
     if (json.passedChecks !== undefined) artifact.passedChecks = json.passedChecks;
     if (json.totalChecks !== undefined) artifact.totalChecks = json.totalChecks;
     if (json.checkRun) artifact.checkRun = json.checkRun;
     if (json.totalTurns !== undefined) artifact.totalTurns = json.totalTurns;
+    if (json.requireOpenAIEvaluation !== undefined) artifact.requireOpenAIEvaluation = json.requireOpenAIEvaluation;
+    if (json.startedAt !== undefined) artifact.startedAt = json.startedAt;
+    if (json.completedAt !== undefined) artifact.completedAt = json.completedAt;
+    if (json.totalTurnsPerModel !== undefined) artifact.totalTurnsPerModel = json.totalTurnsPerModel;
+    if (json.pressureTurnCount !== undefined) artifact.pressureTurnCount = json.pressureTurnCount;
+    if (json.evaluationSetSha256 !== undefined) artifact.evaluationSetSha256 = json.evaluationSetSha256;
+    if (json.expectedGeneratorModel !== undefined) artifact.expectedGeneratorModel = json.expectedGeneratorModel;
+    if (json.expectedVerifierModel !== undefined) artifact.expectedVerifierModel = json.expectedVerifierModel;
+    if (json.expectedJudgeModel !== undefined) artifact.expectedJudgeModel = json.expectedJudgeModel;
+    if (json.selectionCriteria) artifact.selectionCriteria = json.selectionCriteria;
+    if (json.recommendedModel) artifact.recommendedModel = json.recommendedModel;
+    if (json.models) artifact.models = json.models;
     if (json.teacherAuditIncluded !== undefined) artifact.teacherAuditIncluded = json.teacherAuditIncluded;
     if (json.pressureTurnCount !== undefined) artifact.pressureTurnCount = json.pressureTurnCount;
     if (json.publicProjection) artifact.publicProjection = json.publicProjection;
@@ -393,6 +589,7 @@ async function hashEvidenceFile(file) {
     if (json.expectedLevel !== undefined) artifact.expectedLevel = json.expectedLevel;
     if (json.expectedPersona !== undefined) artifact.expectedPersona = json.expectedPersona;
     if (json.expectedOpenAIModel !== undefined) artifact.expectedOpenAIModel = json.expectedOpenAIModel;
+    if (json.expectedOpenAIVerifierModel !== undefined) artifact.expectedOpenAIVerifierModel = json.expectedOpenAIVerifierModel;
     if (json.expectedOpenAITimeoutMs !== undefined) artifact.expectedOpenAITimeoutMs = json.expectedOpenAITimeoutMs;
     if (json.sharingUrls) artifact.sharingUrls = json.sharingUrls;
     if (json.observedHealth) artifact.observedHealth = json.observedHealth;
@@ -469,6 +666,7 @@ function hasValidDeployHealthEvidence(health) {
   if (health.openaiConfigured !== true) return false;
   if (health.teacherProtected !== true) return false;
   if (typeof health.openaiModel !== "string") return false;
+  if (typeof health.openaiVerifierModel !== "string") return false;
   if (!Number.isFinite(health.openaiTimeoutMs)) return false;
   return JSON.stringify(health).includes("OPENAI_API_KEY") === false;
 }
@@ -480,6 +678,7 @@ function hasValidClassroomHealthEvidence(health) {
   if (health.openaiConfigured !== true) return false;
   if (health.teacherProtected !== true) return false;
   if (typeof health.openaiModel !== "string") return false;
+  if (typeof health.openaiVerifierModel !== "string") return false;
   if (!Number.isFinite(health.openaiTimeoutMs)) return false;
   return JSON.stringify(health).includes("OPENAI_API_KEY") === false;
 }
@@ -507,13 +706,16 @@ function hasValidClassroomSharingUrls(sharingUrls, roomId, expectedWorkerUrl) {
   return teacherUrl.searchParams.get("token") === "<TEACHER_TOKEN>";
 }
 
-function hasValidSampleClassroomChat(sampleChat, expectedLevel, expectedPersona) {
+function hasValidSampleClassroomChat(sampleChat, expectedLevel, expectedPersona, expectedVerifierModel) {
   if (!sampleChat || typeof sampleChat !== "object") return false;
   if (!String(sampleChat.sessionId || "").startsWith("classroom-config-")) return false;
   if (!Number.isFinite(sampleChat.studentVisibleAnswerLength) || sampleChat.studentVisibleAnswerLength <= 0) return false;
   if (sampleChat.auditInput?.appliedLevel !== expectedLevel) return false;
   if (sampleChat.auditInput?.persona !== expectedPersona) return false;
   if (typeof sampleChat.preflightVerdict !== "string" || !sampleChat.preflightVerdict) return false;
+  if (sampleChat.verifier?.name !== "openai") return false;
+  if (sampleChat.verifier?.model !== expectedVerifierModel) return false;
+  if (sampleChat.verifier?.approved !== true) return false;
   return sampleChat.debriefRequired === true;
 }
 

@@ -12,7 +12,7 @@ export CLASSROOM_PLANS='2026-07-13-3-5:2:이순신 장군처럼 친절하게 설
 ```
 
 `PR_HEAD_SHA`는 촬영 직전 `gh pr view 1 --json headRefOid`로 다시 확인한다. PR head가 바뀌면 이 문서의 SHA 대신 최신 SHA로 모든 증거를 다시 생성한다.
-GitHub Actions Deploy를 쓰는 경우 저장소 secret `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `OPENAI_API_KEY`, `TEACHER_TOKEN`과 variable `WORKER_HEALTH_URL`이 먼저 설정되어 있어야 한다.
+GitHub Actions Deploy를 쓰는 경우 저장소 secret `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `OPENAI_API_KEY`, `TEACHER_TOKEN`과 variable `WORKER_HEALTH_URL`, `EXPECTED_OPENAI_MODEL`, `EXPECTED_OPENAI_VERIFIER_MODEL`, `EXPECTED_OPENAI_TIMEOUT_MS`가 먼저 설정되어 있어야 한다.
 `npm run verify:github-setup`이 통과하지 않으면 Deploy workflow를 실행하지 않는다.
 
 ## 2. 로컬 게이트
@@ -23,7 +23,7 @@ npm run eval
 npm run readiness
 npm run smoke
 npm run verify:github-setup
-CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> OPENAI_API_KEY=<openai-key> WORKER_HEALTH_URL=$WORKER_URL TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run preflight:deploy
+CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> OPENAI_API_KEY=<openai-key> WORKER_HEALTH_URL=$WORKER_URL TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.6-terra EXPECTED_OPENAI_VERIFIER_MODEL=gpt-5.6-terra EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run preflight:deploy
 ```
 
 기대 결과:
@@ -34,6 +34,8 @@ CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> OPENAI_API_KEY=<
 - `npm run smoke`: 전체 통과
 - `npm run verify:github-setup`: 필수 GitHub secret/variable 이름 존재, secret 값 미출력
 - `npm run preflight:deploy`: production strict gate 통과. placeholder token, http URL, strict flag 누락이면 실패해야 한다.
+- 로컬 `npm run eval`과 로컬 strict eval JSON은 모델 진단용이며 production 릴리즈 증거가 아니다.
+- Deploy workflow의 attested OpenAI 50턴 artifact는 `model-evaluation-evidence/v1`, 50/50, fallback 0, response ID 150개여야 한다.
 
 ## 3. 공유 URL 출력
 
@@ -61,6 +63,7 @@ npm run review:packet
 
 - GPT-5.5 xhigh 또는 동등 리뷰가 `APPROVE`를 주기 전에는 머지하지 않는다.
 - 실제 Worker `verify:deploy`, `eval:set`, 모든 촬영방 `rehearsal:config`가 pass이기 전에는 리뷰어에게 `APPROVE`를 요청하지 않는다.
+- `model-evaluation-evidence/v1`이 같은 `PR_HEAD_SHA`에서 pass이기 전에는 리뷰어에게 `APPROVE`를 요청하지 않는다.
 - blocking finding이 하나라도 있으면 구현을 수정하고 같은 게이트를 다시 돈다.
 
 ## 5. 배포 검증 증거
@@ -78,6 +81,34 @@ EVAL_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json \
 npm run eval:set
 ```
 
+다음 로컬 strict 실행은 촬영 전 모델 진단용이다. 이 파일을 `review:evidence` 또는 `release:audit`의 production 증거로 사용하지 않는다.
+
+```bash
+OPENAI_API_KEY=<OPENAI_API_KEY> \
+LLM_PROVIDER=openai \
+EVAL_MODELS=gpt-5.6-terra \
+EXPECTED_OPENAI_MODEL=gpt-5.6-terra \
+OPENAI_VERIFIER_MODEL=gpt-5.6-terra \
+EXPECTED_OPENAI_VERIFIER_MODEL=gpt-5.6-terra \
+EVAL_JUDGE=openai \
+EVAL_JUDGE_MODEL=gpt-5.6-terra \
+REQUIRE_OPENAI_EVAL=true \
+PR_HEAD_SHA=$PR_HEAD_SHA \
+EVAL_OUTPUT=artifacts/model-evaluation-evidence.json \
+npm run eval
+```
+
+성공한 GitHub `Deploy` workflow의 run ID를 확인한 뒤, `gh attestation` 명령을 지원하는 최신 GitHub CLI로 production 모델 증거를 받는다.
+
+```bash
+gh run download <deploy-run-id> \
+  --repo NomaDamas/EBS-Gurapingala-teacher \
+  --name model-evaluation-evidence \
+  --dir artifacts
+gh attestation verify artifacts/model-evaluation-evidence.json \
+  --repo NomaDamas/EBS-Gurapingala-teacher
+```
+
 ```bash
 WORKER_URL=$WORKER_URL \
 TEACHER_TOKEN=<TEACHER_TOKEN> \
@@ -85,7 +116,8 @@ VERIFY_ROOM=deploy-verify \
 REQUIRE_OPENAI=true \
 REQUIRE_TEACHER_TOKEN=true \
 REQUIRE_CLOUDFLARE_EDGE=true \
-EXPECTED_OPENAI_MODEL=gpt-5.5 \
+EXPECTED_OPENAI_MODEL=gpt-5.6-terra \
+EXPECTED_OPENAI_VERIFIER_MODEL=gpt-5.6-terra \
 EXPECTED_OPENAI_TIMEOUT_MS=15000 \
 PR_HEAD_SHA=$PR_HEAD_SHA \
 VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json \
@@ -108,7 +140,8 @@ CLASSROOM_ROOM=2026-07-13-3-5 \
 EXPECTED_FALSE_LEVEL=2 \
 EXPECTED_PERSONA="이순신 장군처럼 친절하게 설명한다." \
 REQUIRE_OPENAI=true \
-EXPECTED_OPENAI_MODEL=gpt-5.5 \
+EXPECTED_OPENAI_MODEL=gpt-5.6-terra \
+EXPECTED_OPENAI_VERIFIER_MODEL=gpt-5.6-terra \
 EXPECTED_OPENAI_TIMEOUT_MS=15000 \
 PR_HEAD_SHA=$PR_HEAD_SHA \
 CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts/2026-07-13-3-5-config.json \
@@ -122,7 +155,8 @@ CLASSROOM_ROOM=2026-07-16-3-1 \
 EXPECTED_FALSE_LEVEL=2 \
 EXPECTED_PERSONA="이순신 장군처럼 친절하게 설명한다." \
 REQUIRE_OPENAI=true \
-EXPECTED_OPENAI_MODEL=gpt-5.5 \
+EXPECTED_OPENAI_MODEL=gpt-5.6-terra \
+EXPECTED_OPENAI_VERIFIER_MODEL=gpt-5.6-terra \
 EXPECTED_OPENAI_TIMEOUT_MS=15000 \
 PR_HEAD_SHA=$PR_HEAD_SHA \
 CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts/2026-07-16-3-1-config.json \
@@ -134,7 +168,7 @@ npm run rehearsal:config
 
 ## 7. 승인 증거 생성
 
-외부 리뷰가 승인되고, `verify:ci`, `eval:set`, `verify:deploy`, 모든 촬영방 `rehearsal:config`가 같은 `PR_HEAD_SHA`에서 pass인 뒤에만 실행한다.
+외부 리뷰가 승인되고, `verify:ci`, attested OpenAI eval artifact, `eval:set`, `verify:deploy`, 모든 촬영방 `rehearsal:config`가 같은 `PR_HEAD_SHA`에서 pass인 뒤에만 실행한다.
 
 ```bash
 EXTERNAL_REVIEW_DECISION=APPROVE \
@@ -150,6 +184,7 @@ VERIFY_DEPLOY_STATUS=pass \
 CLASSROOM_CONFIG_STATUS=pass \
 CI_EVIDENCE_FILE=artifacts/ci-evidence.json \
 EVALUATION_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json \
+MODEL_EVALUATION_EVIDENCE_FILE=artifacts/model-evaluation-evidence.json \
 VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json \
 CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json \
 EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 \
@@ -169,6 +204,7 @@ CI_STATUS=success \
 CI_HEAD_SHA=$PR_HEAD_SHA \
 CI_EVIDENCE_FILE=artifacts/ci-evidence.json \
 EVALUATION_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json \
+MODEL_EVALUATION_EVIDENCE_FILE=artifacts/model-evaluation-evidence.json \
 REQUIRE_OPENAI=true \
 REQUIRE_TEACHER_TOKEN=true \
 REQUIRE_CLASSROOM_CONFIG=true \

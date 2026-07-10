@@ -2,7 +2,9 @@ const prUrl = String(process.env.PR_URL || "https://github.com/NomaDamas/EBS-Gur
 const workerUrl = normalizeBaseUrl(process.env.WORKER_URL || process.env.WORKER_HEALTH_URL || "");
 const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "").trim();
 const classroomPlans = parsePlans(process.env.CLASSROOM_PLANS || "");
-const expectedOpenAIModel = String(process.env.EXPECTED_OPENAI_MODEL || "gpt-5.5").trim();
+const expectedOpenAIModel = String(process.env.EXPECTED_OPENAI_MODEL || "gpt-5.6-terra").trim();
+const expectedOpenAIVerifierModel = String(process.env.EXPECTED_OPENAI_VERIFIER_MODEL || expectedOpenAIModel).trim();
+const evalJudgeModel = String(process.env.EVAL_JUDGE_MODEL || expectedOpenAIVerifierModel).trim();
 const expectedOpenAITimeoutMs = String(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "15000").trim();
 const classroomChatProof = process.env.CLASSROOM_CHAT_PROOF === "true";
 
@@ -26,12 +28,15 @@ console.log(`# EBS <생각의 멸종> shoot checklist
 - PR head SHA: ${prHeadSha}
 - Worker URL: ${workerUrl}
 - OpenAI model: ${expectedOpenAIModel}
+- OpenAI verifier model: ${expectedOpenAIVerifierModel}
+- Evaluation judge model: ${evalJudgeModel}
 - OpenAI timeout ms: ${expectedOpenAITimeoutMs}
 - Filming rooms: ${rooms}
 
 ## Stop Conditions
 - Do not merge without actual external GPT-5.5 xhigh/equivalent APPROVE review.
 - Do not merge without real Cloudflare verify:deploy evidence.
+- Do not merge without model-evaluation-evidence/v1 proving 50 OpenAI generator/verifier/judge turns and zero fallback.
 - Do not merge without rehearsal:config evidence for every filming room.
 - If classroom chat proof is required, do not merge unless every room evidence includes valid sampleChat.
 - Do not share teacherUrl or TEACHER_TOKEN with students.
@@ -61,6 +66,8 @@ ${[
   `WORKER_URL=${shellQuote(workerUrl)}`,
   `PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
   `EXPECTED_OPENAI_MODEL=${shellQuote(expectedOpenAIModel)}`,
+  `EXPECTED_OPENAI_VERIFIER_MODEL=${shellQuote(expectedOpenAIVerifierModel)}`,
+  `EVAL_JUDGE_MODEL=${shellQuote(evalJudgeModel)}`,
   `EXPECTED_OPENAI_TIMEOUT_MS=${shellQuote(expectedOpenAITimeoutMs)}`,
   `CLASSROOM_PLANS=${shellQuote(process.env.CLASSROOM_PLANS)}`,
   classroomChatProof ? "CLASSROOM_CHAT_PROOF=true" : "",

@@ -25,6 +25,7 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
         ok: true,
         openaiConfigured: true,
         openaiModel: "gpt-5.5",
+        openaiVerifierModel: "gpt-5.5",
         openaiTimeoutMs: 15000,
         teacherProtected: true
       });
@@ -66,9 +67,17 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
             persona: config.persona
           },
           preflight: {
-            verdict: "PASS_LEVEL_CALIBRATED_FALSEHOOD"
+            verdict: "PASS_LEVEL_CALIBRATED_FALSEHOOD",
+            checks: {
+              verifierApproved: true
+            }
           },
-          debriefRequired: true
+          provider: {
+            verifier: {
+              name: "openai",
+              model: "gpt-5.5"
+            }
+          }
         },
         at: new Date().toISOString()
       };
@@ -122,14 +131,21 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       ok: true,
       openaiConfigured: true,
       openaiModel: "gpt-5.5",
+      openaiVerifierModel: "gpt-5.5",
       openaiTimeoutMs: 15000,
       teacherProtected: true
     });
     assert.equal(evidence.expectedOpenAITimeoutMs, 15000);
+    assert.equal(evidence.expectedOpenAIVerifierModel, "gpt-5.5");
     assert.equal(evidence.verifyClassroomChat, true);
     assert.equal(evidence.sampleChat.auditInput.appliedLevel, 2);
     assert.equal(evidence.sampleChat.auditInput.persona, "이순신 장군처럼 친절하게 설명한다.");
     assert.equal(evidence.sampleChat.debriefRequired, true);
+    assert.deepEqual(evidence.sampleChat.verifier, {
+      name: "openai",
+      model: "gpt-5.5",
+      approved: true
+    });
     assert.match(evidence.sampleChat.preflightVerdict, /PASS_LEVEL_CALIBRATED_FALSEHOOD/);
     assert.deepEqual(evidence.sharingUrls, {
       studentUrl: `${workerUrl}/?room=2026-07-13-3-5`,

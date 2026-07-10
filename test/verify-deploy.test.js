@@ -33,6 +33,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
         ok: true,
         provider: "rules",
         openaiModel: "gpt-5.5",
+        openaiVerifierModel: "gpt-5.5",
         openaiTimeoutMs: 15000,
         openaiConfigured: false,
         teacherProtected: true
@@ -136,8 +137,14 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
             correctAnswer: "명량해전에서 조선 수군은 매우 적은 전력으로 일본 수군과 싸웠다.",
             falseClaim: "이순신의 지휘력 하나만으로 승리했다.",
             whyFalse: "지형, 조류, 병사, 전술을 지워 Level 2/3 과장에 해당한다.",
-            preflight: { verdict: "PASS_LEVEL_CALIBRATED_FALSEHOOD" },
-            provider: { name: "rules" }
+            preflight: {
+              verdict: "PASS_LEVEL_CALIBRATED_FALSEHOOD",
+              checks: { verifierApproved: true }
+            },
+            provider: {
+              name: "rules",
+              verifier: { name: "openai", model: "gpt-5.5" }
+            }
           }
         });
         return json(res, {
@@ -270,6 +277,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
       provider: "rules",
       openaiConfigured: false,
       openaiModel: "gpt-5.5",
+      openaiVerifierModel: "gpt-5.5",
       openaiTimeoutMs: 15000,
       teacherProtected: true,
       chatRateLimitPerMinute: null,

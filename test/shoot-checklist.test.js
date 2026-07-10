@@ -17,6 +17,7 @@ test("shoot:checklist prints ordered shoot gates without leaking teacher token",
   assert.match(result.stdout, /npm run classroom:urls/);
   assert.match(result.stdout, /npm run review:packet/);
   assert.match(result.stdout, /npm run release:commands/);
+  assert.match(result.stdout, /model-evaluation-evidence\/v1 proving 50 OpenAI generator\/verifier\/judge turns/);
   assert.match(result.stdout, /Do not merge without actual external GPT-5\.5/);
   assert.match(result.stdout, /Do not share teacherUrl or TEACHER_TOKEN with students/);
   assert.match(result.stdout, /export \/api\/debrief\.csv/);

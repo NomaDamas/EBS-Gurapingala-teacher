@@ -15,12 +15,14 @@ test("deploy preflight passes with production deployment requirements", async ()
     REQUIRE_TEACHER_TOKEN: "true",
     REQUIRE_CLOUDFLARE_EDGE: "true",
     EXPECTED_OPENAI_MODEL: "gpt-5.5",
+    EXPECTED_OPENAI_VERIFIER_MODEL: "gpt-5.5",
     EXPECTED_OPENAI_TIMEOUT_MS: "15000"
   });
 
   assert.equal(result.code, 0, result.stdout + result.stderr);
   assert.match(result.stdout, /deploy preflight passed for production/);
   assert.match(result.stdout, /verifyRoom=deploy-verify/);
+  assert.match(result.stdout, /expectedOpenAIVerifierModel=gpt-5\.5/);
 });
 
 test("deploy preflight fails closed when production secrets are missing", async () => {
@@ -40,6 +42,7 @@ test("deploy preflight fails closed when production secrets are missing", async 
   assert.match(result.stderr, /REQUIRE_TEACHER_TOKEN=true is required/);
   assert.match(result.stderr, /REQUIRE_CLOUDFLARE_EDGE=true is required/);
   assert.match(result.stderr, /EXPECTED_OPENAI_TIMEOUT_MS is required/);
+  assert.match(result.stderr, /EXPECTED_OPENAI_VERIFIER_MODEL is required/);
 });
 
 test("deploy preflight rejects unsafe production verification settings", async () => {
@@ -55,6 +58,7 @@ test("deploy preflight rejects unsafe production verification settings", async (
     REQUIRE_TEACHER_TOKEN: "false",
     REQUIRE_CLOUDFLARE_EDGE: "false",
     EXPECTED_OPENAI_MODEL: "gpt-5.5",
+    EXPECTED_OPENAI_VERIFIER_MODEL: "gpt-5.5",
     EXPECTED_OPENAI_TIMEOUT_MS: "15000"
   });
 
@@ -80,6 +84,7 @@ test("deploy preflight rejects Cloudflare placeholder credentials", async () => 
     REQUIRE_TEACHER_TOKEN: "true",
     REQUIRE_CLOUDFLARE_EDGE: "true",
     EXPECTED_OPENAI_MODEL: "gpt-5.5",
+    EXPECTED_OPENAI_VERIFIER_MODEL: "gpt-5.5",
     EXPECTED_OPENAI_TIMEOUT_MS: "15000"
   });
 

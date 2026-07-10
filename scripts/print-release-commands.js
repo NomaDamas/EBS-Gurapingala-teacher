@@ -1,7 +1,9 @@
 const workerUrl = normalizeBaseUrl(process.env.WORKER_URL || process.env.WORKER_HEALTH_URL || "");
 const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "").trim();
-const expectedOpenAIModel = String(process.env.EXPECTED_OPENAI_MODEL || "gpt-5.5").trim();
+const expectedOpenAIModel = String(process.env.EXPECTED_OPENAI_MODEL || "gpt-5.6-terra").trim();
+const expectedOpenAIVerifierModel = String(process.env.EXPECTED_OPENAI_VERIFIER_MODEL || expectedOpenAIModel).trim();
 const expectedOpenAITimeoutMs = String(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "15000").trim();
+const attestationRepository = "NomaDamas/EBS-Gurapingala-teacher";
 const classroomChatProof = process.env.CLASSROOM_CHAT_PROOF === "true";
 const openAiApiKey = process.env.OPENAI_API_KEY ? "$OPENAI_API_KEY" : "<OPENAI_API_KEY>";
 const teacherToken = process.env.TEACHER_TOKEN ? "$TEACHER_TOKEN" : "<TEACHER_TOKEN>";
@@ -47,6 +49,7 @@ console.log([
   "REQUIRE_TEACHER_TOKEN=true",
   "REQUIRE_CLOUDFLARE_EDGE=true",
   `EXPECTED_OPENAI_MODEL=${shellQuote(expectedOpenAIModel)}`,
+  `EXPECTED_OPENAI_VERIFIER_MODEL=${shellQuote(expectedOpenAIVerifierModel)}`,
   `EXPECTED_OPENAI_TIMEOUT_MS=${shellQuote(expectedOpenAITimeoutMs)}`,
   "npm run preflight:deploy"
 ].join(" "));
@@ -59,14 +62,20 @@ console.log([
   "npm run verify:ci"
 ].join(" "));
 console.log("");
-console.log("## 3. Write 50-turn evaluation set evidence");
+console.log("## 3. Download and verify the attested 50-turn evidence from the exact Deploy workflow run");
+console.log("# Replace <deploy-run-id> with the successful Deploy run whose head SHA equals PR_HEAD_SHA.");
+console.log(`gh run download <deploy-run-id> --repo ${attestationRepository} --name model-evaluation-evidence --dir artifacts`);
+console.log(`gh attestation verify artifacts/model-evaluation-evidence.json --repo ${attestationRepository}`);
+console.log(`# Required workflow settings: REQUIRE_OPENAI_EVAL=true, model=${expectedOpenAIModel}, verifier=${expectedOpenAIVerifierModel}.`);
+console.log("");
+console.log("## 4. Write the teacher-reviewable 50-turn evaluation set");
 console.log([
   `PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
   "EVAL_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json",
   "npm run eval:set"
 ].join(" "));
 console.log("");
-console.log("## 4. Verify deployed Worker");
+console.log("## 5. Verify deployed Worker");
 console.log([
   `WORKER_URL=${shellQuote(workerUrl)}`,
   `TEACHER_TOKEN=${teacherToken}`,
@@ -75,13 +84,14 @@ console.log([
   "REQUIRE_TEACHER_TOKEN=true",
   "REQUIRE_CLOUDFLARE_EDGE=true",
   `EXPECTED_OPENAI_MODEL=${shellQuote(expectedOpenAIModel)}`,
+  `EXPECTED_OPENAI_VERIFIER_MODEL=${shellQuote(expectedOpenAIVerifierModel)}`,
   `EXPECTED_OPENAI_TIMEOUT_MS=${shellQuote(expectedOpenAITimeoutMs)}`,
   `PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
   "VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json",
   "npm run verify:deploy"
 ].join(" "));
 console.log("");
-console.log("## 5. Verify each filming classroom room");
+console.log("## 6. Verify each filming classroom room");
 if (classroomChatProof) {
   console.log("# CLASSROOM_CHAT_PROOF=true adds one setting-validation chat turn to each room.");
 }
@@ -96,6 +106,7 @@ for (const [index, plan] of plans.entries()) {
     "REQUIRE_OPENAI=true",
     "REQUIRE_TEACHER_TOKEN=true",
     `EXPECTED_OPENAI_MODEL=${shellQuote(expectedOpenAIModel)}`,
+    `EXPECTED_OPENAI_VERIFIER_MODEL=${shellQuote(expectedOpenAIVerifierModel)}`,
     `EXPECTED_OPENAI_TIMEOUT_MS=${shellQuote(expectedOpenAITimeoutMs)}`,
     `PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
     `CLASSROOM_CONFIG_EVIDENCE_FILE=${shellQuote(classroomEvidenceFiles[index])}`,
@@ -105,7 +116,7 @@ for (const [index, plan] of plans.entries()) {
   console.log(command.join(" "));
 }
 console.log("");
-console.log("## 6. Write structured external review evidence after APPROVE");
+console.log("## 7. Write structured external review evidence after APPROVE");
 console.log([
   "EXTERNAL_REVIEW_DECISION=APPROVE",
   `EXTERNAL_REVIEWER=${reviewer}`,
@@ -121,6 +132,7 @@ console.log([
   classroomChatProof ? "REQUIRE_CLASSROOM_CHAT_PROOF=true" : "",
   "CI_EVIDENCE_FILE=artifacts/ci-evidence.json",
   "EVALUATION_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json",
+  "MODEL_EVALUATION_EVIDENCE_FILE=artifacts/model-evaluation-evidence.json",
   "VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json",
   `CLASSROOM_CONFIG_EVIDENCE_FILES=${shellQuote(classroomEvidenceFiles.join(","))}`,
   `EXPECTED_CLASSROOM_ROOMS=${shellQuote(expectedRooms)}`,
@@ -128,7 +140,7 @@ console.log([
   "npm run review:evidence"
 ].filter(Boolean).join(" "));
 console.log("");
-console.log("## 7. Final release audit");
+console.log("## 8. Final release audit");
 console.log([
   "EXTERNAL_REVIEW_DECISION=APPROVE",
   "VERIFY_DEPLOY_STATUS=pass",
@@ -139,6 +151,7 @@ console.log([
   `CI_HEAD_SHA=${shellQuote(prHeadSha)}`,
   "CI_EVIDENCE_FILE=artifacts/ci-evidence.json",
   "EVALUATION_SET_EVIDENCE_FILE=artifacts/evaluation-set-evidence.json",
+  "MODEL_EVALUATION_EVIDENCE_FILE=artifacts/model-evaluation-evidence.json",
   "REQUIRE_OPENAI=true",
   "REQUIRE_TEACHER_TOKEN=true",
   "REQUIRE_CLASSROOM_CONFIG=true",

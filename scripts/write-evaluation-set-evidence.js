@@ -26,6 +26,7 @@ function buildEvidence() {
   return {
     schemaVersion: "evaluation-set-evidence/v1",
     generatedAt: new Date().toISOString(),
+    status: "pass",
     prHeadSha: prHeadSha || null,
     totalTurns: EVALUATION_SET_50.length,
     publicProjection: {

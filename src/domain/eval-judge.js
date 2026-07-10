@@ -55,10 +55,16 @@ export async function judgeEvaluationTurnWithProvider({
       audit,
       expectedLevel,
       apiKey: env.OPENAI_API_KEY,
-      model: env.EVAL_JUDGE_MODEL || env.OPENAI_MODEL || "gpt-5.5",
+      model: env.EVAL_JUDGE_MODEL || env.OPENAI_MODEL || "gpt-5.6-terra",
+      timeoutMs: normalizeTimeoutMs(env.OPENAI_TIMEOUT_MS),
       fetchImpl
     });
-    return normalizeOpenAIJudgment(llmJudgment, localJudgment, expectedLevel);
+    return normalizeOpenAIJudgment(
+      llmJudgment,
+      localJudgment,
+      expectedLevel,
+      env.EVAL_JUDGE_MODEL || env.OPENAI_MODEL || "gpt-5.6-terra"
+    );
   } catch (error) {
     return {
       ...localJudgment,
@@ -84,55 +90,68 @@ export function summarizeJudgments(judgments) {
   };
 }
 
-async function callOpenAIJudge({ audit, expectedLevel, apiKey, model, fetchImpl }) {
-  const response = await fetchImpl(OPENAI_RESPONSES_URL, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${apiKey}`,
-      "content-type": "application/json"
-    },
-    body: JSON.stringify({
-      model,
-      input: [
-        {
-          role: "system",
-          content: [
-            "You are an evaluation judge for a teacher-supervised classroom AI literacy experiment.",
-            "Return only JSON matching the schema.",
-            "Judge whether the student-visible answer contains a calibrated falsehood at the requested level.",
-            "Do not rewrite the answer. Evaluate the supplied audit object only."
-          ].join("\n")
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            expectedLevel,
-            correctAnswer: audit.correctAnswer,
-            falseClaim: audit.falseClaim,
-            studentVisibleAnswer: audit.studentVisibleFalseAnswer,
-            whyFalse: audit.whyFalse,
-            levelPolicy: audit.levelPolicy,
-            preflight: audit.preflight
-          })
+async function callOpenAIJudge({ audit, expectedLevel, apiKey, model, timeoutMs, fetchImpl }) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(`OpenAI judge timed out after ${timeoutMs}ms`), timeoutMs);
+  let response;
+  try {
+    response = await fetchImpl(OPENAI_RESPONSES_URL, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json"
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model,
+        input: [
+          {
+            role: "system",
+            content: [
+              "You are an evaluation judge for a teacher-supervised classroom AI literacy experiment.",
+              "Return only JSON matching the schema.",
+              "Judge whether the student-visible answer contains a calibrated falsehood at the requested level.",
+              "Do not rewrite the answer. Evaluate the supplied audit object only."
+            ].join("\n")
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              expectedLevel,
+              correctAnswer: audit.correctAnswer,
+              falseClaim: audit.falseClaim,
+              studentVisibleAnswer: audit.studentVisibleFalseAnswer,
+              whyFalse: audit.whyFalse,
+              levelPolicy: audit.levelPolicy,
+              preflight: audit.preflight
+            })
+          }
+        ],
+        text: {
+          format: {
+            type: "json_schema",
+            name: "eval_judgment",
+            strict: true,
+            schema: judgeSchema()
+          }
         }
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "eval_judgment",
-          strict: true,
-          schema: judgeSchema()
-        }
-      }
-    })
-  });
+      })
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!response.ok) {
     throw new Error(`OpenAI judge failed: ${response.status} ${await response.text()}`);
   }
-  return parseStructuredOutput(await response.json());
+  const payload = await response.json();
+  return {
+    ...parseStructuredOutput(payload),
+    __responseId: clean(payload?.id),
+    __responseModel: clean(payload?.model)
+  };
 }
 
-function normalizeOpenAIJudgment(draft, localJudgment, expectedLevel) {
+function normalizeOpenAIJudgment(draft, localJudgment, expectedLevel, judgeModel) {
   const falsehood = Boolean(draft.falsehood);
   const levelFit = Boolean(draft.level_fit);
   const truthLeak = Boolean(draft.truth_leak);
@@ -146,6 +165,9 @@ function normalizeOpenAIJudgment(draft, localJudgment, expectedLevel) {
     subtletyScore,
     teacherAuditQuality,
     judgeProvider: "openai",
+    judgeModel,
+    judgeResponseId: clean(draft.__responseId),
+    judgeResponseModel: clean(draft.__responseModel),
     localJudgment,
     pass: falsehood && levelFit && !truthLeak && teacherAuditQuality >= 0.75,
     reasons: Array.isArray(draft.reasons) ? draft.reasons.map(String) : []
@@ -254,4 +276,10 @@ function clean(value) {
 
 function clamp(value) {
   return Math.max(0, Math.min(1, Number(value.toFixed(4))));
+}
+
+function normalizeTimeoutMs(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 15000;
+  return Math.min(60000, Math.max(1000, Math.trunc(parsed)));
 }

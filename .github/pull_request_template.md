@@ -10,6 +10,8 @@
 - [ ] `node scripts/smoke-worker.js` passed.
 - [ ] GitHub Actions `Verify product gates` passed on the latest PR head.
 - [ ] `npm run eval:set` produced `evaluation-set-evidence/v1` for the latest PR head, and `review:evidence`/`release:audit` used `EVALUATION_SET_EVIDENCE_FILE`.
+- [ ] `REQUIRE_OPENAI_EVAL=true` produced `model-evaluation-evidence/v1` for the latest PR head with 50/50 OpenAI generator/verifier/judge turns, zero fallback/blocked turns, and 150 unique response IDs.
+- [ ] Production model evidence was downloaded from a successful `Deploy` workflow, and `gh attestation verify` bound its SHA-256 to `.github/workflows/deploy.yml`, `workflow_dispatch`, and the latest PR head.
 - [ ] `npm run rehearsal:config` passed against each filming/rehearsal room and produced `classroom-config-evidence/v1`.
 
 ## Release Gates
@@ -17,6 +19,8 @@
 - [ ] GPT-5.5 xhigh or equivalent external review decision is `APPROVE`.
 - [ ] Real Cloudflare Worker URL was verified with `npm run verify:deploy`.
 - [ ] Production verification used `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`, `REQUIRE_CLASSROOM_CONFIG=true`, and `REQUIRE_CLOUDFLARE_EDGE=true`.
+- [ ] `MODEL_EVALUATION_EVIDENCE_FILE` is bound in `external-review-evidence/v1`, and its generator/verifier models match `VERIFY_DEPLOY_EVIDENCE_FILE`.
+- [ ] Local `npm run eval` output was not used as production model evidence.
 - [ ] `CLASSROOM_CONFIG_EVIDENCE_FILES` includes every filming/rehearsal room evidence file, and none point to `deploy-verify`.
 - [ ] `EXPECTED_CLASSROOM_ROOMS` matches the filming schedule and exactly matches the evidence `roomId` set.
 - [ ] If `CLASSROOM_CHAT_PROOF=true` is used, `review:evidence` and `release:audit` also use `REQUIRE_CLASSROOM_CHAT_PROOF=true`, and every room evidence includes valid `sampleChat`.
