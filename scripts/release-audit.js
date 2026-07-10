@@ -292,12 +292,14 @@ function validateClassroomConfigEvidence(classroomConfigEvidence, file, seenRoom
   if (!hasValidClassroomHealthEvidence(classroomConfigEvidence.observedHealth)) {
     failures.push(`${label} must include a sanitized /api/health evidence snapshot`);
   }
-  if (String(classroomConfigEvidence.expectedOpenAIModel || "").trim() &&
-    classroomConfigEvidence.observedHealth?.openaiModel !== classroomConfigEvidence.expectedOpenAIModel) {
+  if (!String(classroomConfigEvidence.expectedOpenAIModel || "").trim()) {
+    failures.push(`${label} must record expectedOpenAIModel`);
+  } else if (classroomConfigEvidence.observedHealth?.openaiModel !== classroomConfigEvidence.expectedOpenAIModel) {
     failures.push(`${label} observedHealth.openaiModel must match expectedOpenAIModel`);
   }
-  if (Number.isFinite(classroomConfigEvidence.expectedOpenAITimeoutMs) &&
-    classroomConfigEvidence.observedHealth?.openaiTimeoutMs !== classroomConfigEvidence.expectedOpenAITimeoutMs) {
+  if (!Number.isFinite(classroomConfigEvidence.expectedOpenAITimeoutMs)) {
+    failures.push(`${label} must record expectedOpenAITimeoutMs`);
+  } else if (classroomConfigEvidence.observedHealth?.openaiTimeoutMs !== classroomConfigEvidence.expectedOpenAITimeoutMs) {
     failures.push(`${label} observedHealth.openaiTimeoutMs must match expectedOpenAITimeoutMs`);
   }
   if (classroomConfigEvidence.observedConfig?.persona !== classroomConfigEvidence.expectedPersona ||
