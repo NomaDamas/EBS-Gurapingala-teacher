@@ -59,7 +59,7 @@ npm run smoke
 배포 preflight:
 
 ```bash
-CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> WORKER_HEALTH_URL=https://<worker-domain> TEACHER_TOKEN=<token> EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run preflight:deploy
+CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> WORKER_HEALTH_URL=https://<worker-domain> TEACHER_TOKEN=<token> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run preflight:deploy
 ```
 
 배포 URL 검증:
@@ -73,7 +73,7 @@ WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> VERIFY_ROOM=deploy-veri
 촬영방 설정 검증:
 
 ```bash
-WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> CLASSROOM_ROOM=2026-07-13-3-5 EXPECTED_FALSE_LEVEL=2 EXPECTED_PERSONA="이순신 장군처럼 친절하게 설명한다." REQUIRE_OPENAI=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts/2026-07-13-3-5-config.json npm run rehearsal:config
+WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> CLASSROOM_ROOM=2026-07-13-3-5 EXPECTED_FALSE_LEVEL=2 EXPECTED_PERSONA="이순신 장군처럼 친절하게 설명한다." REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 PR_HEAD_SHA=<latest-sha> CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts/2026-07-13-3-5-config.json npm run rehearsal:config
 ```
 
 머지/릴리즈 직전 최종 감사:
@@ -89,7 +89,7 @@ EXTERNAL_REVIEW_DECISION=APPROVE EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" EX
 외부 리뷰어에게 전달할 요청문은 현재 PR/SHA와 검증 상태를 넣어 생성할 수 있다.
 
 ```bash
-PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 PR_HEAD_SHA=<latest-sha> WORKER_URL=https://<worker-domain> npm run review:packet
+PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 PR_HEAD_SHA=<latest-sha> WORKER_URL=https://<worker-domain> EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run review:packet
 ```
 
 ```bash

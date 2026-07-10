@@ -20,7 +20,7 @@
    - `npm run eval`
    - `npm run readiness`
    - `npm run smoke`
-   - `CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> WORKER_HEALTH_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run preflight:deploy`
+   - `CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token> WORKER_HEALTH_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run preflight:deploy`
 5. GitHub Actions `Deploy` workflow를 사용할 경우 environment를 선택하고 실행한다.
    - `CLOUDFLARE_API_TOKEN`과 `CLOUDFLARE_ACCOUNT_ID`가 설정되어 있어야 한다.
    - Cloudflare 계정이 여러 개이면 `CLOUDFLARE_ACCOUNT_ID`가 없을 때 Wrangler가 계정을 고르지 못해 배포가 실패한다.
@@ -35,13 +35,13 @@
    - `chatRateLimitPerMinute`, `eventTtlHours`가 촬영 규모에 맞는지 확인한다.
    - 응답 헤더의 `cache-control: no-store`, `x-content-type-options: nosniff`, `x-robots-tag: noindex, nofollow`, `referrer-policy: no-referrer`, `content-security-policy`, `permissions-policy`를 확인한다.
 7. 배포 URL 전체 검증을 실행한다.
-   - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 npm run verify:deploy`
+   - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 PR_HEAD_SHA=<latest-sha> VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json npm run verify:deploy`
    - 학생 페이지와 관찰 고지, health, OpenAI provider 설정, 평가 세트, 학생 join/chat, 교사용 보호, token 접속, export telemetry, purge 정리가 모두 통과해야 한다.
    - `REQUIRE_CLOUDFLARE_EDGE=true`일 때 `verify:deploy` 증거 JSON에는 Cloudflare 응답 헤더와 sanitized `/api/health` 요약이 남아야 한다.
    - export, debrief, purge, full evaluation API 검증은 URL query token 대신 `x-teacher-token` header로 수행되어야 한다. `/teacher` 최초 입장을 제외한 교사용 API query token은 401이어야 한다.
    - `verify:deploy`는 `/api/purge`를 호출하므로 실제 촬영방 room을 쓰지 않는다. 검증 전용 room은 `deploy-verify` 또는 `deploy-verify-<suffix>`로만 둔다.
 8. 실제 촬영방 Level/persona 설정을 자동 검증한다.
-   - 읽기 전용 확인: `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> CLASSROOM_ROOM=2026-07-13-3-5 EXPECTED_FALSE_LEVEL=2 EXPECTED_PERSONA="이순신 장군처럼 친절하게 설명한다." REQUIRE_OPENAI=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts/2026-07-13-3-5-config.json npm run rehearsal:config`
+   - 읽기 전용 확인: `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> CLASSROOM_ROOM=2026-07-13-3-5 EXPECTED_FALSE_LEVEL=2 EXPECTED_PERSONA="이순신 장군처럼 친절하게 설명한다." REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true EXPECTED_OPENAI_MODEL=gpt-5.5 EXPECTED_OPENAI_TIMEOUT_MS=15000 PR_HEAD_SHA=<latest-sha> CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts/2026-07-13-3-5-config.json npm run rehearsal:config`
    - 설정까지 적용해야 할 때만 `APPLY_CLASSROOM_CONFIG=true`를 붙인다.
    - 교사 설정이 실제 `/api/chat` 감사 JSON에 반영되는지까지 증거가 필요하면 `VERIFY_CLASSROOM_CHAT=true`를 붙인다. 이 경우 room에 검증 채팅 1턴이 남으므로 촬영 직전 실제 학생 로그와 섞이지 않게 운영자가 의도적으로만 사용한다.
    - `CLASSROOM_ROOM`은 실제 촬영/리허설 room이어야 하며 `deploy-verify` room은 거절된다.
