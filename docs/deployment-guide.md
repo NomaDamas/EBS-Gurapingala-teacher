@@ -113,6 +113,12 @@ GitHub Actions `Deploy` workflow는 `PR_HEAD_SHA=${{ github.sha }}`와 `VERIFY_D
 WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> CLASSROOM_PLANS='2026-07-13-3-5:2:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:2:이순신 장군처럼 친절하게 설명한다.' npm run release:commands
 ```
 
+외부 리뷰 요청문은 `review:packet`으로 현재 PR/SHA/검증 상태를 포함해 출력한다.
+
+```bash
+PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 PR_HEAD_SHA=<latest-sha> WORKER_URL=https://<worker-domain> EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run review:packet
+```
+
 GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 
 필요한 repository/environment secrets:

@@ -46,6 +46,9 @@
    - `WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> CLASSROOM_PLANS='2026-07-13-3-5:2:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:2:이순신 장군처럼 친절하게 설명한다.' npm run release:commands`
    - 출력된 명령은 `verify:deploy`, 각 촬영방 `rehearsal:config`, `review:evidence`, `release:audit` 순서로 실행한다.
    - `release:commands`는 `deploy-verify`를 촬영방으로 쓰는 계획을 거절한다.
+10. 외부 리뷰 요청문을 최신 PR SHA로 생성한다.
+   - `PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 PR_HEAD_SHA=<latest-sha> WORKER_URL=https://<worker-domain> EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run review:packet`
+   - 리뷰어가 `APPROVE`를 주기 전에는 `review:evidence`를 승인으로 생성하지 않는다.
 
 ## 2. 리허설
 

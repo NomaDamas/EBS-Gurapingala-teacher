@@ -82,6 +82,12 @@ WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> CLASSROOM_ROOM=2026-07-
 EXTERNAL_REVIEW_DECISION=APPROVE EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" PR_HEAD_SHA=<latest-sha> CI_STATUS=success TESTS_STATUS=pass EVAL_STATUS=pass READINESS_STATUS=pass SMOKE_STATUS=pass VERIFY_DEPLOY_STATUS=pass CLASSROOM_CONFIG_STATUS=pass EXTERNAL_REVIEW_FILE=artifacts/external-review.json npm run review:evidence
 ```
 
+외부 리뷰어에게 전달할 요청문은 현재 PR/SHA와 검증 상태를 넣어 생성할 수 있다.
+
+```bash
+PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 PR_HEAD_SHA=<latest-sha> WORKER_URL=https://<worker-domain> npm run review:packet
+```
+
 ```bash
 EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLASSROOM_CONFIG=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run release:audit
 ```

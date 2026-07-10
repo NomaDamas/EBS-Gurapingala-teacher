@@ -6,6 +6,16 @@
 
 ## 리뷰어에게 전달할 프롬프트
 
+현재 PR URL, SHA, 검증 상태가 있는 경우에는 아래 문장을 손으로 복사하지 말고 `review:packet`으로 요청문을 생성한다.
+
+```bash
+PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 \
+PR_HEAD_SHA=<latest-sha> \
+WORKER_URL=https://<worker-domain> \
+EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 \
+npm run review:packet
+```
+
 ```text
 당신은 GPT-5.5 xhigh 수준의 외부 코드 리뷰어입니다.
 이 PR은 EBS 다큐프라임 <생각의 멸종> 교실 실험용 학생/교사용 AI 챗봇입니다.

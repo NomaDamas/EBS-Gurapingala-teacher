@@ -15,6 +15,7 @@
     "verify:deploy": "node scripts/verify-deploy.js",
     "rehearsal:config": "node scripts/verify-classroom-config.js",
     "review:evidence": "node scripts/write-external-review-evidence.js",
+    "review:packet": "node scripts/print-external-review-packet.js",
     "release:audit": "node scripts/release-audit.js",
     "release:commands": "node scripts/print-release-commands.js",
     "dev": "wrangler dev",
