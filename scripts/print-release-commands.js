@@ -109,13 +109,14 @@ console.log([
   "SMOKE_STATUS=pass",
   "VERIFY_DEPLOY_STATUS=pass",
   "CLASSROOM_CONFIG_STATUS=pass",
+  classroomChatProof ? "REQUIRE_CLASSROOM_CHAT_PROOF=true" : "",
   "CI_EVIDENCE_FILE=artifacts/ci-evidence.json",
   "VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json",
   `CLASSROOM_CONFIG_EVIDENCE_FILES=${shellQuote(classroomEvidenceFiles.join(","))}`,
   `EXPECTED_CLASSROOM_ROOMS=${shellQuote(expectedRooms)}`,
   "EXTERNAL_REVIEW_FILE=artifacts/external-review.json",
   "npm run review:evidence"
-].join(" "));
+].filter(Boolean).join(" "));
 console.log("");
 console.log("## 6. Final release audit");
 console.log([
@@ -131,12 +132,13 @@ console.log([
   "REQUIRE_TEACHER_TOKEN=true",
   "REQUIRE_CLASSROOM_CONFIG=true",
   "REQUIRE_CLOUDFLARE_EDGE=true",
+  classroomChatProof ? "REQUIRE_CLASSROOM_CHAT_PROOF=true" : "",
   "EXTERNAL_REVIEW_FILE=artifacts/external-review.json",
   "VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json",
   `CLASSROOM_CONFIG_EVIDENCE_FILES=${shellQuote(classroomEvidenceFiles.join(","))}`,
   `EXPECTED_CLASSROOM_ROOMS=${shellQuote(expectedRooms)}`,
   "npm run release:audit"
-].join(" "));
+].filter(Boolean).join(" "));
 
 function parseRoomPlans(value) {
   return String(value || "")

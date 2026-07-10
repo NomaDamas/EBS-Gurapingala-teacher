@@ -15,6 +15,7 @@ const requireOpenAI = process.env.REQUIRE_OPENAI !== "false";
 const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN !== "false";
 const requireClassroomConfig = process.env.REQUIRE_CLASSROOM_CONFIG !== "false";
 const requireCloudflareEdge = process.env.REQUIRE_CLOUDFLARE_EDGE === "true";
+const requireClassroomChatProof = process.env.REQUIRE_CLASSROOM_CHAT_PROOF === "true";
 const externalReviewFile = String(process.env.EXTERNAL_REVIEW_FILE || "").trim();
 const verifyDeployEvidenceFile = String(process.env.VERIFY_DEPLOY_EVIDENCE_FILE || "").trim();
 const classroomConfigEvidenceFile = String(process.env.CLASSROOM_CONFIG_EVIDENCE_FILE || "").trim();
@@ -136,6 +137,9 @@ if (!externalReviewFile) {
   }
   if (Array.isArray(externalReview.blockingFindings) && externalReview.blockingFindings.length > 0) {
     failures.push("EXTERNAL_REVIEW_FILE cannot include blockingFindings when decision is APPROVE");
+  }
+  if (requireClassroomChatProof && externalReview.requireClassroomChatProof !== true) {
+    failures.push("EXTERNAL_REVIEW_FILE must be generated with REQUIRE_CLASSROOM_CHAT_PROOF=true");
   }
   validateExternalReviewArtifacts(externalReview.evidenceArtifacts);
 }
@@ -441,6 +445,9 @@ function validateClassroomConfigEvidence(classroomConfigEvidence, file, seenRoom
   }
   if (!Array.isArray(classroomConfigEvidence.checks) || classroomConfigEvidence.checks.some((check) => check?.passed !== true)) {
     failures.push(`${label} checks must all pass`);
+  }
+  if (requireClassroomChatProof && classroomConfigEvidence.verifyClassroomChat !== true) {
+    failures.push(`${label} must record verifyClassroomChat=true when REQUIRE_CLASSROOM_CHAT_PROOF=true`);
   }
   if (classroomConfigEvidence.verifyClassroomChat === true &&
     !hasValidSampleClassroomChat(classroomConfigEvidence.sampleChat, classroomConfigEvidence.expectedLevel, classroomConfigEvidence.expectedPersona)) {

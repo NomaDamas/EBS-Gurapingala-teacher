@@ -391,6 +391,39 @@ test("review:evidence rejects approval when optional classroom chat audit sample
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* sampleChat must prove \/api\/chat audit used expected Level\/persona/);
 });
 
+test("review:evidence can require classroom chat audit proof for every filming room", async () => {
+  const missingProof = await writeGateArtifacts();
+  const missing = await runReviewEvidence({
+    ...validApprovalEnv(missingProof),
+    REQUIRE_CLASSROOM_CHAT_PROOF: "true"
+  });
+
+  assert.notEqual(missing.code, 0);
+  assert.match(missing.stderr, /must record verifyClassroomChat=true when REQUIRE_CLASSROOM_CHAT_PROOF=true/);
+
+  const withProof = await writeGateArtifacts({
+    classroom: {
+      verifyClassroomChat: true,
+      sampleChat: buildSampleChatEvidence(2, "이순신 장군처럼 친절하게 설명한다.")
+    },
+    classroomTwo: {
+      verifyClassroomChat: true,
+      sampleChat: buildSampleChatEvidence(2, "이순신 장군처럼 친절하게 설명한다.")
+    }
+  });
+  const proofOutputDir = await mkdtemp(join(tmpdir(), "external-review-proof-"));
+  const proofOutputFile = join(proofOutputDir, "external-review.json");
+  const approved = await runReviewEvidence({
+    ...validApprovalEnv(withProof),
+    EXTERNAL_REVIEW_FILE: proofOutputFile,
+    REQUIRE_CLASSROOM_CHAT_PROOF: "true"
+  });
+
+  assert.equal(approved.code, 0, approved.stdout + approved.stderr);
+  const evidence = JSON.parse(await readFile(proofOutputFile, "utf8"));
+  assert.equal(evidence.requireClassroomChatProof, true);
+});
+
 test("review:evidence rejects approval when classroom OpenAI config mismatches health", async () => {
   const artifacts = await writeGateArtifacts({
     classroom: {
@@ -630,5 +663,18 @@ function buildClassroomEvidence(roomId, overrides = {}) {
       { name: "classroom Level/persona matches expected config", passed: true }
     ],
     ...overrides
+  };
+}
+
+function buildSampleChatEvidence(level, persona) {
+  return {
+    sessionId: `classroom-config-${Date.now()}`,
+    studentVisibleAnswerLength: 120,
+    auditInput: {
+      appliedLevel: level,
+      persona
+    },
+    preflightVerdict: "PASS_LEVEL_CALIBRATED_FALSEHOOD",
+    debriefRequired: true
   };
 }

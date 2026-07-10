@@ -20,6 +20,7 @@ const ciEvidenceFile = String(process.env.CI_EVIDENCE_FILE || "").trim();
 const verifyDeployEvidenceFile = String(process.env.VERIFY_DEPLOY_EVIDENCE_FILE || "").trim();
 const classroomConfigEvidenceFiles = parseFileList(process.env.CLASSROOM_CONFIG_EVIDENCE_FILES || process.env.CLASSROOM_CONFIG_EVIDENCE_FILE);
 const expectedClassroomRooms = parseFileList(process.env.EXPECTED_CLASSROOM_ROOMS);
+const requireClassroomChatProof = process.env.REQUIRE_CLASSROOM_CHAT_PROOF === "true";
 const blockingFindings = parseList(process.env.BLOCKING_FINDINGS);
 const nonBlockingRisks = parseList(process.env.NON_BLOCKING_RISKS);
 
@@ -85,6 +86,7 @@ const payload = {
   reviewer,
   source: reviewSource,
   prHeadSha,
+  requireClassroomChatProof,
   evidenceArtifacts,
   evidenceChecked: {
     ciStatus,
@@ -278,6 +280,9 @@ function validateClassroomEvidenceArtifact(artifact, expectedWorkerUrl) {
   }
   if (!Array.isArray(artifact.checks) || artifact.checks.length === 0 || artifact.checks.some((check) => check?.passed !== true)) {
     failures.push(`${label} checks must all pass`);
+  }
+  if (requireClassroomChatProof && artifact.verifyClassroomChat !== true) {
+    failures.push(`${label} must record verifyClassroomChat=true when REQUIRE_CLASSROOM_CHAT_PROOF=true`);
   }
   if (artifact.verifyClassroomChat === true &&
     !hasValidSampleClassroomChat(artifact.sampleChat, artifact.expectedLevel, artifact.expectedPersona)) {

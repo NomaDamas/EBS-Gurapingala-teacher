@@ -51,6 +51,8 @@ test("release:commands can intentionally add classroom chat audit proof to rehea
   assert.match(result.stdout, /CLASSROOM_CHAT_PROOF=true adds one setting-validation chat turn/);
   assert.match(result.stdout, /CLASSROOM_ROOM=2026-07-13-3-5[\s\S]*VERIFY_CLASSROOM_CHAT=true[\s\S]*npm run rehearsal:config/);
   assert.match(result.stdout, /CLASSROOM_ROOM=2026-07-16-3-1[\s\S]*VERIFY_CLASSROOM_CHAT=true[\s\S]*npm run rehearsal:config/);
+  assert.match(result.stdout, /REQUIRE_CLASSROOM_CHAT_PROOF=true[\s\S]*npm run review:evidence/);
+  assert.match(result.stdout, /REQUIRE_CLASSROOM_CHAT_PROOF=true[\s\S]*npm run release:audit/);
 });
 
 test("release:commands rejects missing room plan and deploy-verify classroom room", async () => {

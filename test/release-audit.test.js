@@ -750,6 +750,66 @@ test("release audit rejects classroom config evidence with invalid optional chat
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* sampleChat must prove \/api\/chat audit used expected Level\/persona/);
 });
 
+test("release audit can require classroom chat audit proof for every filming room", async () => {
+  const missingEvidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/"
+  });
+  const missing = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    REQUIRE_CLASSROOM_CHAT_PROOF: "true",
+    EXTERNAL_REVIEW_FILE: missingEvidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: missingEvidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: missingEvidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(missing.code, 0);
+  assert.match(missing.stderr, /must record verifyClassroomChat=true when REQUIRE_CLASSROOM_CHAT_PROOF=true/);
+
+  const proofEvidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    externalReviewOverrides: {
+      requireClassroomChatProof: true
+    },
+    classroomOverrides: {
+      verifyClassroomChat: true,
+      sampleChat: buildSampleChatEvidence(2, "이순신 장군처럼 친절하게 설명한다.")
+    },
+    classroomTwoOverrides: {
+      verifyClassroomChat: true,
+      sampleChat: buildSampleChatEvidence(3, "관점 왜곡 실험용 역사 도우미")
+    }
+  });
+  const approved = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    REQUIRE_CLASSROOM_CHAT_PROOF: "true",
+    EXTERNAL_REVIEW_FILE: proofEvidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: proofEvidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: proofEvidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.equal(approved.code, 0, approved.stdout + approved.stderr);
+});
+
 test("release audit rejects classroom config evidence without sanitized health snapshot", async () => {
   const evidence = await writeEvidenceFiles({
     prHeadSha: "abc123",
@@ -1220,6 +1280,19 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function buildSampleChatEvidence(level, persona) {
+  return {
+    sessionId: `classroom-config-${level}`,
+    studentVisibleAnswerLength: 120,
+    auditInput: {
+      appliedLevel: level,
+      persona
+    },
+    preflightVerdict: "PASS_LEVEL_CALIBRATED_FALSEHOOD",
+    debriefRequired: true
+  };
 }
 
 function runReleaseAudit(env) {
