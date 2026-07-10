@@ -132,6 +132,7 @@ function validateApprovalEvidenceArtifacts(artifacts) {
       schemaVersion: "classroom-config-evidence/v1",
       requireRoom: true
     });
+    validateClassroomEvidenceArtifact(artifact, artifacts.deployVerification?.workerUrl);
   }
   validateExpectedClassroomRooms(artifacts.classroomConfigs);
 }
@@ -228,6 +229,52 @@ function validateCiEvidenceArtifact(artifact) {
   }
 }
 
+function validateClassroomEvidenceArtifact(artifact, expectedWorkerUrl) {
+  if (!artifact || typeof artifact !== "object") return;
+  const label = `CLASSROOM_CONFIG_EVIDENCE_FILE ${artifact.file || ""}`.trim();
+  if (!isHttpsUrl(artifact.workerUrl)) {
+    failures.push(`${label} workerUrl must be an https URL`);
+  }
+  if (expectedWorkerUrl && normalizeBaseUrl(artifact.workerUrl) !== normalizeBaseUrl(expectedWorkerUrl)) {
+    failures.push(`${label} workerUrl must match VERIFY_DEPLOY_EVIDENCE_FILE workerUrl`);
+  }
+  if (artifact.requireOpenAI !== true) {
+    failures.push(`${label} must record requireOpenAI=true`);
+  }
+  if (artifact.requireTeacherToken !== true) {
+    failures.push(`${label} must record requireTeacherToken=true`);
+  }
+  if (!Number.isInteger(artifact.expectedLevel) || artifact.expectedLevel < 1 || artifact.expectedLevel > 4) {
+    failures.push(`${label} expectedLevel must be 1, 2, 3, or 4`);
+  }
+  if (!String(artifact.expectedPersona || "").trim()) {
+    failures.push(`${label} expectedPersona is required`);
+  }
+  if (!hasValidClassroomHealthEvidence(artifact.observedHealth)) {
+    failures.push(`${label} must include a sanitized /api/health evidence snapshot`);
+  }
+  if (!String(artifact.expectedOpenAIModel || "").trim()) {
+    failures.push(`${label} must record expectedOpenAIModel`);
+  } else if (artifact.observedHealth?.openaiModel !== artifact.expectedOpenAIModel) {
+    failures.push(`${label} observedHealth.openaiModel must match expectedOpenAIModel`);
+  }
+  if (!Number.isFinite(artifact.expectedOpenAITimeoutMs)) {
+    failures.push(`${label} must record expectedOpenAITimeoutMs`);
+  } else if (artifact.observedHealth?.openaiTimeoutMs !== artifact.expectedOpenAITimeoutMs) {
+    failures.push(`${label} observedHealth.openaiTimeoutMs must match expectedOpenAITimeoutMs`);
+  }
+  if (Number(artifact.observedConfig?.level) !== artifact.expectedLevel ||
+    artifact.observedConfig?.persona !== artifact.expectedPersona) {
+    failures.push(`${label} observedConfig must match expected Level/persona`);
+  }
+  if (!hasValidClassroomSharingUrls(artifact.sharingUrls, artifact.roomId, artifact.workerUrl)) {
+    failures.push(`${label} must include student/teacher sharing URL evidence with no student token`);
+  }
+  if (!Array.isArray(artifact.checks) || artifact.checks.length === 0 || artifact.checks.some((check) => check?.passed !== true)) {
+    failures.push(`${label} checks must all pass`);
+  }
+}
+
 function validateExpectedClassroomRooms(classroomArtifacts) {
   const seenRooms = new Set();
   for (const artifact of classroomArtifacts) {
@@ -285,6 +332,14 @@ async function hashEvidenceFile(file) {
     if (json.totalChecks !== undefined) artifact.totalChecks = json.totalChecks;
     if (json.checkRun) artifact.checkRun = json.checkRun;
     if (json.roomId) artifact.roomId = json.roomId;
+    if (json.expectedLevel !== undefined) artifact.expectedLevel = json.expectedLevel;
+    if (json.expectedPersona !== undefined) artifact.expectedPersona = json.expectedPersona;
+    if (json.expectedOpenAIModel !== undefined) artifact.expectedOpenAIModel = json.expectedOpenAIModel;
+    if (json.expectedOpenAITimeoutMs !== undefined) artifact.expectedOpenAITimeoutMs = json.expectedOpenAITimeoutMs;
+    if (json.sharingUrls) artifact.sharingUrls = json.sharingUrls;
+    if (json.observedHealth) artifact.observedHealth = json.observedHealth;
+    if (json.observedConfig) artifact.observedConfig = json.observedConfig;
+    if (json.checks) artifact.checks = json.checks;
   } catch {
     artifact.schemaVersion = "unreadable-json";
   }
@@ -356,6 +411,52 @@ function hasValidDeployHealthEvidence(health) {
   if (typeof health.openaiModel !== "string") return false;
   if (!Number.isFinite(health.openaiTimeoutMs)) return false;
   return JSON.stringify(health).includes("OPENAI_API_KEY") === false;
+}
+
+function hasValidClassroomHealthEvidence(health) {
+  if (!health || typeof health !== "object") return false;
+  if (Number(health.status) !== 200) return false;
+  if (health.ok !== true) return false;
+  if (health.openaiConfigured !== true) return false;
+  if (health.teacherProtected !== true) return false;
+  if (typeof health.openaiModel !== "string") return false;
+  if (!Number.isFinite(health.openaiTimeoutMs)) return false;
+  return JSON.stringify(health).includes("OPENAI_API_KEY") === false;
+}
+
+function hasValidClassroomSharingUrls(sharingUrls, roomId, expectedWorkerUrl) {
+  if (!sharingUrls || typeof sharingUrls !== "object") return false;
+  if (sharingUrls.studentUrlHasToken !== false) return false;
+  if (sharingUrls.teacherUrlRequiresToken !== true) return false;
+  if (JSON.stringify(sharingUrls).includes("TEACHER_TOKEN=")) return false;
+  let studentUrl;
+  let teacherUrl;
+  try {
+    studentUrl = new URL(sharingUrls.studentUrl);
+    teacherUrl = new URL(sharingUrls.teacherUrlTemplate);
+  } catch {
+    return false;
+  }
+  if (normalizeBaseUrl(studentUrl.toString()) !== normalizeBaseUrl(expectedWorkerUrl)) return false;
+  if (normalizeBaseUrl(teacherUrl.toString()) !== normalizeBaseUrl(expectedWorkerUrl)) return false;
+  if (studentUrl.pathname !== "/") return false;
+  if (teacherUrl.pathname !== "/teacher") return false;
+  if (studentUrl.searchParams.get("room") !== roomId) return false;
+  if (teacherUrl.searchParams.get("room") !== roomId) return false;
+  if (studentUrl.searchParams.has("token")) return false;
+  return teacherUrl.searchParams.get("token") === "<TEACHER_TOKEN>";
+}
+
+function normalizeBaseUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    url.pathname = "/";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return "";
+  }
 }
 
 function parseEvidenceTimestamp(value) {

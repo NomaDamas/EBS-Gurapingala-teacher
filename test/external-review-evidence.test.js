@@ -286,6 +286,100 @@ test("review:evidence rejects approval when classroom evidence points to deploy 
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* roomId must be a filming\/rehearsal room/);
 });
 
+test("review:evidence rejects approval when classroom evidence lacks production gates", async () => {
+  const artifacts = await writeGateArtifacts({
+    classroom: {
+      workerUrl: "http://localhost:8787/",
+      requireOpenAI: false,
+      requireTeacherToken: false,
+      expectedLevel: 0,
+      expectedPersona: "",
+      observedHealth: {
+        status: 200,
+        ok: true,
+        openaiConfigured: false,
+        openaiModel: "rules",
+        openaiTimeoutMs: 0,
+        teacherProtected: false
+      }
+    }
+  });
+  const result = await runReviewEvidence(validApprovalEnv(artifacts));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* workerUrl must be an https URL/);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* must record requireOpenAI=true/);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* must record requireTeacherToken=true/);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* expectedLevel must be 1, 2, 3, or 4/);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* expectedPersona is required/);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* sanitized \/api\/health evidence snapshot/);
+});
+
+test("review:evidence rejects approval when classroom Level persona or Worker URL mismatches", async () => {
+  const artifacts = await writeGateArtifacts({
+    classroom: {
+      workerUrl: "https://other-worker.example.workers.dev/",
+      expectedLevel: 3,
+      expectedPersona: "이순신 장군처럼 친절하게 설명한다.",
+      observedConfig: {
+        level: 2,
+        persona: "다른 페르소나"
+      }
+    }
+  });
+  const result = await runReviewEvidence(validApprovalEnv(artifacts));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* workerUrl must match VERIFY_DEPLOY_EVIDENCE_FILE workerUrl/);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* observedConfig must match expected Level\/persona/);
+});
+
+test("review:evidence rejects approval when classroom OpenAI config mismatches health", async () => {
+  const artifacts = await writeGateArtifacts({
+    classroom: {
+      expectedOpenAIModel: "gpt-other",
+      expectedOpenAITimeoutMs: 30000
+    }
+  });
+  const result = await runReviewEvidence(validApprovalEnv(artifacts));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* observedHealth\.openaiModel must match expectedOpenAIModel/);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* observedHealth\.openaiTimeoutMs must match expectedOpenAITimeoutMs/);
+});
+
+test("review:evidence rejects approval when classroom sharing URLs expose unsafe access", async () => {
+  const artifacts = await writeGateArtifacts({
+    classroom: {
+      sharingUrls: {
+        studentUrl: "https://ebs-gurapingala-teacher.example.workers.dev/?room=2026-07-13-3-5&token=secret-token",
+        teacherUrlTemplate: "https://ebs-gurapingala-teacher.example.workers.dev/teacher?room=2026-07-13-3-5",
+        studentUrlHasToken: true,
+        teacherUrlRequiresToken: false
+      }
+    }
+  });
+  const result = await runReviewEvidence(validApprovalEnv(artifacts));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* sharing URL evidence with no student token/);
+});
+
+test("review:evidence rejects approval when classroom checks did not all pass", async () => {
+  const artifacts = await writeGateArtifacts({
+    classroom: {
+      checks: [
+        { name: "student URL loads for classroom room", passed: true },
+        { name: "classroom Level/persona matches expected config", passed: false }
+      ]
+    }
+  });
+  const result = await runReviewEvidence(validApprovalEnv(artifacts));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* checks must all pass/);
+});
+
 test("review:evidence rejects approval when expected classroom room evidence is missing", async () => {
   const artifacts = await writeGateArtifacts();
   const result = await runReviewEvidence({
@@ -430,12 +524,46 @@ function buildCiEvidence(overrides = {}) {
 }
 
 function buildClassroomEvidence(roomId, overrides = {}) {
+  const workerUrl = "https://ebs-gurapingala-teacher.example.workers.dev/";
   return {
     schemaVersion: "classroom-config-evidence/v1",
     generatedAt: "2026-07-10T00:02:00.000Z",
     status: "pass",
+    workerUrl,
     prHeadSha: "abc123",
     roomId,
+    expectedLevel: 2,
+    expectedPersona: "이순신 장군처럼 친절하게 설명한다.",
+    applyExpectedConfig: false,
+    requireOpenAI: true,
+    requireTeacherToken: true,
+    expectedOpenAIModel: "gpt-5.5",
+    expectedOpenAITimeoutMs: 15000,
+    sharingUrls: {
+      studentUrl: `${workerUrl}?room=${roomId}`,
+      teacherUrlTemplate: `${workerUrl}teacher?room=${roomId}&token=<TEACHER_TOKEN>`,
+      studentUrlHasToken: false,
+      teacherUrlRequiresToken: true
+    },
+    observedHealth: {
+      status: 200,
+      ok: true,
+      openaiConfigured: true,
+      openaiModel: "gpt-5.5",
+      openaiTimeoutMs: 15000,
+      teacherProtected: true
+    },
+    observedConfig: {
+      level: 2,
+      persona: "이순신 장군처럼 친절하게 설명한다."
+    },
+    checks: [
+      { name: "student URL loads for classroom room", passed: true },
+      { name: "teacher URL requires token", passed: true },
+      { name: "teacher URL accepts token", passed: true },
+      { name: "health matches classroom requirements", passed: true },
+      { name: "classroom Level/persona matches expected config", passed: true }
+    ],
     ...overrides
   };
 }
