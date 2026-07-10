@@ -14,6 +14,7 @@ const expectedOpenAITimeoutMs = normalizeExpectedTimeout(process.env.EXPECTED_OP
 const deployEvidenceFile = String(process.env.VERIFY_DEPLOY_EVIDENCE_FILE || "").trim();
 const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "").trim();
 const allowUnsafePurge = process.env.ALLOW_PURGE_FILMING_ROOM === "true";
+const teacherAuthRetryDelayMs = normalizeRetryDelay(process.env.VERIFY_AUTH_RETRY_DELAY_MS || "1000");
 const verifySessionId = `${verifyRoomId}-session-${Date.now()}`;
 const verifySessionSecret = `${verifyRoomId}-secret-${Date.now()}`;
 const formulaSessionId = `${verifyRoomId}-formula-session-${Date.now()}`;
@@ -130,8 +131,8 @@ const checks = [
   ["full evaluation set requires teacher token", async () => {
     const noToken = await fetchUrl("/api/evaluation-set/full");
     if (!teacherToken) return noToken.status === 200 || noToken.status === 401;
-    const withToken = await fetchTeacherUrl("/api/evaluation-set/full");
-    const body = await withToken.json();
+    const withToken = await fetchTeacherUrlWithAuthRetry("/api/evaluation-set/full");
+    const body = await readJsonOrNull(withToken);
     return noToken.status === 401 &&
       withToken.status === 200 &&
       Array.isArray(body.items) &&
@@ -528,6 +529,28 @@ function fetchTeacherUrl(path, init = {}) {
   });
 }
 
+async function fetchTeacherUrlWithAuthRetry(path, init = {}, attempts = 6) {
+  let response = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    response = await fetchTeacherUrl(path, init);
+    if (response.status !== 401 && response.status !== 403) return response;
+    if (attempt < attempts) await delay(teacherAuthRetryDelayMs);
+  }
+  return response;
+}
+
+async function readJsonOrNull(response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function encodeTeacherWebSocketProtocol(token) {
   const encoded = btoa(String(token)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
   return `teacher-token.${encoded}`;
@@ -549,6 +572,12 @@ function normalizeExpectedTimeout(value) {
     console.error("EXPECTED_OPENAI_TIMEOUT_MS must be between 1000 and 60000.");
     process.exit(1);
   }
+  return Math.round(n);
+}
+
+function normalizeRetryDelay(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0 || n > 10000) return 1000;
   return Math.round(n);
 }
 
