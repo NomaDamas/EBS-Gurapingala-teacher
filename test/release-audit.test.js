@@ -274,6 +274,60 @@ test("release audit rejects deploy evidence without sanitized health snapshot", 
   assert.match(result.stderr, /sanitized \/api\/health evidence snapshot/);
 });
 
+test("release audit rejects deploy evidence with mismatched expected OpenAI model or timeout", async () => {
+  const modelEvidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    deployOverrides: {
+      expectedOpenAIModel: "gpt-other"
+    }
+  });
+  const modelResult = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: modelEvidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: modelEvidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: modelEvidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(modelResult.code, 0);
+  assert.match(modelResult.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE health\.openaiModel must match expectedOpenAIModel/);
+
+  const timeoutEvidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    deployOverrides: {
+      expectedOpenAITimeoutMs: 30000
+    }
+  });
+  const timeoutResult = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: timeoutEvidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: timeoutEvidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: timeoutEvidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(timeoutResult.code, 0);
+  assert.match(timeoutResult.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE health\.openaiTimeoutMs must match expectedOpenAITimeoutMs/);
+});
+
 test("release audit rejects classroom config evidence from deploy-verify room", async () => {
   const evidence = await writeEvidenceFiles({
     prHeadSha: "abc123",
@@ -577,6 +631,8 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     requireOpenAI: true,
     requireTeacherToken: true,
     requireCloudflareEdge: true,
+    expectedOpenAIModel: "gpt-5.5",
+    expectedOpenAITimeoutMs: 15000,
     cloudflareEdge: {
       present: true,
       headers: {

@@ -129,6 +129,16 @@ if (!verifyDeployEvidenceFile) {
   if (!hasValidDeployHealthEvidence(deployEvidence.health)) {
     failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must include a sanitized /api/health evidence snapshot");
   }
+  if (!String(deployEvidence.expectedOpenAIModel || "").trim()) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must record expectedOpenAIModel");
+  } else if (deployEvidence.health?.openaiModel !== deployEvidence.expectedOpenAIModel) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE health.openaiModel must match expectedOpenAIModel");
+  }
+  if (!Number.isFinite(deployEvidence.expectedOpenAITimeoutMs)) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must record expectedOpenAITimeoutMs");
+  } else if (deployEvidence.health?.openaiTimeoutMs !== deployEvidence.expectedOpenAITimeoutMs) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE health.openaiTimeoutMs must match expectedOpenAITimeoutMs");
+  }
   if (!Number.isFinite(deployEvidence.totalChecks) || deployEvidence.totalChecks < 18) {
     failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must include all deploy verification checks");
   }
