@@ -15,7 +15,7 @@ test("review:evidence writes structured approval evidence tied to a PR head", as
   const secondClassroomEvidence = join(dir, "classroom-config-2.json");
   await writeFile(transcript, "Review decision: APPROVE\nEvidence checked: all gates pass\n");
   await writeFile(ciEvidence, JSON.stringify(buildCiEvidence()));
-  await writeFile(deployEvidence, JSON.stringify({ schemaVersion: "deploy-verification-evidence/v1", generatedAt: "2026-07-10T00:01:00.000Z", status: "pass", prHeadSha: "abc123" }));
+  await writeFile(deployEvidence, JSON.stringify(buildDeployEvidence()));
   await writeFile(classroomEvidence, JSON.stringify(buildClassroomEvidence("2026-07-13-3-5")));
   await writeFile(secondClassroomEvidence, JSON.stringify(buildClassroomEvidence("2026-07-16-3-1", { generatedAt: "2026-07-10T00:02:30.000Z" })));
   const result = await runReviewEvidence({
@@ -231,6 +231,51 @@ test("review:evidence rejects approval when deployed evidence is from a differen
   assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE prHeadSha must match PR_HEAD_SHA/);
 });
 
+test("review:evidence rejects approval when deploy evidence lacks production gates", async () => {
+  const artifacts = await writeGateArtifacts({
+    deploy: {
+      requireOpenAI: false,
+      requireTeacherToken: false,
+      requireCloudflareEdge: false,
+      cloudflareEdge: {
+        present: false,
+        headers: {}
+      },
+      health: {
+        status: 200,
+        ok: true,
+        provider: "rules",
+        openaiConfigured: false,
+        openaiModel: "rules",
+        openaiTimeoutMs: 0,
+        teacherProtected: false
+      }
+    }
+  });
+  const result = await runReviewEvidence(validApprovalEnv(artifacts));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE must record requireOpenAI=true/);
+  assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE must record requireTeacherToken=true/);
+  assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE must record requireCloudflareEdge=true/);
+  assert.match(result.stderr, /Cloudflare edge headers were present/);
+  assert.match(result.stderr, /sanitized \/api\/health evidence snapshot/);
+});
+
+test("review:evidence rejects approval when deploy health mismatches expected OpenAI config", async () => {
+  const artifacts = await writeGateArtifacts({
+    deploy: {
+      expectedOpenAIModel: "gpt-other",
+      expectedOpenAITimeoutMs: 30000
+    }
+  });
+  const result = await runReviewEvidence(validApprovalEnv(artifacts));
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE health\.openaiModel must match expectedOpenAIModel/);
+  assert.match(result.stderr, /VERIFY_DEPLOY_EVIDENCE_FILE health\.openaiTimeoutMs must match expectedOpenAITimeoutMs/);
+});
+
 test("review:evidence rejects approval when classroom evidence points to deploy verification room", async () => {
   const artifacts = await writeGateArtifacts({
     classroom: { roomId: "deploy-verify" }
@@ -321,7 +366,7 @@ async function writeGateArtifacts(overrides = {}) {
   const classroomEvidence = join(dir, "classroom-config-1.json");
   const secondClassroomEvidence = join(dir, "classroom-config-2.json");
   await writeFile(ciEvidence, JSON.stringify(buildCiEvidence(overrides.ci)));
-  await writeFile(deployEvidence, JSON.stringify({ schemaVersion: "deploy-verification-evidence/v1", generatedAt: "2026-07-10T00:01:00.000Z", status: "pass", prHeadSha: "abc123", ...(overrides.deploy || {}) }));
+  await writeFile(deployEvidence, JSON.stringify(buildDeployEvidence(overrides.deploy)));
   await writeFile(classroomEvidence, JSON.stringify(buildClassroomEvidence("2026-07-13-3-5", overrides.classroom)));
   await writeFile(secondClassroomEvidence, JSON.stringify(buildClassroomEvidence("2026-07-16-3-1", { generatedAt: "2026-07-10T00:02:30.000Z", ...(overrides.classroomTwo || {}) })));
   return {
@@ -330,6 +375,39 @@ async function writeGateArtifacts(overrides = {}) {
     classroomEvidence,
     secondClassroomEvidence,
     classroomEvidenceFiles: [classroomEvidence, secondClassroomEvidence]
+  };
+}
+
+function buildDeployEvidence(overrides = {}) {
+  return {
+    schemaVersion: "deploy-verification-evidence/v1",
+    generatedAt: "2026-07-10T00:01:00.000Z",
+    status: "pass",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    prHeadSha: "abc123",
+    requireOpenAI: true,
+    requireTeacherToken: true,
+    requireCloudflareEdge: true,
+    cloudflareEdge: {
+      present: true,
+      headers: {
+        cfRay: "test-ray"
+      }
+    },
+    health: {
+      status: 200,
+      ok: true,
+      provider: "openai",
+      openaiConfigured: true,
+      openaiModel: "gpt-5.5",
+      openaiTimeoutMs: 15000,
+      teacherProtected: true
+    },
+    expectedOpenAIModel: "gpt-5.5",
+    expectedOpenAITimeoutMs: 15000,
+    passedChecks: 19,
+    totalChecks: 19,
+    ...overrides
   };
 }
 

@@ -125,6 +125,7 @@ function validateApprovalEvidenceArtifacts(artifacts) {
     schemaVersion: "deploy-verification-evidence/v1",
     requireRoom: false
   });
+  validateDeployEvidenceArtifact(artifacts.deployVerification);
   for (const artifact of artifacts.classroomConfigs) {
     validateArtifact(artifact, {
       label: `CLASSROOM_CONFIG_EVIDENCE_FILE ${artifact?.file || ""}`.trim(),
@@ -154,6 +155,47 @@ function validateArtifact(artifact, { label, schemaVersion, requireRoom }) {
   }
   if (requireRoom && !isFilmingRoom(artifact.roomId)) {
     failures.push(`${label} roomId must be a filming/rehearsal room, not default-classroom or deploy-verify`);
+  }
+}
+
+function validateDeployEvidenceArtifact(artifact) {
+  if (!artifact || typeof artifact !== "object") return;
+  if (!isHttpsUrl(artifact.workerUrl)) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE workerUrl must be an https URL");
+  }
+  if (artifact.requireOpenAI !== true) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must record requireOpenAI=true");
+  }
+  if (artifact.requireTeacherToken !== true) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must record requireTeacherToken=true");
+  }
+  if (artifact.requireCloudflareEdge !== true) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must record requireCloudflareEdge=true");
+  }
+  if (artifact.cloudflareEdge?.present !== true) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must prove Cloudflare edge headers were present");
+  }
+  if (!hasCloudflareEdgeHeaderEvidence(artifact.cloudflareEdge?.headers)) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE cloudflareEdge.headers must include Cloudflare response header evidence");
+  }
+  if (!hasValidDeployHealthEvidence(artifact.health)) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must include a sanitized /api/health evidence snapshot");
+  }
+  if (!String(artifact.expectedOpenAIModel || "").trim()) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must record expectedOpenAIModel");
+  } else if (artifact.health?.openaiModel !== artifact.expectedOpenAIModel) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE health.openaiModel must match expectedOpenAIModel");
+  }
+  if (!Number.isFinite(artifact.expectedOpenAITimeoutMs)) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must record expectedOpenAITimeoutMs");
+  } else if (artifact.health?.openaiTimeoutMs !== artifact.expectedOpenAITimeoutMs) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE health.openaiTimeoutMs must match expectedOpenAITimeoutMs");
+  }
+  if (!Number.isFinite(artifact.totalChecks) || artifact.totalChecks < 18) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE must include all deploy verification checks");
+  }
+  if (artifact.passedChecks !== artifact.totalChecks) {
+    failures.push("VERIFY_DEPLOY_EVIDENCE_FILE passedChecks must equal totalChecks");
   }
 }
 
@@ -231,6 +273,16 @@ async function hashEvidenceFile(file) {
     artifact.generatedAt = json.generatedAt;
     artifact.prHeadSha = json.prHeadSha;
     artifact.status = json.status;
+    if (json.workerUrl) artifact.workerUrl = json.workerUrl;
+    if (json.requireOpenAI !== undefined) artifact.requireOpenAI = json.requireOpenAI;
+    if (json.requireTeacherToken !== undefined) artifact.requireTeacherToken = json.requireTeacherToken;
+    if (json.requireCloudflareEdge !== undefined) artifact.requireCloudflareEdge = json.requireCloudflareEdge;
+    if (json.cloudflareEdge) artifact.cloudflareEdge = json.cloudflareEdge;
+    if (json.health) artifact.health = json.health;
+    if (json.expectedOpenAIModel !== undefined) artifact.expectedOpenAIModel = json.expectedOpenAIModel;
+    if (json.expectedOpenAITimeoutMs !== undefined) artifact.expectedOpenAITimeoutMs = json.expectedOpenAITimeoutMs;
+    if (json.passedChecks !== undefined) artifact.passedChecks = json.passedChecks;
+    if (json.totalChecks !== undefined) artifact.totalChecks = json.totalChecks;
     if (json.checkRun) artifact.checkRun = json.checkRun;
     if (json.roomId) artifact.roomId = json.roomId;
   } catch {
@@ -281,6 +333,29 @@ function isHttpsUrl(value) {
 
 function isIsoTimestamp(value) {
   return typeof value === "string" && !Number.isNaN(Date.parse(value));
+}
+
+function hasCloudflareEdgeHeaderEvidence(headers) {
+  if (!headers || typeof headers !== "object") return false;
+  const values = [
+    headers.cfRay,
+    headers.cfCacheStatus,
+    headers.server,
+    headers.reportTo
+  ].map((value) => String(value || "").toLowerCase());
+  return Boolean(values[0]) || values.some((value) => value.includes("cloudflare"));
+}
+
+function hasValidDeployHealthEvidence(health) {
+  if (!health || typeof health !== "object") return false;
+  if (Number(health.status) !== 200) return false;
+  if (health.ok !== true) return false;
+  if (health.provider !== "openai") return false;
+  if (health.openaiConfigured !== true) return false;
+  if (health.teacherProtected !== true) return false;
+  if (typeof health.openaiModel !== "string") return false;
+  if (!Number.isFinite(health.openaiTimeoutMs)) return false;
+  return JSON.stringify(health).includes("OPENAI_API_KEY") === false;
 }
 
 function parseEvidenceTimestamp(value) {
