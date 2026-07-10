@@ -92,7 +92,7 @@ PR_URL=https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1 PR_HEAD_SHA=<
 EXTERNAL_REVIEW_DECISION=APPROVE VERIFY_DEPLOY_STATUS=pass WORKER_URL=https://<worker-domain> PR_HEAD_SHA=<latest-sha> EXPECTED_PR_HEAD_SHA=<latest-sha> CI_STATUS=success REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLASSROOM_CONFIG=true REQUIRE_CLOUDFLARE_EDGE=true EXTERNAL_REVIEW_FILE=artifacts/external-review.json VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts/2026-07-13-3-5-config.json,artifacts/2026-07-16-3-1-config.json EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1 npm run release:audit
 ```
 
-`release:audit`는 `review:evidence`가 생성한 `external-review-evidence/v1` 승인 파일, 실제 Worker URL `verify:deploy` 증거 파일, 각 촬영방 `rehearsal:config` 증거 파일, 최신 PR head CI 통과, OpenAI/교사용 token/촬영방 설정 검증 증거가 모두 같은 commit에 묶였는지 확인한다. `EXPECTED_CLASSROOM_ROOMS`는 촬영 계획의 기준 room 목록이며, 증거 파일의 `roomId` 집합이 이 목록과 정확히 일치해야 한다.
+`release:audit`는 `review:evidence`가 생성한 `external-review-evidence/v1` 승인 파일, 실제 Worker URL `verify:deploy` 증거 파일, 각 촬영방 `rehearsal:config` 증거 파일, 최신 PR head CI 통과, OpenAI/교사용 token/촬영방 설정 검증 증거가 모두 같은 commit에 묶였는지 확인한다. `VERIFY_DEPLOY_EVIDENCE_FILE`은 Cloudflare response header evidence와 sanitized `/api/health` snapshot을 포함해야 한다. `EXPECTED_CLASSROOM_ROOMS`는 촬영 계획의 기준 room 목록이며, 증거 파일의 `roomId` 집합이 이 목록과 정확히 일치해야 한다.
 
 명령 조합 실수를 줄이려면 실제 Worker URL과 촬영방 계획을 넣고 릴리즈 증거 명령을 먼저 출력한다.
 
