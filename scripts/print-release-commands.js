@@ -1,5 +1,5 @@
 const workerUrl = normalizeBaseUrl(process.env.WORKER_URL || process.env.WORKER_HEALTH_URL || "");
-const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "<latest-sha>").trim();
+const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "").trim();
 const expectedOpenAIModel = String(process.env.EXPECTED_OPENAI_MODEL || "gpt-5.5").trim();
 const expectedOpenAITimeoutMs = String(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "15000").trim();
 const teacherToken = process.env.TEACHER_TOKEN ? "$TEACHER_TOKEN" : "<TEACHER_TOKEN>";
@@ -11,6 +11,11 @@ const plans = parseRoomPlans(process.env.CLASSROOM_PLANS || "");
 
 if (!workerUrl) {
   console.error("FAIL WORKER_URL or WORKER_HEALTH_URL is required");
+  process.exit(1);
+}
+
+if (!prHeadSha) {
+  console.error("FAIL PR_HEAD_SHA or GITHUB_SHA is required so every release evidence command is tied to an exact commit");
   process.exit(1);
 }
 

@@ -30,14 +30,24 @@ test("release:commands prints commit-bound deploy, classroom, review, and releas
 
 test("release:commands rejects missing room plan and deploy-verify classroom room", async () => {
   const missing = await runReleaseCommands({
-    WORKER_URL: "https://worker.example.com"
+    WORKER_URL: "https://worker.example.com",
+    PR_HEAD_SHA: "abc123"
   });
 
   assert.notEqual(missing.code, 0);
   assert.match(missing.stderr, /CLASSROOM_PLANS is required/);
 
+  const missingSha = await runReleaseCommands({
+    WORKER_URL: "https://worker.example.com",
+    CLASSROOM_PLANS: "2026-07-13-3-5:2:테스트"
+  });
+
+  assert.notEqual(missingSha.code, 0);
+  assert.match(missingSha.stderr, /PR_HEAD_SHA or GITHUB_SHA is required/);
+
   const deployVerify = await runReleaseCommands({
     WORKER_URL: "https://worker.example.com",
+    PR_HEAD_SHA: "abc123",
     CLASSROOM_PLANS: "deploy-verify:2:테스트"
   });
 
