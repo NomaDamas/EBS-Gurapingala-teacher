@@ -23,6 +23,7 @@ test("review:packet prints current PR target, review criteria, and evidence comm
   assert.match(result.stdout, /release:commands가 TEACHER_TOKEN 원문을 출력하지 않고/);
   assert.match(result.stdout, /Review decision: APPROVE \| REQUEST_CHANGES/);
   assert.match(result.stdout, /EXTERNAL_REVIEW_DECISION=APPROVE/);
+  assert.match(result.stdout, /EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts\/external-review-transcript\.md/);
   assert.match(result.stdout, /PR_HEAD_SHA=abc123/);
   assert.match(result.stdout, /npm run review:evidence/);
 });

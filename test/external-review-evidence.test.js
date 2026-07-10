@@ -1,17 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 test("review:evidence writes structured approval evidence tied to a PR head", async () => {
   const dir = await mkdtemp(join(tmpdir(), "external-review-"));
   const file = join(dir, "external-review.json");
+  const transcript = join(dir, "review.md");
+  await writeFile(transcript, "Review decision: APPROVE\nEvidence checked: all gates pass\n");
   const result = await runReviewEvidence({
     EXTERNAL_REVIEW_FILE: file,
     EXTERNAL_REVIEW_DECISION: "APPROVE",
     EXTERNAL_REVIEWER: "GPT-5.5 xhigh equivalent",
+    EXTERNAL_REVIEW_TRANSCRIPT_FILE: transcript,
     PR_HEAD_SHA: "abc123",
     CI_STATUS: "success",
     TESTS_STATUS: "pass",
@@ -30,6 +33,9 @@ test("review:evidence writes structured approval evidence tied to a PR head", as
   assert.equal(evidence.schemaVersion, "external-review-evidence/v1");
   assert.equal(evidence.decision, "APPROVE");
   assert.equal(evidence.reviewer, "GPT-5.5 xhigh equivalent");
+  assert.equal(evidence.source.transcriptFile, transcript);
+  assert.match(evidence.source.transcriptSha256, /^[a-f0-9]{64}$/);
+  assert.equal(evidence.source.transcriptBytes, 58);
   assert.equal(evidence.prHeadSha, "abc123");
   assert.equal(evidence.evidenceChecked.ciStatus, "success");
   assert.equal(evidence.evidenceChecked.classroomConfigStatus, "pass");
@@ -41,6 +47,7 @@ test("review:evidence rejects approval with blocking findings", async () => {
   const result = await runReviewEvidence({
     EXTERNAL_REVIEW_DECISION: "APPROVE",
     EXTERNAL_REVIEWER: "GPT-5.5 xhigh equivalent",
+    EXTERNAL_REVIEW_SOURCE_URL: "https://reviews.example.com/ebs/1",
     PR_HEAD_SHA: "abc123",
     CI_STATUS: "success",
     TESTS_STATUS: "pass",
@@ -59,6 +66,7 @@ test("review:evidence fails closed when required verification statuses are missi
   const result = await runReviewEvidence({
     EXTERNAL_REVIEW_DECISION: "APPROVE",
     EXTERNAL_REVIEWER: "GPT-5.5 xhigh equivalent",
+    EXTERNAL_REVIEW_SOURCE_URL: "https://reviews.example.com/ebs/1",
     PR_HEAD_SHA: "abc123",
     CI_STATUS: "success"
   });
@@ -69,6 +77,39 @@ test("review:evidence fails closed when required verification statuses are missi
   assert.match(result.stderr, /READINESS_STATUS=pass or success is required/);
   assert.match(result.stderr, /SMOKE_STATUS=pass or success is required/);
   assert.match(result.stderr, /CLASSROOM_CONFIG_STATUS=pass or success is required/);
+});
+
+test("review:evidence requires a concrete external review source artifact", async () => {
+  const missing = await runReviewEvidence({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    EXTERNAL_REVIEWER: "GPT-5.5 xhigh equivalent",
+    PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    TESTS_STATUS: "pass",
+    EVAL_STATUS: "pass",
+    READINESS_STATUS: "pass",
+    SMOKE_STATUS: "pass",
+    CLASSROOM_CONFIG_STATUS: "pass"
+  });
+
+  assert.notEqual(missing.code, 0);
+  assert.match(missing.stderr, /EXTERNAL_REVIEW_SOURCE_URL or EXTERNAL_REVIEW_TRANSCRIPT_FILE is required/);
+
+  const invalidUrl = await runReviewEvidence({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    EXTERNAL_REVIEWER: "GPT-5.5 xhigh equivalent",
+    EXTERNAL_REVIEW_SOURCE_URL: "http://reviews.example.com/ebs/1",
+    PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    TESTS_STATUS: "pass",
+    EVAL_STATUS: "pass",
+    READINESS_STATUS: "pass",
+    SMOKE_STATUS: "pass",
+    CLASSROOM_CONFIG_STATUS: "pass"
+  });
+
+  assert.notEqual(invalidUrl.code, 0);
+  assert.match(invalidUrl.stderr, /EXTERNAL_REVIEW_SOURCE_URL must be an https URL/);
 });
 
 function runReviewEvidence(env) {

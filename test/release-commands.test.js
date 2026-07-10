@@ -21,6 +21,7 @@ test("release:commands prints commit-bound deploy, classroom, review, and releas
   assert.match(result.stdout, /EXPECTED_FALSE_LEVEL=2/);
   assert.match(result.stdout, /CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts\/2026-07-16-3-1-config\.json/);
   assert.match(result.stdout, /npm run review:evidence/);
+  assert.match(result.stdout, /EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts\/external-review-transcript\.md/);
   assert.match(result.stdout, /CLASSROOM_CONFIG_EVIDENCE_FILES=artifacts\/2026-07-13-3-5-config\.json,artifacts\/2026-07-16-3-1-config\.json/);
   assert.match(result.stdout, /EXPECTED_CLASSROOM_ROOMS=2026-07-13-3-5,2026-07-16-3-1/);
   assert.match(result.stdout, /npm run release:audit/);

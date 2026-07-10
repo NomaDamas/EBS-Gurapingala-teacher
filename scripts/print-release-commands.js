@@ -4,6 +4,9 @@ const expectedOpenAIModel = String(process.env.EXPECTED_OPENAI_MODEL || "gpt-5.5
 const expectedOpenAITimeoutMs = String(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "15000").trim();
 const teacherToken = process.env.TEACHER_TOKEN ? "$TEACHER_TOKEN" : "<TEACHER_TOKEN>";
 const reviewer = shellQuote(process.env.EXTERNAL_REVIEWER || "GPT-5.5 xhigh equivalent");
+const reviewSource = process.env.EXTERNAL_REVIEW_SOURCE_URL
+  ? `EXTERNAL_REVIEW_SOURCE_URL=${shellQuote(process.env.EXTERNAL_REVIEW_SOURCE_URL)}`
+  : "EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts/external-review-transcript.md";
 const plans = parseRoomPlans(process.env.CLASSROOM_PLANS || "");
 
 if (!workerUrl) {
@@ -58,6 +61,7 @@ console.log("## 3. Write structured external review evidence after APPROVE");
 console.log([
   "EXTERNAL_REVIEW_DECISION=APPROVE",
   `EXTERNAL_REVIEWER=${reviewer}`,
+  reviewSource,
   `PR_HEAD_SHA=${shellQuote(prHeadSha)}`,
   "CI_STATUS=success",
   "TESTS_STATUS=pass",

@@ -79,7 +79,7 @@ WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<token> CLASSROOM_ROOM=2026-07-
 머지/릴리즈 직전 최종 감사:
 
 ```bash
-EXTERNAL_REVIEW_DECISION=APPROVE EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" PR_HEAD_SHA=<latest-sha> CI_STATUS=success TESTS_STATUS=pass EVAL_STATUS=pass READINESS_STATUS=pass SMOKE_STATUS=pass VERIFY_DEPLOY_STATUS=pass CLASSROOM_CONFIG_STATUS=pass EXTERNAL_REVIEW_FILE=artifacts/external-review.json npm run review:evidence
+EXTERNAL_REVIEW_DECISION=APPROVE EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts/external-review-transcript.md PR_HEAD_SHA=<latest-sha> CI_STATUS=success TESTS_STATUS=pass EVAL_STATUS=pass READINESS_STATUS=pass SMOKE_STATUS=pass VERIFY_DEPLOY_STATUS=pass CLASSROOM_CONFIG_STATUS=pass EXTERNAL_REVIEW_FILE=artifacts/external-review.json npm run review:evidence
 ```
 
 외부 리뷰어에게 전달할 요청문은 현재 PR/SHA와 검증 상태를 넣어 생성할 수 있다.

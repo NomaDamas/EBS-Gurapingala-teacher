@@ -1,9 +1,12 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { dirname } from "node:path";
 
 const outputFile = String(process.env.EXTERNAL_REVIEW_FILE || "artifacts/external-review.json").trim();
 const decision = normalizeDecision(process.env.EXTERNAL_REVIEW_DECISION);
 const reviewer = String(process.env.EXTERNAL_REVIEWER || process.env.EXTERNAL_REVIEW_MODEL || "").trim();
+const reviewSourceUrl = String(process.env.EXTERNAL_REVIEW_SOURCE_URL || "").trim();
+const reviewTranscriptFile = String(process.env.EXTERNAL_REVIEW_TRANSCRIPT_FILE || "").trim();
 const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "").trim();
 const ciStatus = normalizeStatus(process.env.CI_STATUS || process.env.GITHUB_CI_STATUS);
 const testsStatus = normalizeStatus(process.env.TESTS_STATUS || process.env.NPM_TEST_STATUS);
@@ -21,6 +24,12 @@ if (decision !== "approve" && decision !== "request_changes") {
   failures.push("EXTERNAL_REVIEW_DECISION must be APPROVE or REQUEST_CHANGES");
 }
 if (!reviewer) failures.push("EXTERNAL_REVIEWER or EXTERNAL_REVIEW_MODEL is required");
+if (!reviewSourceUrl && !reviewTranscriptFile) {
+  failures.push("EXTERNAL_REVIEW_SOURCE_URL or EXTERNAL_REVIEW_TRANSCRIPT_FILE is required so APPROVE evidence is tied to an actual external review artifact");
+}
+if (reviewSourceUrl && !isHttpsUrl(reviewSourceUrl)) {
+  failures.push("EXTERNAL_REVIEW_SOURCE_URL must be an https URL");
+}
 if (!prHeadSha) failures.push("PR_HEAD_SHA or GITHUB_SHA is required");
 if (decision === "approve" && blockingFindings.length) {
   failures.push("APPROVE evidence cannot include BLOCKING_FINDINGS");
@@ -42,11 +51,14 @@ if (failures.length) {
   process.exit(1);
 }
 
+const reviewSource = await buildReviewSource();
+
 const payload = {
   schemaVersion: "external-review-evidence/v1",
   generatedAt: new Date().toISOString(),
   decision: decision === "approve" ? "APPROVE" : "REQUEST_CHANGES",
   reviewer,
+  source: reviewSource,
   prHeadSha,
   evidenceChecked: {
     ciStatus,
@@ -66,6 +78,25 @@ await mkdir(dirname(outputFile), { recursive: true });
 await writeFile(outputFile, `${JSON.stringify(payload, null, 2)}\n`);
 console.log(`external review evidence written: ${outputFile}`);
 
+async function buildReviewSource() {
+  const source = {};
+  if (reviewSourceUrl) source.url = reviewSourceUrl;
+  if (reviewTranscriptFile) {
+    let transcript;
+    try {
+      transcript = await readFile(reviewTranscriptFile);
+    } catch (error) {
+      console.error(`FAIL EXTERNAL_REVIEW_TRANSCRIPT_FILE must be readable: ${error instanceof Error ? error.message : String(error)}`);
+      console.error("external review evidence failed: 1 issue(s)");
+      process.exit(1);
+    }
+    source.transcriptFile = reviewTranscriptFile;
+    source.transcriptSha256 = createHash("sha256").update(transcript).digest("hex");
+    source.transcriptBytes = transcript.length;
+  }
+  return source;
+}
+
 function normalizeDecision(value) {
   return String(value || "").trim().toLowerCase().replace(/[^a-z_]/g, "");
 }
@@ -76,6 +107,15 @@ function normalizeStatus(value) {
 
 function isPass(value) {
   return value === "pass" || value === "success";
+}
+
+function isHttpsUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
 }
 
 function parseList(value) {

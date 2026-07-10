@@ -115,6 +115,7 @@ npm run rehearsal:config
 ```bash
 EXTERNAL_REVIEW_DECISION=APPROVE \
 EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" \
+EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts/external-review-transcript.md \
 PR_HEAD_SHA=$PR_HEAD_SHA \
 CI_STATUS=success \
 TESTS_STATUS=pass \

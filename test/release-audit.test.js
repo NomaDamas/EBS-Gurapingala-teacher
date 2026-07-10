@@ -120,6 +120,34 @@ test("release audit rejects unstructured external review evidence", async () => 
   assert.match(result.stderr, /cannot include blockingFindings/);
 });
 
+test("release audit rejects external review evidence without a source artifact", async () => {
+  const evidence = await writeEvidenceFiles({
+    prHeadSha: "abc123",
+    workerUrl: "https://ebs-gurapingala-teacher.example.workers.dev/",
+    externalReviewOverrides: {
+      source: {}
+    }
+  });
+  const result = await runReleaseAudit({
+    EXTERNAL_REVIEW_DECISION: "APPROVE",
+    VERIFY_DEPLOY_STATUS: "pass",
+    WORKER_URL: "https://ebs-gurapingala-teacher.example.workers.dev",
+    PR_HEAD_SHA: "abc123",
+    EXPECTED_PR_HEAD_SHA: "abc123",
+    CI_STATUS: "success",
+    REQUIRE_OPENAI: "true",
+    REQUIRE_TEACHER_TOKEN: "true",
+    REQUIRE_CLASSROOM_CONFIG: "true",
+    EXTERNAL_REVIEW_FILE: evidence.externalReviewFile,
+    VERIFY_DEPLOY_EVIDENCE_FILE: evidence.deployEvidenceFile,
+    CLASSROOM_CONFIG_EVIDENCE_FILES: evidence.classroomConfigEvidenceFiles.join(","),
+    EXPECTED_CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1"
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /EXTERNAL_REVIEW_FILE source must include an https review URL or transcriptSha256/);
+});
+
 test("release audit rejects deploy evidence that was not strict OpenAI teacher-token verification", async () => {
   const evidence = await writeEvidenceFiles({
     prHeadSha: "abc123",
@@ -297,6 +325,9 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     schemaVersion: "external-review-evidence/v1",
     decision: "APPROVE",
     reviewer: "GPT-5.5 xhigh equivalent",
+    source: {
+      url: "https://reviews.example.com/ebs-gurapingala-teacher/pull-1"
+    },
     prHeadSha,
     evidenceChecked: {
       ciStatus: "success",

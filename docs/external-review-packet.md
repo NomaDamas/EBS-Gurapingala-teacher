@@ -131,10 +131,12 @@ Final verdict:
 ## 구조화된 승인 증거 생성
 
 리뷰어가 `APPROVE`를 준 뒤에는 텍스트 판정만 보관하지 말고 `release:audit`가 읽을 JSON 증거를 생성한다. blocking finding이 있으면 `APPROVE` 증거 생성은 실패한다.
+승인 증거는 실제 리뷰 산출물과 연결되어야 하므로 `EXTERNAL_REVIEW_SOURCE_URL` 또는 `EXTERNAL_REVIEW_TRANSCRIPT_FILE` 중 하나를 반드시 넣는다. transcript 파일을 쓰면 JSON에는 원문이 아니라 SHA-256 hash와 byte 수만 저장된다.
 
 ```bash
 EXTERNAL_REVIEW_DECISION=APPROVE \
 EXTERNAL_REVIEWER="GPT-5.5 xhigh equivalent" \
+EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts/external-review-transcript.md \
 PR_HEAD_SHA=<latest-sha> \
 CI_STATUS=success \
 TESTS_STATUS=pass \
@@ -147,4 +149,4 @@ EXTERNAL_REVIEW_FILE=artifacts/external-review.json \
 npm run review:evidence
 ```
 
-생성되는 JSON은 `external-review-evidence/v1`이며 `decision`, `reviewer`, `prHeadSha`, `evidenceChecked`, `blockingFindings`, `nonBlockingRisks`를 포함한다.
+생성되는 JSON은 `external-review-evidence/v1`이며 `decision`, `reviewer`, `source`, `prHeadSha`, `evidenceChecked`, `blockingFindings`, `nonBlockingRisks`를 포함한다.

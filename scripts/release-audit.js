@@ -69,6 +69,9 @@ if (!externalReviewFile) {
   if (!String(externalReview.reviewer || externalReview.model || "").trim()) {
     failures.push("EXTERNAL_REVIEW_FILE must identify the external reviewer/model");
   }
+  if (!isValidExternalReviewSource(externalReview.source)) {
+    failures.push("EXTERNAL_REVIEW_FILE source must include an https review URL or transcriptSha256 from EXTERNAL_REVIEW_TRANSCRIPT_FILE");
+  }
   for (const [label, value] of [
     ["ciStatus", externalReview.evidenceChecked?.ciStatus],
     ["testsStatus", externalReview.evidenceChecked?.testsStatus],
@@ -165,6 +168,13 @@ function isHttpsUrl(value) {
   } catch {
     return false;
   }
+}
+
+function isValidExternalReviewSource(source) {
+  if (!source || typeof source !== "object") return false;
+  if (source.url && isHttpsUrl(source.url)) return true;
+  if (typeof source.transcriptSha256 === "string" && /^[a-f0-9]{64}$/.test(source.transcriptSha256) && Number(source.transcriptBytes) > 0) return true;
+  return false;
 }
 
 function normalizeBaseUrl(value) {
