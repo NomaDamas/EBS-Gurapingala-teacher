@@ -54,6 +54,7 @@ npm run review:packet
 중단 조건:
 
 - GPT-5.5 xhigh 또는 동등 리뷰가 `APPROVE`를 주기 전에는 머지하지 않는다.
+- 실제 Worker `verify:deploy`와 모든 촬영방 `rehearsal:config`가 pass이기 전에는 리뷰어에게 `APPROVE`를 요청하지 않는다.
 - blocking finding이 하나라도 있으면 구현을 수정하고 같은 게이트를 다시 돈다.
 
 ## 5. 배포 검증 증거
@@ -113,7 +114,7 @@ npm run rehearsal:config
 
 ## 7. 승인 증거 생성
 
-외부 리뷰가 승인된 뒤에만 실행한다.
+외부 리뷰가 승인되고, `verify:deploy`와 모든 촬영방 `rehearsal:config`가 같은 `PR_HEAD_SHA`에서 pass인 뒤에만 실행한다.
 
 ```bash
 EXTERNAL_REVIEW_DECISION=APPROVE \

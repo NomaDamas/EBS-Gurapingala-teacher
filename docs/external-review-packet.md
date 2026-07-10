@@ -46,10 +46,13 @@ npm run review:packet
 - OpenAI key 또는 teacher token이 브라우저나 `/api/health`에 노출됨.
 - 임시 촬영 URL/API 응답이 캐시되거나 검색 색인될 수 있음.
 - 50턴 eval에서 falsehood, levelFit, truthLeak 중 하나라도 기준을 만족하지 못함.
+- 실제 Worker `verify:deploy` 또는 촬영방별 `rehearsal:config`가 pass/success가 아닌데 `APPROVE`하려고 함.
 
 승인 조건:
 - 최신 PR head에서 GitHub Actions `Verify product gates`가 SUCCESS입니다.
 - 아래 로컬 명령이 모두 통과했다는 증거가 있습니다.
+- 실제 Worker URL에서 `verify:deploy`가 `REQUIRE_OPENAI=true`, `REQUIRE_TEACHER_TOKEN=true`, `REQUIRE_CLOUDFLARE_EDGE=true`로 통과했습니다.
+- 모든 촬영방에서 `rehearsal:config`가 같은 PR head로 통과했습니다.
 - 코드/문서가 원래 요구사항을 축소하지 않고 구현합니다.
 - 남은 위험이 docs/launch-audit.md 또는 docs/production-runbook.md에 운영 대응으로 기록되어 있습니다.
 ```
@@ -130,7 +133,7 @@ Final verdict:
 
 ## 구조화된 승인 증거 생성
 
-리뷰어가 `APPROVE`를 준 뒤에는 텍스트 판정만 보관하지 말고 `release:audit`가 읽을 JSON 증거를 생성한다. blocking finding이 있으면 `APPROVE` 증거 생성은 실패한다.
+리뷰어가 `APPROVE`를 주고 실제 Worker `verify:deploy`, 모든 촬영방 `rehearsal:config`가 같은 PR head에서 pass인 뒤에는 텍스트 판정만 보관하지 말고 `release:audit`가 읽을 JSON 증거를 생성한다. blocking finding이 있거나 `VERIFY_DEPLOY_STATUS=pass`, `CLASSROOM_CONFIG_STATUS=pass`가 아니면 `APPROVE` 증거 생성은 실패한다.
 승인 증거는 실제 리뷰 산출물과 연결되어야 하므로 `EXTERNAL_REVIEW_SOURCE_URL` 또는 `EXTERNAL_REVIEW_TRANSCRIPT_FILE` 중 하나를 반드시 넣는다. transcript 파일을 쓰면 JSON에는 원문이 아니라 SHA-256 hash와 byte 수만 저장된다.
 
 ```bash

@@ -22,6 +22,9 @@ test("review:packet prints current PR target, review criteria, and evidence comm
   assert.match(result.stdout, /학생 화면에는 Level에 맞춘 거짓 답변만/);
   assert.match(result.stdout, /release:commands가 TEACHER_TOKEN 원문을 출력하지 않고/);
   assert.match(result.stdout, /Review decision: APPROVE \| REQUEST_CHANGES/);
+  assert.match(result.stdout, /Approval stop condition/);
+  assert.match(result.stdout, /Do not return APPROVE if verify:deploy is not pass\/success/);
+  assert.match(result.stdout, /Do not generate external-review-evidence\/v1 until those deploy and classroom statuses are pass\/success/);
   assert.match(result.stdout, /EXTERNAL_REVIEW_DECISION=APPROVE/);
   assert.match(result.stdout, /EXTERNAL_REVIEW_TRANSCRIPT_FILE=artifacts\/external-review-transcript\.md/);
   assert.match(result.stdout, /PR_HEAD_SHA=abc123/);

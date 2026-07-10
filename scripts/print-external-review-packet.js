@@ -68,6 +68,11 @@ Evidence checked before review request:
 - rehearsal:config against each filming room: ${classroomConfigStatus}
 - npm run release:audit with latest commit evidence: ${releaseAuditStatus}
 
+Approval stop condition:
+- Do not return APPROVE if verify:deploy is not pass/success against the real Worker URL with REQUIRE_OPENAI=true, REQUIRE_TEACHER_TOKEN=true, REQUIRE_CLOUDFLARE_EDGE=true, EXPECTED_OPENAI_MODEL, and EXPECTED_OPENAI_TIMEOUT_MS.
+- Do not return APPROVE if rehearsal:config is not pass/success for every expected filming room.
+- Do not generate external-review-evidence/v1 until those deploy and classroom statuses are pass/success for this exact PR head.
+
 Review checklist:
 - src/ui/student.js, src/worker.js: 학생 이름-only 입장, join 실패 시 채팅 진입 차단, session secret, rate limit.
 - src/ui/teacher.js, src/worker.js: /teacher, /ws/teacher, 학생 카드 online/offline, 실시간 telemetry, token URL 제거.
