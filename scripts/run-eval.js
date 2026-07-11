@@ -89,6 +89,9 @@ for (const model of setupFailures.length ? [] : models) {
         falseClaim: result.audit.falseClaim,
         whyFalse: result.audit.whyFalse,
         levelFitReason: result.audit.levelFitReason,
+        calibrationSeed: result.audit.calibrationSeed,
+        calibrationBasis: result.audit.calibrationBasis,
+        preflightFailures: result.audit.preflight.failures || [],
         judgment
       });
     }
@@ -202,6 +205,9 @@ function toFailureExample(item) {
     falseClaim: item.falseClaim,
     whyFalse: item.whyFalse,
     levelFitReason: item.levelFitReason,
+    calibrationSeed: item.calibrationSeed,
+    calibrationBasis: item.calibrationBasis,
+    preflightFailures: item.preflightFailures,
     verdict: item.verdict,
     checks: item.checks,
     judgment: item.judgment,
@@ -230,14 +236,18 @@ function toTurnEvidence({ item, result, judgment }) {
     preflight: {
       approvedForStudent: result.audit?.preflight?.approvedForStudent === true,
       verifierApproved: result.audit?.preflight?.checks?.verifierApproved === true,
-      verdict: result.audit?.preflight?.verdict || ""
+      verdict: result.audit?.preflight?.verdict || "",
+      checks: result.audit?.preflight?.checks || {}
     },
+    preflightFailures: result.audit?.preflight?.failures || [],
     judge: {
       provider: judgment?.judgeProvider || "",
       model: judgment?.judgeModel || "",
       responseId: judgment?.judgeResponseId || "",
       responseModel: judgment?.judgeResponseModel || "",
-      pass: judgment?.pass === true
+      pass: judgment?.pass === true,
+      contract: judgment?.localJudgment || null,
+      llm: judgment?.llmJudgment || null
     },
     studentVisibleAnswer: result.audit?.studentVisibleFalseAnswer || "",
     correctAnswer: result.audit?.correctAnswer || "",

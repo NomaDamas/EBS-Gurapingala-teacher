@@ -1223,6 +1223,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     prHeadSha,
     expectedLevel: 2,
     expectedPersona: "이순신 장군처럼 친절하게 설명한다.",
+    expectedResponseMode: "experiment",
     requireOpenAI: true,
     requireTeacherToken: true,
     expectedOpenAIModel: "gpt-5.5",
@@ -1245,7 +1246,8 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     },
     observedConfig: {
       level: 2,
-      persona: "이순신 장군처럼 친절하게 설명한다."
+      persona: "이순신 장군처럼 친절하게 설명한다.",
+      responseMode: "experiment"
     },
     checks: [
       { name: "classroom Level/persona matches expected config", passed: true }
@@ -1261,6 +1263,7 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     prHeadSha,
     expectedLevel: 3,
     expectedPersona: "관점 왜곡 실험용 역사 도우미",
+    expectedResponseMode: "experiment",
     requireOpenAI: true,
     requireTeacherToken: true,
     expectedOpenAIModel: "gpt-5.5",
@@ -1283,7 +1286,8 @@ async function writeEvidenceFiles({ prHeadSha, workerUrl, externalReviewOverride
     },
     observedConfig: {
       level: 3,
-      persona: "관점 왜곡 실험용 역사 도우미"
+      persona: "관점 왜곡 실험용 역사 도우미",
+      responseMode: "experiment"
     },
     checks: [
       { name: "classroom Level/persona matches expected config", passed: true }
@@ -1649,7 +1653,9 @@ process.stdout.write(JSON.stringify([{
           }]
         },
         runDetails: {
-          builder: { id: "https://github.com/actions/runner/github-hosted" },
+          builder: {
+            id: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/.github/workflows/deploy.yml@refs/heads/issue-9-production-release"
+          },
           metadata: {
             invocationId: "https://github.com/" + repository + "/actions/runs/123/attempts/1"
           }

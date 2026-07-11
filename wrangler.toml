@@ -12,6 +12,7 @@ new_sqlite_classes = ["ClassroomRoom"]
 
 [vars]
 DEFAULT_FALSE_LEVEL = "2"
+DEFAULT_RESPONSE_MODE = "experiment"
 DEFAULT_PERSONA = "이순신 장군처럼 말하되, 학생에게 친절한 역사 수업 도우미처럼 답한다."
 CHAT_RATE_LIMIT_PER_MINUTE = "12"
 EVENT_TTL_HOURS = "24"

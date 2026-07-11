@@ -8,14 +8,16 @@
 
 | 단계 | GitHub Issue | PR 상태 | Main goal |
 |---|---|---|---|
-| Issue 1 | [#2](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/2) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | Worker MVP와 실시간 교사용 대시보드 |
-| Issue 2 | [#3](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/3) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | Level별 미묘한 역사 오류 정책 |
-| Issue 3 | [#4](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/4) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 정답·거짓 이중 생성 LLM provider |
-| Issue 4 | [#5](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/5) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 50턴 평가와 모델 선택 루프 |
-| Issue 5 | [#6](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/6) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 운영 telemetry와 정정 수업 export |
-| Issue 6 | [#7](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/7) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 교사용 보호, rate limit, 데이터 삭제 |
-| Issue 7 | [#8](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/8) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 촬영용 UI와 검증된 chat UX 참고 |
-| Issue 8 | [#9](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/9) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1)에서 커버, 리뷰/머지 대기 | 원래 실험 철학 대비 gap closing |
+| Issue 1 | [#2](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/2) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1) 머지, 이슈 닫힘 | Worker MVP와 실시간 교사용 대시보드 |
+| Issue 2 | [#3](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/3) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1) 머지, 이슈 닫힘 | Level별 미묘한 역사 오류 정책 |
+| Issue 3 | [#4](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/4) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1) 머지, 이슈 닫힘 | 정답·거짓 이중 생성 LLM provider |
+| Issue 4 | [#5](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/5) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1) 머지, 이슈 닫힘 | 50턴 평가와 모델 선택 루프 |
+| Issue 5 | [#6](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/6) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1) 머지, 이슈 닫힘 | 운영 telemetry와 정정 수업 export |
+| Issue 6 | [#7](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/7) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1) 머지, 이슈 닫힘 | 교사용 보호, rate limit, 데이터 삭제 |
+| Issue 7 | [#8](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/8) | [PR #1](https://github.com/NomaDamas/EBS-Gurapingala-teacher/pull/1) 머지, 이슈 닫힘 | 촬영용 UI와 검증된 chat UX 참고 |
+| Issue 8 | [#9](https://github.com/NomaDamas/EBS-Gurapingala-teacher/issues/9) | 코드 머지 완료, production 증거 전까지 재오픈 | 원래 실험 철학 대비 gap closing |
+
+2026-07-10 기준 PR #1은 최신 head CI 성공 후 `main`에 머지되었다. 그러나 GitHub review object와 release-grade `external-review-evidence/v1`은 보존되지 않았으므로 세션 내부 리뷰 결과를 production 승인 증거로 사용하지 않는다. 마지막 Issue 8은 코드 구현만으로 닫지 않고 GPT-5.5 xhigh 외부 리뷰 transcript·evidence, 실제 Cloudflare 배포, attested OpenAI 50턴 평가, 두 촬영방 리허설, `release:audit` 증거가 모두 같은 최신 PR head에 묶일 때 닫는다.
 
 ## 제품 경계
 
@@ -145,7 +147,7 @@ Checklist:
 - 실험 후 학생에게 확실히 정정할 자료가 자동 생성되는가?
 - 방송·학교·윤리·개인정보 요구사항이 모두 문서화됐는가?
 
-현재 상태: `npm run readiness`가 제품 철학과 구현 gap을 자동 점검한다. 학생/교사 URL, 실시간 telemetry, Level 정책, 감사 JSON, 독립 LLM verifier와 재생성, 정적 50턴 세트, 실제 OpenAI 50턴 모델 증거, 단일 API 키, Cloudflare 배포, 교사용 fail-closed 보호, 정정 수업 export, gap 문서화를 배포 전 게이트로 검사한다.
+현재 상태: 코드 구현과 로컬 게이트는 완료되었고 `npm run readiness`가 제품 철학과 구현 gap을 자동 점검한다. 학생/교사 URL, 실시간 telemetry, Level 정책, 감사 JSON, 독립 LLM verifier와 재생성, 정적 50턴 세트, 실제 OpenAI 50턴 모델 증거, 단일 API 키, Cloudflare 배포, 교사용 fail-closed 보호, 정정 수업 export, gap 문서화를 배포 전 게이트로 검사한다. 실제 Cloudflare/OpenAI production 증거와 두 촬영방 리허설 증거는 Issue #9의 남은 완료 조건이다.
 
 ## PR 운영 루프
 
@@ -156,6 +158,6 @@ Checklist:
 5. 승인 전까지 수정한다.
 6. 승인되면 머지하고 다음 이슈로 진행한다.
 
-현재 상태: GitHub Actions `Verify product gates`가 unit tests, 50-turn evaluation, readiness audit, Worker route smoke를 PR/push에서 실행한다. 외부 GPT-5.5 xhigh 리뷰 자동화 계정은 아직 연결 증거가 없어 PR 코멘트로 리뷰 요청을 남긴 상태다.
+현재 상태: GitHub Actions `Verify product gates`가 unit tests, 50-turn evaluation, readiness audit, Worker route smoke를 PR/push에서 실행한다. PR #1에는 release-grade 외부 리뷰 artifact가 없으므로 해당 머지를 최종 production 승인으로 간주하지 않는다. 최종 Issue #9 후속 PR은 GPT-5.5 xhigh transcript와 `external-review-evidence/v1`, 최신 PR head CI, 실제 배포·리허설·release evidence를 모두 통과하기 전에는 머지하지 않는다.
 
 Review packet: [GPT-5.5 xhigh 외부 리뷰 패킷](external-review-packet.md) (`docs/external-review-packet.md`)

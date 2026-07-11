@@ -17,6 +17,7 @@
    - `npm run verify:github-setup`으로 필수 이름이 모두 존재하는지 확인한다. 이 명령은 secret 값을 출력하지 않는다.
 4. 배포 전 로컬 게이트를 실행한다.
    - Node.js 22 이상을 사용한다.
+   - 저장소의 `.nvmrc` 기준으로 `nvm install && nvm use`를 실행하고 `node --version`이 `v22`인지 확인한다.
    - `npm ci`
    - `npm test`
    - `npm run eval`

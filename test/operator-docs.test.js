@@ -17,3 +17,30 @@ test("operator docs copy-paste commands preserve strict production release evide
     assert.match(text, /gh run download <deploy-run-id>[\s\S]*gh attestation verify artifacts\/model-evaluation-evidence\.json/, `${label} must require attested production model evidence`);
   }
 });
+
+test("local operator setup pins the Node 22 toolchain used by CI and Wrangler", async () => {
+  const [nvmrc, packageJson, readme, deploymentGuide, runbook, implementationPlan] = await Promise.all([
+    readFile(".nvmrc", "utf8"),
+    readFile("package.json", "utf8"),
+    readFile("README.md", "utf8"),
+    readFile("docs/deployment-guide.md", "utf8"),
+    readFile("docs/production-runbook.md", "utf8"),
+    readFile("docs/implementation-plan.md", "utf8")
+  ]);
+
+  assert.equal(nvmrc.trim(), "22.22.2");
+  assert.match(packageJson, /"node":\s*">=22\.0\.0"/);
+  for (const [label, text] of [
+    ["README", readme],
+    ["deployment guide", deploymentGuide],
+    ["production runbook", runbook]
+  ]) {
+    assert.match(text, /\.nvmrc/, `${label} must reference the repository Node pin`);
+    assert.match(text, /nvm use/, `${label} must activate the pinned Node version`);
+    assert.match(text, /node --version/, `${label} must verify the active Node version`);
+    assert.match(text, /npm ci/, `${label} must install the locked dependency graph`);
+  }
+  assert.match(implementationPlan, /release-grade `external-review-evidence\/v1`은 보존되지 않았으므로/);
+  assert.match(implementationPlan, /세션 내부 리뷰 결과를 production 승인 증거로 사용하지 않는다/);
+  assert.doesNotMatch(implementationPlan, /PR #1은 GPT-5\.5 xhigh 독립 리뷰 `APPROVE` 후 머지되었다/);
+});

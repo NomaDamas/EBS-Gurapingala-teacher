@@ -56,3 +56,26 @@ test("후속 질문은 최근 대화 맥락으로 같은 역사 주제를 유지
   assert.equal(audit.input.turnIndex, 1);
   assert.equal(audit.input.recentContext.length, 2);
 });
+
+test("새 질문의 명확한 주제는 이전 대화 주제보다 우선한다", () => {
+  const audit = buildTeacherAudit({
+    message: "이순신 장군은 12척의 배를 몰고 이겼냐?",
+    level: 1,
+    persona: "역사 도우미",
+    turnIndex: 2,
+    recentMessages: [
+      {
+        role: "student",
+        text: "난중일기는 뭐야?"
+      },
+      {
+        role: "assistant",
+        text: "난중일기는 전쟁 중 기록이지만 임진왜란 전체를 거의 완벽하게 알 수 있는 기록이야."
+      }
+    ]
+  });
+
+  assert.equal(audit.selectedCase.id, "myeongnyang-ships");
+  assert.match(audit.studentVisibleFalseAnswer, /명량해전/);
+  assert.doesNotMatch(audit.studentVisibleFalseAnswer, /난중일기/);
+});

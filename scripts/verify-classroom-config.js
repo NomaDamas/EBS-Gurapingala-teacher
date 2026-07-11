@@ -6,6 +6,7 @@ const teacherToken = process.env.TEACHER_TOKEN || "";
 const roomId = normalizeRoomId(process.env.CLASSROOM_ROOM || process.env.WORKER_ROOM || "");
 const expectedLevel = normalizeExpectedLevel(process.env.EXPECTED_FALSE_LEVEL || "");
 const expectedPersona = String(process.env.EXPECTED_PERSONA || "").trim();
+const expectedResponseMode = normalizeExpectedResponseMode(process.env.EXPECTED_RESPONSE_MODE || "");
 const applyExpectedConfig = process.env.APPLY_CLASSROOM_CONFIG === "true";
 const requireOpenAI = process.env.REQUIRE_OPENAI !== "false";
 const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN !== "false";
@@ -15,6 +16,7 @@ const expectedOpenAITimeoutMs = normalizeExpectedTimeout(process.env.EXPECTED_OP
 const verifyClassroomChat = process.env.VERIFY_CLASSROOM_CHAT === "true";
 const evidenceFile = String(process.env.CLASSROOM_CONFIG_EVIDENCE_FILE || "").trim();
 const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "").trim();
+const teacherAuthRetryDelayMs = normalizeRetryDelay(process.env.VERIFY_AUTH_RETRY_DELAY_MS || "1000");
 
 const failures = [];
 if (!baseUrl) failures.push("WORKER_URL is required");
@@ -30,6 +32,9 @@ if (roomId === "deploy-verify" || roomId.startsWith("deploy-verify-")) {
 }
 if (!expectedLevel) failures.push("EXPECTED_FALSE_LEVEL must be 1, 2, 3, or 4");
 if (!expectedPersona) failures.push("EXPECTED_PERSONA is required");
+if (process.env.EXPECTED_RESPONSE_MODE && !expectedResponseMode) {
+  failures.push("EXPECTED_RESPONSE_MODE must be experiment or truth");
+}
 if (requireOpenAI && !expectedOpenAIModel) failures.push("EXPECTED_OPENAI_MODEL is required when REQUIRE_OPENAI=true");
 if (requireOpenAI && !expectedOpenAITimeoutMs) failures.push("EXPECTED_OPENAI_TIMEOUT_MS is required when REQUIRE_OPENAI=true");
 
@@ -55,7 +60,7 @@ await check("teacher URL requires token", async () => {
 
 await check("teacher URL accepts token", async () => {
   if (!teacherToken) return true;
-  const res = await fetchUrl("/teacher", { token: teacherToken });
+  const res = await fetchWithTeacherAuthRetry(() => fetchUrl("/teacher", { token: teacherToken }));
   const body = await res.text();
   return res.status === 200 && body.includes("실시간 교실 관찰");
 });
@@ -84,26 +89,33 @@ await check("health matches classroom requirements", async () => {
 });
 
 if (applyExpectedConfig) {
-  await check("expected classroom Level/persona can be applied", async () => {
+  await check("expected classroom Level/persona/response mode can be applied", async () => {
+    const expectedConfig = {
+      level: expectedLevel,
+      persona: expectedPersona,
+      ...(expectedResponseMode ? { responseMode: expectedResponseMode } : {})
+    };
     const res = await fetchTeacherUrl("/api/config", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ level: expectedLevel, persona: expectedPersona })
+      body: JSON.stringify(expectedConfig)
     });
     const body = await res.json();
     return res.status === 200 &&
       Number(body.level) === expectedLevel &&
-      body.persona === expectedPersona;
+      body.persona === expectedPersona &&
+      (!expectedResponseMode || body.responseMode === expectedResponseMode);
   });
 }
 
 let observedConfig = null;
-await check("classroom Level/persona matches expected config", async () => {
+await check("classroom Level/persona/response mode matches expected config", async () => {
   const res = await fetchTeacherUrl("/api/config");
   observedConfig = await res.json();
   return res.status === 200 &&
     Number(observedConfig.level) === expectedLevel &&
-    observedConfig.persona === expectedPersona;
+    observedConfig.persona === expectedPersona &&
+    (!expectedResponseMode || observedConfig.responseMode === expectedResponseMode);
 });
 
 let sampleChat = null;
@@ -179,6 +191,7 @@ if (!passed) {
 console.log(`classroom config verification passed: ${results.length}/${results.length}`);
 console.log(`roomId=${roomId}`);
 console.log(`expectedLevel=${expectedLevel}`);
+if (expectedResponseMode) console.log(`expectedResponseMode=${expectedResponseMode}`);
 
 async function check(name, run) {
   try {
@@ -202,6 +215,7 @@ async function writeEvidence(passed) {
     prHeadSha,
     expectedLevel,
     expectedPersona,
+    expectedResponseMode: expectedResponseMode || null,
     applyExpectedConfig,
     requireOpenAI,
     requireTeacherToken,
@@ -230,13 +244,27 @@ function fetchUrl(path, query = {}, init) {
 }
 
 function fetchTeacherUrl(path, init = {}) {
-  return fetchUrl(path, {}, {
+  return fetchWithTeacherAuthRetry(() => fetchUrl(path, {}, {
     ...init,
     headers: {
       ...(init.headers || {}),
       "x-teacher-token": teacherToken
     }
-  });
+  }));
+}
+
+async function fetchWithTeacherAuthRetry(run, attempts = 6) {
+  let response = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    response = await run();
+    if (response.status !== 401 && response.status !== 403) return response;
+    if (attempt < attempts) await delay(teacherAuthRetryDelayMs);
+  }
+  return response;
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function buildSharingUrlEvidence() {
@@ -282,6 +310,11 @@ function normalizeExpectedLevel(value) {
   return Number.isInteger(level) && level >= 1 && level <= 4 ? level : 0;
 }
 
+function normalizeExpectedResponseMode(value) {
+  const mode = String(value || "").trim().toLowerCase();
+  return mode === "experiment" || mode === "truth" ? mode : "";
+}
+
 function normalizeExpectedTimeout(value) {
   if (!value) return 0;
   const n = Number(value);
@@ -289,6 +322,12 @@ function normalizeExpectedTimeout(value) {
     console.error("EXPECTED_OPENAI_TIMEOUT_MS must be between 1000 and 60000.");
     process.exit(1);
   }
+  return Math.round(n);
+}
+
+function normalizeRetryDelay(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0 || n > 10000) return 1000;
   return Math.round(n);
 }
 

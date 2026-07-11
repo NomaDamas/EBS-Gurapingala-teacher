@@ -10,6 +10,7 @@ import { buildDebriefCsv } from "../src/domain/session-export.js";
 test("verify-deploy validates a deployed Worker-compatible HTTP surface", async () => {
   const events = [];
   const purgedRooms = [];
+  let fullEvaluationAuthAttempts = 0;
   const config = {
     level: 2,
     persona: "기본 검증 도우미"
@@ -54,6 +55,11 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
       return res.end("Teacher token required");
     }
     if (url.pathname === "/api/evaluation-set/full" && isTeacherHeader(req)) {
+      fullEvaluationAuthAttempts += 1;
+      if (fullEvaluationAuthAttempts === 1) {
+        res.statusCode = 401;
+        return res.end("Teacher token propagation pending");
+      }
       return json(res, {
         items: Array.from({ length: 50 }, (_, index) => ({
           turn: index + 1,
@@ -231,7 +237,8 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
       TEACHER_TOKEN: "teacher-secret",
       WORKER_ROOM: "shoot-3-5",
       VERIFY_DEPLOY_EVIDENCE_FILE: evidenceFile,
-      PR_HEAD_SHA: "abc123"
+      PR_HEAD_SHA: "abc123",
+      VERIFY_AUTH_RETRY_DELAY_MS: "1"
     });
 
     assert.equal(result.code, 0, result.stdout + result.stderr);
@@ -254,6 +261,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
     assert.match(result.stdout, /deploy verification passed: 19\/19/);
     assert.match(result.stdout, /deploy verification evidence written:/);
     assert.deepEqual(purgedRooms, ["deploy-verify"]);
+    assert.equal(fullEvaluationAuthAttempts, 2);
     const evidence = JSON.parse(await readFile(evidenceFile, "utf8"));
     assert.equal(evidence.schemaVersion, "deploy-verification-evidence/v1");
     assert.equal(evidence.status, "pass");

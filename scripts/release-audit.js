@@ -646,6 +646,9 @@ function validateClassroomConfigEvidence(classroomConfigEvidence, file, seenRoom
   if (!String(classroomConfigEvidence.expectedPersona || "").trim()) {
     failures.push(`${label} expectedPersona is required`);
   }
+  if (!["experiment", "truth"].includes(classroomConfigEvidence.expectedResponseMode)) {
+    failures.push(`${label} expectedResponseMode must be experiment or truth`);
+  }
   if (classroomConfigEvidence.requireOpenAI !== true) {
     failures.push(`${label} must record requireOpenAI=true`);
   }
@@ -687,8 +690,9 @@ function validateClassroomConfigEvidence(classroomConfigEvidence, file, seenRoom
     failures.push(`${label} observedHealth.openaiTimeoutMs must match expectedOpenAITimeoutMs`);
   }
   if (classroomConfigEvidence.observedConfig?.persona !== classroomConfigEvidence.expectedPersona ||
-    Number(classroomConfigEvidence.observedConfig?.level) !== classroomConfigEvidence.expectedLevel) {
-    failures.push(`${label} observedConfig must match expected Level/persona`);
+    Number(classroomConfigEvidence.observedConfig?.level) !== classroomConfigEvidence.expectedLevel ||
+    classroomConfigEvidence.observedConfig?.responseMode !== classroomConfigEvidence.expectedResponseMode) {
+    failures.push(`${label} observedConfig must match expected Level/persona/response mode`);
   }
   if (!hasValidSharingUrls(classroomConfigEvidence.sharingUrls, classroomConfigEvidence.roomId, workerUrl)) {
     failures.push(`${label} must include student/teacher sharing URL evidence with no student token`);

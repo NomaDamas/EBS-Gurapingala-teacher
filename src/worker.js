@@ -1,5 +1,6 @@
 import { normalizeLevel } from "./domain/misinfo-policy.js";
 import { DEFAULT_OPENAI_MODEL, generateAuditedAnswer, normalizeTimeoutMs } from "./domain/llm-provider.js";
+import { generateTruthAnswer } from "./domain/truth-provider.js";
 import { EVALUATION_SET_50, PUBLIC_EVALUATION_SET_50 } from "./domain/evaluation-set.js";
 import { buildDebriefCsv, buildDebriefRows, buildExportPayload, redactSensitiveFields } from "./domain/session-export.js";
 import { buildSessionContext } from "./domain/session-context.js";
@@ -135,6 +136,26 @@ export default {
       });
       return json({ ok: true });
     }
+    if (url.pathname === "/api/history" && request.method === "POST") {
+      const parsed = await readJsonBody(request);
+      if (parsed.error) return parsed.error;
+      const validation = validateStudentPayload(parsed.body, { requireMessage: false });
+      if (validation.error) return validation.error;
+      const body = validation.value;
+      const sessionCheck = await validateStudentSession(room, body);
+      if (!sessionCheck.ok) {
+        return json({
+          error: sessionCheck.error,
+          message: sessionCheck.message
+        }, sessionCheck.status || 401);
+      }
+      const historyRes = await room.fetch(
+        `https://room.local/history?sessionId=${encodeURIComponent(body.sessionId)}`
+      );
+      if (!historyRes.ok) return json({ error: "history_unavailable" }, 503);
+      const turns = await historyRes.json();
+      return json({ turns });
+    }
     if (url.pathname === "/api/chat" && request.method === "POST") {
       const startedAtMs = Date.now();
       const parsed = await readJsonBody(request);
@@ -162,7 +183,11 @@ export default {
       const sessionContext = buildSessionContext(events, body.sessionId);
       const level = normalizeLevel(config.level || env.DEFAULT_FALSE_LEVEL);
       const persona = config.persona || env.DEFAULT_PERSONA;
-      const result = await generateAuditedAnswer({
+      const responseMode = normalizeResponseMode(config.responseMode);
+      const generateAnswer = responseMode === "truth"
+        ? generateTruthAnswer
+        : generateAuditedAnswer;
+      const result = await generateAnswer({
         message: body.message,
         level,
         persona,
@@ -254,6 +279,9 @@ export class ClassroomRoom {
     if (url.pathname === "/session-validate" && request.method === "POST") {
       return json(await this.validateStudentSession(await request.json()));
     }
+    if (url.pathname === "/history") {
+      return json(await this.readTranscript(url.searchParams.get("sessionId")));
+    }
     if (url.pathname === "/events") {
       return json(await this.readEvents(Number(url.searchParams.get("ttlHours") || 24)));
     }
@@ -261,6 +289,7 @@ export class ClassroomRoom {
       await this.state.storage.delete("events");
       await this.state.storage.delete("rateLimits");
       await this.state.storage.delete("studentSessions");
+      await this.deleteTranscripts();
       this.broadcast({
         type: "events_purged",
         sessionId: "teacher",
@@ -292,10 +321,40 @@ export class ClassroomRoom {
 
   async recordEvent(event, ttlHours = 24) {
     const events = await this.readEvents(ttlHours);
-    const safeEvent = redactSensitiveFields(event);
+    const safeEvent = redactSensitiveFields({
+      ...event,
+      eventId: event.eventId || crypto.randomUUID()
+    });
     events.push(safeEvent);
     await this.state.storage.put("events", events.slice(-1000));
+    if (safeEvent.type === "chat_turn") await this.recordTranscriptTurn(safeEvent);
     return safeEvent;
+  }
+
+  async recordTranscriptTurn(event) {
+    const sessionId = String(event.sessionId || "");
+    if (!sessionId) return;
+    const key = `transcript:${sessionId}`;
+    const transcript = await this.state.storage.get(key) || [];
+    const previousTurn = transcript.at(-1)?.turn || 0;
+    transcript.push({
+      turn: previousTurn + 1,
+      studentMessage: String(event.studentMessage || ""),
+      studentVisibleAnswer: String(event.studentVisibleAnswer || "")
+    });
+    await this.state.storage.put(key, transcript.slice(-20));
+  }
+
+  async readTranscript(sessionId) {
+    return await this.state.storage.get(`transcript:${String(sessionId || "")}`) || [];
+  }
+
+  async deleteTranscripts() {
+    const transcripts = await this.state.storage.list({ prefix: "transcript:" });
+    const keys = [...transcripts.keys()];
+    for (let index = 0; index < keys.length; index += 128) {
+      await this.state.storage.delete(keys.slice(index, index + 128));
+    }
   }
 
   async readEvents(ttlHours = 24) {
@@ -383,10 +442,12 @@ export class ClassroomRoom {
     }
     const nextLevel = validation.value.level;
     const nextPersona = validation.value.persona;
+    const nextResponseMode = validation.value.responseMode;
     const updatedAt = new Date().toISOString();
     const config = {
       level: nextLevel,
       persona: nextPersona,
+      responseMode: nextResponseMode,
       updatedAt
     };
     await this.state.storage.put("config", config);
@@ -397,6 +458,7 @@ export class ClassroomRoom {
       roomId: normalizeRoomId(roomId),
       level: nextLevel,
       persona: nextPersona,
+      responseMode: nextResponseMode,
       config,
       at: updatedAt
     };
@@ -441,7 +503,8 @@ async function readConfig(room, env) {
   const config = await res.json();
   return {
     level: config.level || env.DEFAULT_FALSE_LEVEL,
-    persona: config.persona || env.DEFAULT_PERSONA
+    persona: config.persona || env.DEFAULT_PERSONA,
+    responseMode: normalizeResponseMode(config.responseMode || env.DEFAULT_RESPONSE_MODE)
   };
 }
 
@@ -450,7 +513,8 @@ async function writeConfig(room, body, env, roomId) {
     method: "POST",
     body: JSON.stringify({
       level: body?.level || env.DEFAULT_FALSE_LEVEL,
-      persona: body?.persona || env.DEFAULT_PERSONA
+      persona: body?.persona || env.DEFAULT_PERSONA,
+      responseMode: normalizeResponseMode(body?.responseMode || env.DEFAULT_RESPONSE_MODE)
     })
   });
   return await res.json();
@@ -489,12 +553,17 @@ function buildHealthPayload(env) {
   return {
     schemaVersion: "health/v1",
     ok: true,
-    provider: env.OPENAI_API_KEY && env.LLM_PROVIDER !== "rules" ? "openai" : "rules",
+    provider: env.LLM_PROVIDER === "rules"
+      ? "rules"
+      : env.OPENAI_API_KEY
+        ? "openai"
+        : "unconfigured",
     openaiModel: env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
     openaiVerifierModel: env.OPENAI_VERIFIER_MODEL || env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
     openaiConfigured: Boolean(env.OPENAI_API_KEY),
     teacherProtected: Boolean(env.TEACHER_TOKEN),
     defaultFalseLevel: Number(env.DEFAULT_FALSE_LEVEL || 2),
+    defaultResponseMode: normalizeResponseMode(env.DEFAULT_RESPONSE_MODE),
     chatRateLimitPerMinute: Number(env.CHAT_RATE_LIMIT_PER_MINUTE || 12),
     eventTtlHours: Number(env.EVENT_TTL_HOURS || 24),
     openaiTimeoutMs: normalizeTimeoutMs(env.OPENAI_TIMEOUT_MS),
@@ -671,6 +740,7 @@ function validateStudentPayload(body, { requireMessage }) {
 
 function sanitizeTeacherConfig(body, env = {}) {
   const level = normalizeLevel(body?.level || env.DEFAULT_FALSE_LEVEL);
+  const responseMode = normalizeResponseMode(body?.responseMode || env.DEFAULT_RESPONSE_MODE);
   const persona = sanitizeText(body?.persona || env.DEFAULT_PERSONA || "교육용 역사 챗봇", 240);
   const unsafePersona = findUnsafePersonaInstruction(persona);
   if (unsafePersona) {
@@ -687,9 +757,16 @@ function sanitizeTeacherConfig(body, env = {}) {
   return {
     value: {
       level,
-      persona
+      persona,
+      responseMode
     }
   };
+}
+
+function normalizeResponseMode(value) {
+  return String(value || "experiment").toLowerCase() === "truth"
+    ? "truth"
+    : "experiment";
 }
 
 function findUnsafePersonaInstruction(persona) {

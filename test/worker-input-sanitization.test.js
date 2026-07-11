@@ -124,7 +124,7 @@ test("ClassroomRoom redacts secrets before telemetry is stored", async () => {
         bearerAuthorizationHeader: "Bearer hidden",
         safe: "kept"
       },
-      at: "2026-07-10T01:00:00.000Z"
+      at: new Date().toISOString()
     })
   }));
   assert.equal(write.status, 200);
@@ -139,6 +139,81 @@ test("ClassroomRoom redacts secrets before telemetry is stored", async () => {
   assert.equal(serialized.includes("openai-key-variant-leak"), false);
   assert.equal(serialized.includes("Bearer hidden"), false);
   assert.equal(events[0].nested.safe, "kept");
+});
+
+test("ClassroomRoom keeps student transcript after live telemetry eviction", async () => {
+  const storage = new Map();
+  const room = new ClassroomRoom({
+    storage: {
+      get: async (key) => storage.get(key),
+      put: async (key, value) => storage.set(key, value),
+      list: async ({ prefix }) => new Map(
+        [...storage].filter(([key]) => key.startsWith(prefix))
+      ),
+      delete: async (key) => {
+        for (const item of Array.isArray(key) ? key : [key]) storage.delete(item);
+      }
+    }
+  });
+
+  await room.fetch(new Request("https://room.local/event", {
+    method: "POST",
+    body: JSON.stringify({
+      type: "chat_turn",
+      sessionId: "student-1",
+      studentName: "민준",
+      studentMessage: "명량해전에서 몇 척으로 싸웠어?",
+      studentVisibleAnswer: "조선 수군은 적은 수의 배로 해협의 물살을 활용했다.",
+      at: new Date().toISOString()
+    })
+  }));
+  storage.set("events", Array.from({ length: 1000 }, (_, index) => ({
+    type: "student_heartbeat",
+    sessionId: `other-${index}`,
+    at: new Date().toISOString()
+  })));
+
+  const history = await room.fetch(
+    new Request("https://room.local/history?sessionId=student-1")
+  );
+  assert.deepEqual(await history.json(), [{
+    turn: 1,
+    studentMessage: "명량해전에서 몇 척으로 싸웠어?",
+    studentVisibleAnswer: "조선 수군은 적은 수의 배로 해협의 물살을 활용했다."
+  }]);
+});
+
+test("ClassroomRoom purge deletes more than 128 transcripts without deleting config", async () => {
+  const storage = new Map([
+    ["config", { level: 2, responseMode: "experiment" }],
+    ...Array.from({ length: 129 }, (_, index) => [
+      `transcript:student-${index}`,
+      [{ turn: 1, studentMessage: "질문", studentVisibleAnswer: "답변" }]
+    ])
+  ]);
+  const deleteBatches = [];
+  const room = new ClassroomRoom({
+    storage: {
+      get: async (key) => storage.get(key),
+      put: async (key, value) => storage.set(key, value),
+      list: async ({ prefix }) => new Map(
+        [...storage].filter(([key]) => key.startsWith(prefix))
+      ),
+      delete: async (key) => {
+        const keys = Array.isArray(key) ? key : [key];
+        deleteBatches.push(keys);
+        for (const item of keys) storage.delete(item);
+      }
+    }
+  });
+
+  const purge = await room.fetch(new Request("https://room.local/purge", {
+    method: "POST"
+  }));
+  assert.equal(purge.status, 200);
+  assert.equal([...storage.keys()].some((key) => key.startsWith("transcript:")), false);
+  assert.deepEqual(storage.get("config"), { level: 2, responseMode: "experiment" });
+  assert.equal(deleteBatches.some((batch) => batch.length > 128), false);
 });
 
 function jsonResponse(body) {

@@ -3,7 +3,7 @@ export const LEVELS = {
     name: "사실 오류",
     goal: "교과서나 기본 검색으로 검증 가능한 단일 사실을 바꾼다.",
     subtlety: "낮음",
-    rule: "연도, 수량, 인물 역할, 전투 순서 중 하나만 바꾼다."
+    rule: "연도, 수량, 인물 역할, 전투 순서, 검증 가능한 제도 사실 중 하나만 바꾼다."
   },
   2: {
     name: "과장·단순화",
@@ -228,6 +228,30 @@ export const HISTORY_CASES = [
   }
 ];
 
+const TOPIC_KEYWORDS = {
+  "imjin-start": ["임진왜란", "1592", "전쟁 시작", "왜 시작"],
+  "myeongnyang-ships": ["명량", "12척", "열두 척", "배 몇 척", "판옥선"],
+  "turtle-ship-origin": ["거북선", "철갑선", "잠수함"],
+  "nanjung-diary": ["난중일기", "일기", "회고록"],
+  "ming-role": ["명나라", "명군", "참전"],
+  uibyong: ["의병", "곽재우", "지역 방어"],
+  "seonjo-trust": ["선조", "파직", "투옥", "백의종군", "왕의 지원"],
+  "navy-losses": ["칠천량", "수군 패배", "무패", "한 번도 안 졌"],
+  "film-history": ["역사 영화", "감독의 해석", "실제 역사", "각색"],
+  "king-and-clown-danjong": ["단종", "수양대군", "세조", "유배", "왕과 사는 남자", "관상"]
+};
+
+const TOPIC_STOP_WORDS = new Set([
+  "이순신",
+  "장군",
+  "조선",
+  "일본",
+  "일본군",
+  "임진왜란",
+  "전쟁",
+  "수군"
+]);
+
 export function normalizeLevel(level) {
   const n = Number(level);
   return LEVELS[n] ? n : 2;
@@ -235,32 +259,46 @@ export function normalizeLevel(level) {
 
 export function selectCase(message, turnIndex = 0) {
   const text = String(message || "");
-  const scored = HISTORY_CASES.map((item) => {
-    const score = [item.topic, item.likelyStudentQuestion, item.truth]
-      .join(" ")
-      .split(/\s+/)
-      .filter((word) => word.length > 1 && text.includes(word.replace(/[?.,]/g, "")))
-      .length;
-    return { item, score };
-  }).sort((a, b) => b.score - a.score);
+  const scored = scoreCases(text);
   if (scored[0]?.score > 0) return scored[0].item;
+  return HISTORY_CASES[turnIndex % HISTORY_CASES.length];
+}
+
+export function selectCaseForTurn({ message, recentMessages = [], turnIndex = 0 }) {
+  const currentText = String(message || "");
+  const currentScores = scoreCases(currentText);
+  if (currentScores[0]?.score > 0) {
+    return currentScores[0].item;
+  }
+
+  if (isContextualFollowUp(currentText)) {
+    const recentText = recentMessages
+      .slice(-6)
+      .map((item) => item.text)
+      .join(" ");
+    const recentScores = scoreCases(recentText);
+    if (recentScores[0]?.score > 0) {
+      return recentScores[0].item;
+    }
+  }
+
   return HISTORY_CASES[turnIndex % HISTORY_CASES.length];
 }
 
 export function buildTeacherAudit({ message, level, persona, turnIndex = 0, recentMessages = [] }) {
   const normalizedLevel = normalizeLevel(level);
-  const contextText = [message, ...recentMessages.map((item) => item.text)].join(" ");
-  const selected = selectCase(contextText, turnIndex);
+  const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const policy = LEVELS[normalizedLevel];
   const falseAnswer = selected.lies[normalizedLevel];
   const truth = selected.truth;
   const falseBasis = selected.falseBasis[normalizedLevel];
-  const mixedStudentAnswer = `${falseAnswer}\n\n생각해볼 점: 이 설명을 근거로 조선이 침략을 막아낸 이유를 한 문장으로 정리해 볼래?`;
+  const mixedStudentAnswer = `${falseAnswer}\n\n${buildFollowUpPrompt(selected, turnIndex)}`;
 
   return {
     schemaVersion: "misinfo-audit/v1",
     input: {
       studentQuestion: message,
+      responseMode: "experiment",
       requestedLevel: level,
       appliedLevel: normalizedLevel,
       persona,
@@ -283,12 +321,48 @@ export function buildTeacherAudit({ message, level, persona, turnIndex = 0, rece
       truth,
       falseAnswer,
       level: normalizedLevel,
-      falseBasis
+      falseBasis,
+      calibrationSeed: falseAnswer
     })
   };
 }
 
-export function judgeFalseAnswer({ truth, falseAnswer, level, falseBasis }) {
+function scoreCases(text) {
+  return HISTORY_CASES.map((item) => {
+    const keywordScore = (TOPIC_KEYWORDS[item.id] || [])
+      .filter((keyword) => text.includes(keyword))
+      .length * 4;
+    const textScore = [item.topic, item.likelyStudentQuestion, item.truth]
+      .join(" ")
+      .split(/\s+/)
+      .map((word) => word.replace(/[?.,]/g, ""))
+      .filter((word) => (
+        word.length > 1 &&
+        !TOPIC_STOP_WORDS.has(word) &&
+        text.includes(word)
+      ))
+      .length;
+    return { item, score: keywordScore + textScore };
+  }).sort((a, b) => b.score - a.score);
+}
+
+function isContextualFollowUp(message) {
+  const text = String(message || "").replace(/\s+/g, " ").trim();
+  if (!text || text.length > 36) return false;
+  return /^(그건?|그게|그럼|왜|진짜|정말|맞아|확실|어떻게|더|쉽게|짧게|예시|근거|출처|다시|그래서|그러면|무슨 뜻)/.test(text);
+}
+
+function buildFollowUpPrompt(selected, turnIndex) {
+  const prompts = [
+    `${selected.topic}에서 가장 중요하다고 본 부분을 네 말로 정리해 볼래?`,
+    `이 답을 토론 근거로 쓴다면 어떤 문장으로 설명할래?`,
+    `친구가 이유를 묻는다면 방금 내용을 어떻게 설명할래?`,
+    `${selected.topic}의 핵심을 한 문장으로 줄이면 어떻게 말할 수 있을까?`
+  ];
+  return prompts[turnIndex % prompts.length];
+}
+
+export function judgeFalseAnswer({ truth, falseAnswer, level, falseBasis, calibrationSeed = "" }) {
   const normalizedLevel = normalizeLevel(level);
   const hasTruthLeak = falseAnswer.trim() === truth.trim();
   const includesFalseBasis = Boolean(falseBasis && falseBasis.length > 12);
@@ -299,23 +373,47 @@ export function judgeFalseAnswer({ truth, falseAnswer, level, falseBasis }) {
     4: /(무선|잠수|전자|위성|모바일|항공|방송|여론조사|AI 복원|계산 장치)/
   };
   const matchesLevel = levelSignals[normalizedLevel].test(falseAnswer);
+  const calibrationSeedPreserved = !calibrationSeed ||
+    preservesCalibrationSeed(falseAnswer, calibrationSeed);
 
   return {
-    approvedForStudent: !hasTruthLeak && includesFalseBasis && matchesLevel,
+    approvedForStudent: !hasTruthLeak &&
+      includesFalseBasis &&
+      matchesLevel &&
+      calibrationSeedPreserved,
     rejectsIf: [
       "정답과 동일한 답변이다.",
       "거짓 근거가 비어 있다.",
-      "요청 Level의 오류 신호가 없다."
+      "요청 Level의 오류 신호가 없다.",
+      "교사가 승인한 거짓 seed가 보존되지 않았다."
     ],
     checks: {
       hasTruthLeak,
       includesFalseBasis,
-      matchesLevel
+      matchesLevel,
+      calibrationSeedPreserved
     },
-    verdict: !hasTruthLeak && includesFalseBasis && matchesLevel
+    verdict: !hasTruthLeak && includesFalseBasis && matchesLevel && calibrationSeedPreserved
       ? "PASS_LEVEL_CALIBRATED_FALSEHOOD"
       : "FAIL_REGENERATE_BEFORE_STUDENT"
   };
+}
+
+function preservesCalibrationSeed(candidate, seed) {
+  const normalizedCandidate = compactComparableText(candidate);
+  const normalizedSeed = compactComparableText(seed);
+  if (normalizedCandidate.includes(normalizedSeed)) return true;
+  const seedTokens = normalizedSeed.split(" ").filter((token) => token.length > 1);
+  if (seedTokens.length === 0) return false;
+  const matched = seedTokens.filter((token) => normalizedCandidate.includes(token)).length;
+  return matched / seedTokens.length >= 0.8;
+}
+
+function compactComparableText(value) {
+  return String(value || "")
+    .replace(/[.,!?'"“”‘’()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function buildEvaluationSet(turns = 50) {

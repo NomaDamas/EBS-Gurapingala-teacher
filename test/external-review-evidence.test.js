@@ -680,7 +680,9 @@ process.stdout.write(JSON.stringify([{
           }]
         },
         runDetails: {
-          builder: { id: "https://github.com/actions/runner/github-hosted" },
+          builder: {
+            id: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/.github/workflows/deploy.yml@refs/heads/issue-9-production-release"
+          },
           metadata: {
             invocationId: "https://github.com/" + repository + "/actions/runs/123/attempts/1"
           }
@@ -941,6 +943,7 @@ function buildClassroomEvidence(roomId, overrides = {}) {
     roomId,
     expectedLevel: 2,
     expectedPersona: "이순신 장군처럼 친절하게 설명한다.",
+    expectedResponseMode: "experiment",
     applyExpectedConfig: false,
     requireOpenAI: true,
     requireTeacherToken: true,
@@ -964,7 +967,8 @@ function buildClassroomEvidence(roomId, overrides = {}) {
     },
     observedConfig: {
       level: 2,
-      persona: "이순신 장군처럼 친절하게 설명한다."
+      persona: "이순신 장군처럼 친절하게 설명한다.",
+      responseMode: "experiment"
     },
     checks: [
       { name: "student URL loads for classroom room", passed: true },
