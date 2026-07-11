@@ -1653,7 +1653,9 @@ process.stdout.write(JSON.stringify([{
           }]
         },
         runDetails: {
-          builder: { id: "https://github.com/actions/runner/github-hosted" },
+          builder: {
+            id: "https://github.com/NomaDamas/EBS-Gurapingala-teacher/.github/workflows/deploy.yml@refs/heads/issue-9-production-release"
+          },
           metadata: {
             invocationId: "https://github.com/" + repository + "/actions/runs/123/attempts/1"
           }

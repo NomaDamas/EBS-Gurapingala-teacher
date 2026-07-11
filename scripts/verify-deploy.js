@@ -268,7 +268,7 @@ const checks = [
     const res = await fetchTeacherUrl("/api/debrief");
     const body = await res.json();
     const row = body.rows?.find((item) => item.sessionId === verifySessionId);
-    return res.status === 200 &&
+    return Boolean(res.status === 200 &&
       body.schemaVersion === "debrief-table/v1" &&
       body.roomId === verifyRoomId &&
       Array.isArray(body.rows) &&
@@ -282,7 +282,7 @@ const checks = [
       row?.verificationPrompt &&
       row?.debriefNote &&
       row?.level === 3 &&
-      row?.provider;
+      row?.provider);
   }],
   ["debrief csv export is room aware and complete", async () => {
     if (!teacherToken) return true;

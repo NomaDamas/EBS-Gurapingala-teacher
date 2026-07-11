@@ -119,7 +119,11 @@ function validateStatement({ statement, sha256, expectedHeadSha }) {
 
   const builderId = clean(predicate.runDetails?.builder?.id);
   const invocationId = clean(predicate.runDetails?.metadata?.invocationId);
-  if (builderId !== "https://github.com/actions/runner/github-hosted") return null;
+  const trustedWorkflowBuilder = `https://github.com/${TRUSTED_MODEL_EVALUATION_REPOSITORY}/${TRUSTED_MODEL_EVALUATION_WORKFLOW}@`;
+  if (builderId !== "https://github.com/actions/runner/github-hosted" &&
+    !builderId.startsWith(trustedWorkflowBuilder)) {
+    return null;
+  }
   if (!invocationId.startsWith(`https://github.com/${TRUSTED_MODEL_EVALUATION_REPOSITORY}/actions/runs/`)) return null;
 
   return {
