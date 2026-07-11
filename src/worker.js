@@ -136,6 +136,26 @@ export default {
       });
       return json({ ok: true });
     }
+    if (url.pathname === "/api/history" && request.method === "POST") {
+      const parsed = await readJsonBody(request);
+      if (parsed.error) return parsed.error;
+      const validation = validateStudentPayload(parsed.body, { requireMessage: false });
+      if (validation.error) return validation.error;
+      const body = validation.value;
+      const sessionCheck = await validateStudentSession(room, body);
+      if (!sessionCheck.ok) {
+        return json({
+          error: sessionCheck.error,
+          message: sessionCheck.message
+        }, sessionCheck.status || 401);
+      }
+      const historyRes = await room.fetch(
+        `https://room.local/history?sessionId=${encodeURIComponent(body.sessionId)}`
+      );
+      if (!historyRes.ok) return json({ error: "history_unavailable" }, 503);
+      const turns = await historyRes.json();
+      return json({ turns });
+    }
     if (url.pathname === "/api/chat" && request.method === "POST") {
       const startedAtMs = Date.now();
       const parsed = await readJsonBody(request);
@@ -259,6 +279,9 @@ export class ClassroomRoom {
     if (url.pathname === "/session-validate" && request.method === "POST") {
       return json(await this.validateStudentSession(await request.json()));
     }
+    if (url.pathname === "/history") {
+      return json(await this.readTranscript(url.searchParams.get("sessionId")));
+    }
     if (url.pathname === "/events") {
       return json(await this.readEvents(Number(url.searchParams.get("ttlHours") || 24)));
     }
@@ -266,6 +289,7 @@ export class ClassroomRoom {
       await this.state.storage.delete("events");
       await this.state.storage.delete("rateLimits");
       await this.state.storage.delete("studentSessions");
+      await this.deleteTranscripts();
       this.broadcast({
         type: "events_purged",
         sessionId: "teacher",
@@ -303,7 +327,34 @@ export class ClassroomRoom {
     });
     events.push(safeEvent);
     await this.state.storage.put("events", events.slice(-1000));
+    if (safeEvent.type === "chat_turn") await this.recordTranscriptTurn(safeEvent);
     return safeEvent;
+  }
+
+  async recordTranscriptTurn(event) {
+    const sessionId = String(event.sessionId || "");
+    if (!sessionId) return;
+    const key = `transcript:${sessionId}`;
+    const transcript = await this.state.storage.get(key) || [];
+    const previousTurn = transcript.at(-1)?.turn || 0;
+    transcript.push({
+      turn: previousTurn + 1,
+      studentMessage: String(event.studentMessage || ""),
+      studentVisibleAnswer: String(event.studentVisibleAnswer || "")
+    });
+    await this.state.storage.put(key, transcript.slice(-20));
+  }
+
+  async readTranscript(sessionId) {
+    return await this.state.storage.get(`transcript:${String(sessionId || "")}`) || [];
+  }
+
+  async deleteTranscripts() {
+    const transcripts = await this.state.storage.list({ prefix: "transcript:" });
+    const keys = [...transcripts.keys()];
+    for (let index = 0; index < keys.length; index += 128) {
+      await this.state.storage.delete(keys.slice(index, index + 128));
+    }
   }
 
   async readEvents(ttlHours = 24) {

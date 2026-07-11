@@ -908,6 +908,7 @@ export const studentHtml = `<!doctype html>
     let joining = false;
     let submitting = false;
     let completedTurns = 0;
+    let historySyncId = 0;
     const joinTimeoutMs = 15000;
     const chatTimeoutMs = 105000;
     localStorage.setItem(sessionKey, sessionId);
@@ -1012,6 +1013,38 @@ export const studentHtml = `<!doctype html>
       updateConversationProgress();
     }
 
+    async function syncConversationFromServer() {
+      if (!studentName || submitting) return;
+      const syncId = ++historySyncId;
+      try {
+        const res = await fetchWithTimeout(withRoom("/api/history"), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sessionId, sessionSecret, studentName })
+        }, joinTimeoutMs);
+        const data = await readJsonSafely(res);
+        if (submitting || syncId !== historySyncId || !res.ok || !Array.isArray(data.turns)) return;
+        const serverHistory = data.turns.flatMap((item) => {
+          const turn = Number(item.turn);
+          if (!Number.isInteger(turn) ||
+            typeof item.studentMessage !== "string" ||
+            typeof item.studentVisibleAnswer !== "string") return [];
+          return [
+            { role: "me", text: item.studentMessage, turn },
+            { role: "bot", text: item.studentVisibleAnswer, turn }
+          ];
+        }).slice(-40);
+        if (JSON.stringify(serverHistory) === JSON.stringify(conversationHistory)) return;
+        conversationHistory = serverHistory;
+        storeConversation();
+        conversationRestored = false;
+        completedTurns = 0;
+        restoreConversation();
+      } catch (error) {
+        // Heartbeat will retry; keep the locally restored transcript meanwhile.
+      }
+    }
+
     function addPendingMessage() {
       const el = document.createElement("article");
       el.className = "message bot";
@@ -1103,6 +1136,7 @@ export const studentHtml = `<!doctype html>
         if (!res.ok) throw new Error("heartbeat failed");
         const recovered = heartbeatFailures > 0;
         heartbeatFailures = 0;
+        await syncConversationFromServer();
         if (recovered && !submitting) setConnectionState(studentName + " · 접속 중", "online");
       } catch (error) {
         heartbeatFailures += 1;
@@ -1187,6 +1221,7 @@ export const studentHtml = `<!doctype html>
       if (!message) return;
 
       submitting = true;
+      historySyncId += 1;
       setSessionControlsDisabled(true);
       sendBtn.disabled = true;
       form.setAttribute("aria-busy", "true");

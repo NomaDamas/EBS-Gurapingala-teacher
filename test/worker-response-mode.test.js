@@ -99,6 +99,26 @@ test("teacher can select truth mode and receive verified truth telemetry without
     assert.equal(turn.teacherAudit.falseClaim, "");
     assert.equal(exportBody.debriefRows[0].debriefRequired, false);
     assert.equal(exportBody.sessionSummary[0].lastResponseMode, "truth");
+
+    const historyRes = await appFetch("/api/history", env, {
+      method: "POST",
+      body: {
+        sessionId: "truth-s1",
+        sessionSecret: "truth-secret",
+        studentName: "민준"
+      }
+    });
+    const historyBody = await historyRes.json();
+    assert.equal(historyRes.status, 200);
+    assert.deepEqual(historyBody, {
+      turns: [{
+        turn: 1,
+        studentMessage: "난중일기는 뭐야?",
+        studentVisibleAnswer: chatBody.answer
+      }]
+    });
+    assert.equal(JSON.stringify(historyBody).includes("teacherAudit"), false);
+    assert.equal(JSON.stringify(historyBody).includes("correctAnswer"), false);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -139,6 +159,16 @@ function createRoomMock() {
       }
       if (url.pathname === "/config") return json(config);
       if (url.pathname === "/events") return json(events);
+      if (url.pathname === "/history") {
+        return json(events
+          .filter((event) => event.type === "chat_turn" &&
+            event.sessionId === url.searchParams.get("sessionId"))
+          .map((event, index) => ({
+            turn: index + 1,
+            studentMessage: event.studentMessage,
+            studentVisibleAnswer: event.studentVisibleAnswer
+          })));
+      }
       if (url.pathname === "/event" && method === "POST") {
         events.push(JSON.parse(bodyText));
         return new Response("ok");

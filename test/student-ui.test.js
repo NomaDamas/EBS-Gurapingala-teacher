@@ -92,6 +92,14 @@ test("student UI keeps required privacy copy and accessible composer limits", as
   assert.match(student, /let sessionId = localStorage\.getItem\(sessionKey\) \|\| crypto\.randomUUID\(\)/);
   assert.match(student, /const transcriptKey = "ebs-transcript:" \+ roomId/);
   assert.match(student, /function restoreConversation\(\)/);
+  assert.match(student, /async function syncConversationFromServer\(\)/);
+  assert.match(student, /const syncId = \+\+historySyncId/);
+  assert.match(student, /fetchWithTimeout\(withRoom\("\/api\/history"\)/);
+  assert.match(student, /JSON\.stringify\(\{ sessionId, sessionSecret, studentName \}\)/);
+  assert.match(student, /if \(submitting \|\| syncId !== historySyncId \|\| !res\.ok/);
+  assert.match(student, /submitting = true;\s+historySyncId \+= 1/);
+  assert.match(student, /typeof item\.studentVisibleAnswer !== "string"/);
+  assert.match(student, /await syncConversationFromServer\(\)/);
   assert.match(student, /conversationHistory\.push/);
   assert.match(student, /storeConversation\(\)/);
   assert.match(student, /localStorage\.removeItem\(transcriptKey\)/);
