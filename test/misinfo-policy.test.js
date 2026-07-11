@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildEvaluationSet, buildTeacherAudit, judgeFalseAnswer, selectCase } from "../src/domain/misinfo-policy.js";
+import {
+  buildEvaluationSet,
+  buildTeacherAudit,
+  judgeFalseAnswer,
+  selectCase,
+  selectCaseForTurn
+} from "../src/domain/misinfo-policy.js";
 
 test("50턴 평가 세트는 모두 학생용 거짓 답변 preflight를 통과한다", () => {
   const set = buildEvaluationSet(50);
@@ -98,4 +104,43 @@ test("새 질문의 명확한 주제는 이전 대화 주제보다 우선한다"
   assert.equal(audit.selectedCase.id, "myeongnyang-ships");
   assert.match(audit.studentVisibleFalseAnswer, /명량해전/);
   assert.doesNotMatch(audit.studentVisibleFalseAnswer, /난중일기/);
+});
+
+test("잠수 기능을 재확인하는 짧은 후속 질문은 거북선 주제를 유지한다", () => {
+  const recentMessages = [
+    {
+      role: "student",
+      text: "거북선은 어떤 배였어?"
+    },
+    {
+      role: "assistant",
+      text: "거북선은 철갑을 두르고 잠수 기능까지 갖춘 조선 최초의 반잠수 전투선이었다."
+    }
+  ];
+
+  assert.equal(selectCaseForTurn({
+    message: "헉 정말 잠수 기능이 있었어?",
+    recentMessages,
+    turnIndex: 1
+  }).id, "turtle-ship-origin");
+  assert.equal(selectCaseForTurn({
+    message: "그러니까 잠수할 수 있냐고",
+    recentMessages,
+    turnIndex: 2
+  }).id, "turtle-ship-origin");
+});
+
+test("직전 거북선 문맥이 있어도 명시적인 명량해전 질문은 새 주제로 전환한다", () => {
+  const selected = selectCaseForTurn({
+    message: "명량해전 배는 몇 척이었어?",
+    recentMessages: [
+      {
+        role: "assistant",
+        text: "거북선은 철갑을 두르고 잠수 기능까지 갖춘 조선 최초의 반잠수 전투선이었다."
+      }
+    ],
+    turnIndex: 2
+  });
+
+  assert.equal(selected.id, "myeongnyang-ships");
 });

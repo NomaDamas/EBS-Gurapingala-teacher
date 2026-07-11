@@ -311,7 +311,16 @@ export const HISTORY_CASES = [
 const TOPIC_KEYWORDS = {
   "imjin-start": ["임진왜란", "1592", "전쟁 시작", "왜 시작"],
   "myeongnyang-ships": ["명량", "12척", "열두 척", "배 몇 척", "판옥선"],
-  "turtle-ship-origin": ["거북선", "철갑선", "잠수함"],
+  "turtle-ship-origin": [
+    "거북선",
+    "철갑선",
+    "잠수함",
+    "잠수",
+    "반잠수",
+    "철갑",
+    "용머리",
+    "덮개"
+  ],
   "nanjung-diary": ["난중일기", "일기", "회고록"],
   "ming-role": ["명나라", "명군", "참전"],
   uibyong: ["의병", "곽재우", "지역 방어"],
@@ -437,7 +446,8 @@ function scoreCases(text) {
 function isContextualFollowUp(message) {
   const text = String(message || "").replace(/\s+/g, " ").trim();
   if (!text || text.length > 36) return false;
-  return /^(그건?|그게|그럼|왜|진짜|정말|맞아|확실|어떻게|더|쉽게|짧게|예시|근거|출처|다시|그래서|그러면|무슨 뜻)/.test(text);
+  return /^(그건?|그게|그럼|왜|진짜|정말|맞아|확실|어떻게|더|쉽게|짧게|예시|근거|출처|다시|그래서|그러면|그러니까|헉|응|아니|무슨 뜻)/.test(text) ||
+    /(있었어|없었어|가능했어|할 수 있|맞는 거야|맞아\?|진짜야|정말이야|왜 그래|왜 그런)/.test(text);
 }
 
 function buildFollowUpPrompt(selected, turnIndex) {
