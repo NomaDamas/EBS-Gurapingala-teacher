@@ -63,9 +63,12 @@ test("student UI presents an EBS inquiry experience without leaking teacher-only
   const student = await readFile("src/ui/student.js", "utf8");
 
   assert.match(student, /EBS with ChatGPT/);
-  assert.match(student, /질문에서 시작하는/);
-  assert.match(student, /교과서, 검색, 친구 토론으로 다시 확인하세요/);
-  assert.match(student, /AI 답변은 교과서와 다른 자료로 다시 확인하세요/);
+  assert.match(student, /AI와 대화를/);
+  assert.match(student, /궁금한 내용을 자유롭게 질문/);
+  assert.doesNotMatch(student, /질문의 온도/);
+  assert.doesNotMatch(student, /교과서, 검색, 친구 토론/);
+  assert.doesNotMatch(student, /근거를 다시 확인/);
+  assert.doesNotMatch(student, /활동 관찰/);
   assert.doesNotMatch(student, /이순신 장군 AI 챗봇/);
   assert.doesNotMatch(student, /teacherAudit|correctAnswer|falseClaim|whyFalse/);
 });
@@ -73,7 +76,7 @@ test("student UI presents an EBS inquiry experience without leaking teacher-only
 test("student UI keeps required privacy copy and accessible composer limits", async () => {
   const student = await readFile("src/ui/student.js", "utf8");
 
-  assert.match(student, /이름, 질문, 답변, 접속 상태가 교사용 대시보드에 기록됩니다/);
+  assert.match(student, /이름, 질문, 답변, 접속 상태가 수업 기록으로 저장됩니다/);
   assert.match(student, /이름 외 개인정보는 입력하지 마세요/);
   assert.match(student, /id="message" maxlength="600"/);
   assert.match(student, /id="name" maxlength="40"/);

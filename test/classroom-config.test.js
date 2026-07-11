@@ -17,7 +17,7 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, "http://127.0.0.1");
     const room = url.searchParams.get("room") || "default-classroom";
-    if (url.pathname === "/") return html(res, "질문의 온도 교사용 대시보드에 기록됩니다 이름 외 개인정보는 입력하지 마세요");
+    if (url.pathname === "/") return html(res, "EBS with ChatGPT 수업 기록으로 저장됩니다 이름 외 개인정보는 입력하지 마세요");
     if (url.pathname === "/teacher") {
       if (url.searchParams.get("token") !== "teacher-secret") return text(res, "Teacher token required", 401);
       teacherPageAuthAttempts += 1;

@@ -4,7 +4,7 @@ export const studentHtml = `<!doctype html>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f4f1e9" />
-  <title>EBS with ChatGPT | 질문의 온도</title>
+  <title>EBS with ChatGPT</title>
   <style>
     :root {
       --navy-950: #10263f;
@@ -758,21 +758,14 @@ export const studentHtml = `<!doctype html>
 </head>
 <body>
   <div class="app-shell">
-    <aside class="lesson-rail" aria-label="수업 안내">
+    <aside class="lesson-rail" aria-label="서비스 안내">
       <div class="brand">
         <span class="ebs-mark" aria-hidden="true">EBS</span>
-        <span>LEARNING STUDIO</span>
+        <span>WITH CHATGPT</span>
       </div>
-      <p class="lesson-number">History Lab · 01</p>
-      <h1>질문의 온도</h1>
-      <p class="lesson-summary">대화로 생각을 넓히고, 교과서와 자료를 오가며 역사적 근거를 비교하는 수업입니다.</p>
-      <hr class="rail-rule" />
-      <ol class="lesson-points">
-        <li><span class="point-number">01</span><span>궁금한 점을 한 문장으로 질문해 보세요.</span></li>
-        <li><span class="point-number">02</span><span>답변의 핵심 주장과 근거를 구분해 보세요.</span></li>
-        <li><span class="point-number">03</span><span>교과서, 검색, 친구 토론으로 다시 확인하세요.</span></li>
-      </ol>
-      <p class="privacy-rail">수업 대화는 교사가 수업 진행과 활동 관찰을 위해 확인할 수 있습니다.</p>
+      <p class="lesson-number">EBS DOCUPRIME</p>
+      <h1>EBS with<br />ChatGPT</h1>
+      <p class="lesson-summary">이름을 입력하고 AI와 자유롭게 대화해 보세요.</p>
     </aside>
 
     <main class="workspace">
@@ -781,7 +774,7 @@ export const studentHtml = `<!doctype html>
           <span class="ebs-mark" aria-hidden="true">EBS</span>
           <span>EBS with ChatGPT</span>
         </div>
-        <div class="course-label">임진왜란 탐구 수업</div>
+        <div class="course-label">임진왜란 수업</div>
         <div class="status-group">
           <button class="session-switch hidden" id="newStudent" type="button">새 학생</button>
           <span class="room-pill" id="roomStatus">수업 코드 default-classroom</span>
@@ -801,8 +794,8 @@ export const studentHtml = `<!doctype html>
           <section class="join-card" id="join" aria-labelledby="joinTitle">
             <div class="join-copy">
               <p class="eyebrow">EBS with ChatGPT</p>
-              <h2 id="joinTitle">질문에서 시작하는<br />역사 탐구</h2>
-              <p>임진왜란 당시 조선이 침략을 막아낼 수 있었던 이유를 AI와 대화하며 살펴보세요. 답변은 그대로 받아 적기보다 다른 자료와 비교하는 데 활용합니다.</p>
+              <h2 id="joinTitle">AI와 대화를<br />시작해 보세요</h2>
+              <p>임진왜란과 이순신 장군에 대해 궁금한 내용을 자유롭게 질문할 수 있습니다.</p>
             </div>
             <div class="join-form">
               <label class="field-label" for="name">수업에서 사용할 이름</label>
@@ -814,7 +807,7 @@ export const studentHtml = `<!doctype html>
                 <svg width="15" height="17" viewBox="0 0 15 17" fill="none" aria-hidden="true">
                   <path d="M3 7V5a4.5 4.5 0 0 1 9 0v2M2 7.5h11v8H2z" stroke="currentColor" stroke-width="1.4"/>
                 </svg>
-                <span>수업 활동 관찰을 위해 이름, 질문, 답변, 접속 상태가 교사용 대시보드에 기록됩니다. 이름 외 개인정보는 입력하지 마세요.</span>
+                <span>이름, 질문, 답변, 접속 상태가 수업 기록으로 저장됩니다. 이름 외 개인정보는 입력하지 마세요.</span>
               </p>
             </div>
           </section>
@@ -822,7 +815,7 @@ export const studentHtml = `<!doctype html>
           <section class="welcome hidden" id="welcome" aria-labelledby="welcomeTitle">
             <p class="eyebrow">Ready to explore</p>
             <h2 id="welcomeTitle">무엇이 궁금한가요?</h2>
-            <p class="welcome-description">사건의 원인, 인물의 선택, 전투의 조건을 자유롭게 물어보세요. 좋은 탐구는 답을 얻는 것보다 근거를 다시 확인하는 데서 완성됩니다.</p>
+            <p class="welcome-description">임진왜란과 이순신 장군에 대해 궁금한 내용을 자유롭게 물어보세요.</p>
             <p class="suggestion-label">이런 질문으로 시작해 보세요</p>
             <div class="suggestions">
               <button class="suggestion" type="button" data-prompt="조선 수군이 일본 수군을 막을 수 있었던 핵심 조건은 무엇이야?">
@@ -846,7 +839,7 @@ export const studentHtml = `<!doctype html>
 
       <div class="composer-wrap hidden" id="composerWrap">
         <form class="composer" id="form" aria-busy="false">
-          <textarea class="message-input" id="message" maxlength="600" rows="1" placeholder="역사적 사건이나 근거에 대해 질문해 보세요" aria-label="질문 입력"></textarea>
+          <textarea class="message-input" id="message" maxlength="600" rows="1" placeholder="궁금한 내용을 질문해 보세요" aria-label="질문 입력"></textarea>
           <button class="send-button" id="sendBtn" type="submit" aria-label="질문 보내기" disabled>
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
               <path d="m4 10 12-6-4 12-2.2-4.1L4 10Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
@@ -855,7 +848,7 @@ export const studentHtml = `<!doctype html>
           </button>
         </form>
         <div class="composer-meta">
-          <span>AI 답변은 교과서와 다른 자료로 다시 확인하세요.</span>
+          <span>질문은 한 번에 600자까지 입력할 수 있습니다.</span>
           <span><span id="charCount">0</span>/600</span>
         </div>
       </div>
