@@ -25,7 +25,8 @@
     "release:commands": "node scripts/print-release-commands.js",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "tail": "wrangler tail"
+    "tail": "wrangler tail",
+    "capacity:test": "node scripts/load-test-classroom.js"
   },
   "devDependencies": {
     "wrangler": "^4.24.3"
