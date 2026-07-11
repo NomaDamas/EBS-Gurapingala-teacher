@@ -19,7 +19,7 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(worker, /findUnsafePersonaInstruction/);
   assert.match(worker, /await this\.updateConfig\(data, normalizeRoomId\(url\.searchParams\.get\("room"\)\)\)/);
   assert.match(worker, /url\.pathname === "\/config" && request\.method === "POST"[\s\S]*this\.updateConfig\(await request\.json\(\), normalizeRoomId\(url\.searchParams\.get\("room"\)\)\)/);
-  assert.match(worker, /const config = \{\s*level: nextLevel,\s*persona: nextPersona,\s*responseMode: nextResponseMode,\s*mixLevels: nextMixLevels,\s*updatedAt\s*\}/s);
+  assert.match(worker, /const config = \{\s*level: nextLevel,\s*persona: nextPersona,\s*responseMode: nextResponseMode,\s*mixLevels: nextMixLevels,\s*falseDensity: nextFalseDensity,\s*updatedAt\s*\}/s);
   assert.match(worker, /const recordedEvent = await this\.recordEvent\(event\)/);
   assert.match(worker, /this\.broadcast\(recordedEvent\)/);
   assert.match(worker, /eventId: event\.eventId \|\| crypto\.randomUUID\(\)/);
@@ -107,7 +107,7 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /className = "studentConfigFields"/);
   assert.match(teacher, /document\.createTextNode\("응답 모드"\)/);
   assert.match(teacher, /document\.createTextNode\("거짓 Level"\)/);
-  assert.match(teacher, /async function updateStudentConfig\(sessionId, responseMode, level\)/);
+  assert.match(teacher, /async function updateStudentConfig\(sessionId, responseMode, level, falseDensity\)/);
   assert.match(teacher, /fetch\(withRoom\("\/api\/student-config"\)/);
   assert.match(teacher, /event\.type === "student_config_updated"/);
   assert.match(teacher, /id="studentSearch"/);
@@ -126,7 +126,7 @@ test("teacher dashboard preserves response mode and separates teacher-only revie
   assert.match(teacher, /option value="truth">진실 · 검수 사실만/);
   assert.match(teacher, /option value="mixed">혼합 · 진실\/복수 Level/);
   assert.match(teacher, /responseMode: responseModeEl\.value/);
-  assert.match(teacher, /body: JSON\.stringify\(\{\s*responseMode: payload\.responseMode,\s*level: payload\.level,\s*mixLevels: payload\.mixLevels,\s*persona: payload\.persona\s*\}\)/s);
+  assert.match(teacher, /body: JSON\.stringify\(\{\s*responseMode: payload\.responseMode,\s*level: payload\.level,\s*mixLevels: payload\.mixLevels,\s*falseDensity: payload\.falseDensity,\s*persona: payload\.persona\s*\}\)/s);
   assert.match(teacher, /\["experiment", "truth", "mixed"\]\.includes\(config\.responseMode\)/);
   assert.match(teacher, /responseModeEl\.value = config\.responseMode/);
   assert.match(teacher, /적용됨: " \+ appliedMode/);
@@ -148,7 +148,7 @@ test("teacher dashboard preserves response mode and separates teacher-only revie
   assert.match(teacher, /정답 · 교사 기준/);
   assert.match(teacher, /거짓 · 학생용 생성안/);
   assert.match(teacher, /왜 거짓인가/);
-  assert.match(teacher, /Level 근거/);
+  assert.match(teacher, /Level·거짓 밀도/);
   assert.match(teacher, /검수 결과/);
   assert.match(teacher, /truth 모드는 거짓 정보를 생성하거나 노출하지 않음/);
   assert.match(teacher, /body\.textContent = value \|\| "정보 없음"/);

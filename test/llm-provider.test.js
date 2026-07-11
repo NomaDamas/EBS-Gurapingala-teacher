@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { generateAuditedAnswer, normalizeLlmAudit, normalizeTimeoutMs } from "../src/domain/llm-provider.js";
+import {
+  applyVerifierVerdict,
+  generateAuditedAnswer,
+  normalizeLlmAudit,
+  normalizeTimeoutMs
+} from "../src/domain/llm-provider.js";
 
 test("LLM_PROVIDER=rules를 명시하면 룰 기반 provider를 사용한다", async () => {
   const result = await generateAuditedAnswer({
@@ -494,6 +499,101 @@ test("normalizeTimeoutMs는 운영 설정을 안전 범위로 제한한다", () 
   assert.equal(normalizeTimeoutMs("not-a-number"), 15000);
 });
 
+test("전체 거짓 밀도는 모든 역사 주장이 거짓이라는 독립 검수를 통과해야 한다", () => {
+  const seed = "거북선은 철갑을 두르고 잠수 기능까지 갖춘 조선 최초의 반잠수 전투선이었다.";
+  const audit = normalizeLlmAudit({
+    draft: {
+      correct_answer: "거북선은 조선 수군이 개량하고 운용한 수상 전투선이다.",
+      false_answer: seed,
+      false_basis: "거북선에는 잠수 기능이 없었다.",
+      level_fit_reason: "현대 잠수함 개념을 섞은 Level 4 환각이다.",
+      student_answer: `${seed} 필요할 때는 물속에서 일본군을 추적할 수도 있었어.`,
+      false_claims: [
+        {
+          claim: seed,
+          why_false: "잠수 기능이 없었다.",
+          level_fit_reason: "Level 4 시대착오다."
+        },
+        {
+          claim: "필요할 때는 물속에서 일본군을 추적할 수도 있었어.",
+          why_false: "수중 추적 기능이 없었다.",
+          level_fit_reason: "Level 4 현대 기술 환각이다."
+        }
+      ],
+      suggested_questions: ["얼마나 깊이 잠수했어?", "물속에서는 어떻게 움직였어?", "잠수할 때 화포도 쐈어?"]
+    },
+    message: "거북선은 어떤 배였어?",
+    level: 4,
+    persona: "친근한 역사 도우미",
+    falseDensity: "all",
+    turnIndex: 0,
+    attempt: 1,
+    model: "gpt-test"
+  });
+
+  const rejected = applyVerifierVerdict({
+    audit,
+    model: "gpt-verifier",
+    draft: {
+      ...approvedVerifier(),
+      truth_context_present: true,
+      all_historical_claims_false: false,
+      density_match: false
+    }
+  });
+  assert.equal(rejected.preflight.approvedForStudent, false);
+
+  const approved = applyVerifierVerdict({
+    audit,
+    model: "gpt-verifier",
+    draft: {
+      ...approvedVerifier(),
+      truth_context_present: false,
+      all_historical_claims_false: true,
+      density_match: true
+    }
+  });
+  assert.equal(approved.preflight.approvedForStudent, true);
+  assert.equal(approved.input.falseDensity, "all");
+  assert.equal(approved.falseClaims.length, 2);
+});
+
+test("거짓 주장 1개 밀도는 생성 목록에 정확히 한 주장만 허용한다", () => {
+  const seed = "거북선은 일본이 먼저 개발하였다.";
+  const audit = normalizeLlmAudit({
+    draft: {
+      correct_answer: "거북선은 조선에서 개발하고 운용한 전투선이다.",
+      false_answer: seed,
+      false_basis: "거북선은 일본이 먼저 개발한 배가 아니다.",
+      level_fit_reason: "교과서로 확인 가능한 Level 1 사실 오류다.",
+      student_answer: `거북선은 조선 수군이 해전에서 활용한 전투선이야. ${seed}`,
+      false_claims: [
+        {
+          claim: seed,
+          why_false: "거북선은 일본이 먼저 개발한 배가 아니다.",
+          level_fit_reason: "Level 1 사실 오류다."
+        },
+        {
+          claim: "거북선은 잠수함이었다.",
+          why_false: "거북선에는 잠수 기능이 없었다.",
+          level_fit_reason: "Level 4 시대착오다."
+        }
+      ],
+      suggested_questions: ["누가 만들었어?", "어떻게 싸웠어?", "어떤 구조였어?"]
+    },
+    message: "거북선은 누가 만들었어?",
+    level: 1,
+    persona: "친근한 역사 도우미",
+    falseDensity: "single",
+    turnIndex: 0,
+    attempt: 1,
+    model: "gpt-test"
+  });
+
+  assert.equal(audit.preflight.approvedForStudent, false);
+  assert.equal(audit.preflight.checks.densityShapeValid, false);
+});
+
 function jsonResponse(body) {
   return new Response(JSON.stringify(body), {
     status: 200,
@@ -514,6 +614,8 @@ function approvedVerifier() {
     calibration_seed_preserved: true,
     level_fit: true,
     truth_context_present: true,
+    all_historical_claims_false: false,
+    density_match: true,
     truth_leak: false,
     correction_leak: false,
     subtle_enough: true,

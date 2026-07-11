@@ -320,7 +320,8 @@ test("ClassroomRoom stores independent response mode and Level overrides per stu
   const second = await postRoomJson(room, "/student-config", {
     sessionId: "student-2",
     responseMode: "mixed",
-    level: 3
+    level: 3,
+    falseDensity: "all"
   });
   const firstRead = await room.fetch(
     new Request("https://room.local/student-config?sessionId=student-1")
@@ -334,11 +335,13 @@ test("ClassroomRoom stores independent response mode and Level overrides per stu
   assert.deepEqual(await firstRead.json(), {
     responseMode: "truth",
     level: 4,
+    falseDensity: "single",
     updatedAt: first.updatedAt
   });
   assert.deepEqual(await secondRead.json(), {
     responseMode: "mixed",
     level: 3,
+    falseDensity: "all",
     updatedAt: second.updatedAt
   });
 });

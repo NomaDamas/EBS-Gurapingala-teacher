@@ -26,6 +26,7 @@ test("/api/health returns safe deployment metadata without secrets", async () =>
   assert.equal(body.openaiVerifierModel, "gpt-test-verifier");
   assert.equal(body.teacherProtected, true);
   assert.equal(body.defaultFalseLevel, 3);
+  assert.equal(body.defaultFalseDensity, "single");
   assert.equal(body.chatRateLimitPerMinute, 9);
   assert.equal(body.eventTtlHours, 6);
   assert.equal(body.openaiTimeoutMs, 4321);

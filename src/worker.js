@@ -105,9 +105,10 @@ export default {
       if (!sessionId) return validationError("missing_session_id", "설정할 학생 세션이 없습니다.");
       const responseMode = normalizeStudentResponseMode(parsed.body?.responseMode);
       const level = normalizeLevel(parsed.body?.level);
+      const falseDensity = normalizeFalseDensity(parsed.body?.falseDensity);
       const updated = await room.fetch("https://room.local/student-config", {
         method: "POST",
-        body: JSON.stringify({ sessionId, responseMode, level })
+        body: JSON.stringify({ sessionId, responseMode, level, falseDensity })
       });
       return json(await updated.json(), updated.status);
     }
@@ -216,6 +217,9 @@ export default {
         const configuredLevel = studentConfig.responseMode === "inherit"
           ? config.level || env.DEFAULT_FALSE_LEVEL
           : studentConfig.level;
+        const falseDensity = studentConfig.responseMode === "inherit"
+          ? normalizeFalseDensity(config.falseDensity)
+          : normalizeFalseDensity(studentConfig.falseDensity);
         const configuredMixLevels = studentConfig.responseMode === "mixed"
           ? [0, normalizeLevel(studentConfig.level)]
           : config.mixLevels;
@@ -250,10 +254,12 @@ export default {
           turnIndex: sessionContext.turnIndex,
           recentMessages: sessionContext.recentMessages,
           recentFalseClaims: sessionContext.recentFalseClaims,
+          falseDensity,
           env
         });
         result.audit.input.configuredResponseMode = responseMode;
         result.audit.input.configuredMixLevels = configuredMixLevels;
+        result.audit.input.falseDensity = applied.responseMode === "truth" ? null : falseDensity;
         result.audit.input.studentOverride = studentConfig.responseMode !== "inherit";
         result.audit.input.continuityOverride = Boolean(applied.continuityOverride);
         const { audit, answer } = result;
@@ -595,14 +601,15 @@ export class ClassroomRoom {
 
   async readStudentConfig(sessionId) {
     const configs = await this.state.storage.get("studentConfigs") || {};
-    return configs[String(sessionId || "")] || { responseMode: "inherit", level: 2 };
+    return configs[String(sessionId || "")] || { responseMode: "inherit", level: 2, falseDensity: "single" };
   }
 
-  async updateStudentConfig({ sessionId, responseMode, level }) {
+  async updateStudentConfig({ sessionId, responseMode, level, falseDensity }) {
     const key = String(sessionId || "");
     const config = {
       responseMode: normalizeStudentResponseMode(responseMode),
       level: normalizeLevel(level),
+      falseDensity: normalizeFalseDensity(falseDensity),
       updatedAt: new Date().toISOString()
     };
     const configs = await this.state.storage.get("studentConfigs") || {};
@@ -681,12 +688,14 @@ export class ClassroomRoom {
     const nextPersona = validation.value.persona;
     const nextResponseMode = validation.value.responseMode;
     const nextMixLevels = validation.value.mixLevels;
+    const nextFalseDensity = validation.value.falseDensity;
     const updatedAt = new Date().toISOString();
     const config = {
       level: nextLevel,
       persona: nextPersona,
       responseMode: nextResponseMode,
       mixLevels: nextMixLevels,
+      falseDensity: nextFalseDensity,
       updatedAt
     };
     await this.state.storage.put("config", config);
@@ -699,6 +708,7 @@ export class ClassroomRoom {
       persona: nextPersona,
       responseMode: nextResponseMode,
       mixLevels: nextMixLevels,
+      falseDensity: nextFalseDensity,
       config,
       at: updatedAt
     };
@@ -747,7 +757,8 @@ async function readConfig(room, env) {
     level: config.level || env.DEFAULT_FALSE_LEVEL,
     persona: config.persona || env.DEFAULT_PERSONA,
     responseMode: normalizeResponseMode(config.responseMode || env.DEFAULT_RESPONSE_MODE),
-    mixLevels: normalizeMixLevels(config.mixLevels)
+    mixLevels: normalizeMixLevels(config.mixLevels),
+    falseDensity: normalizeFalseDensity(config.falseDensity || env.DEFAULT_FALSE_DENSITY)
   };
 }
 
@@ -756,12 +767,13 @@ async function readStudentConfig(room, sessionId) {
     `https://room.local/student-config?sessionId=${encodeURIComponent(sessionId)}`
   );
   if (!res.ok || !String(res.headers.get("content-type") || "").includes("application/json")) {
-    return { responseMode: "inherit", level: 2 };
+    return { responseMode: "inherit", level: 2, falseDensity: "single" };
   }
   const config = await res.json();
   return {
     responseMode: normalizeStudentResponseMode(config.responseMode),
-    level: normalizeLevel(config.level)
+    level: normalizeLevel(config.level),
+    falseDensity: normalizeFalseDensity(config.falseDensity)
   };
 }
 
@@ -772,7 +784,8 @@ async function writeConfig(room, body, env, roomId) {
       level: body?.level || env.DEFAULT_FALSE_LEVEL,
       persona: body?.persona || env.DEFAULT_PERSONA,
       responseMode: normalizeResponseMode(body?.responseMode || env.DEFAULT_RESPONSE_MODE),
-      mixLevels: normalizeMixLevels(body?.mixLevels)
+      mixLevels: normalizeMixLevels(body?.mixLevels),
+      falseDensity: normalizeFalseDensity(body?.falseDensity || env.DEFAULT_FALSE_DENSITY)
     })
   });
   return await res.json();
@@ -821,6 +834,7 @@ function buildHealthPayload(env) {
     openaiConfigured: Boolean(env.OPENAI_API_KEY),
     teacherProtected: Boolean(env.TEACHER_TOKEN),
     defaultFalseLevel: Number(env.DEFAULT_FALSE_LEVEL || 2),
+    defaultFalseDensity: normalizeFalseDensity(env.DEFAULT_FALSE_DENSITY),
     defaultResponseMode: normalizeResponseMode(env.DEFAULT_RESPONSE_MODE),
     chatRateLimitPerMinute: Number(env.CHAT_RATE_LIMIT_PER_MINUTE || 12),
     chatMaxConcurrent: Number(env.CHAT_MAX_CONCURRENT || 40),
@@ -1060,6 +1074,7 @@ function sanitizeTeacherConfig(body, env = {}) {
   const level = normalizeLevel(body?.level || env.DEFAULT_FALSE_LEVEL);
   const responseMode = normalizeResponseMode(body?.responseMode || env.DEFAULT_RESPONSE_MODE);
   const mixLevels = normalizeMixLevels(body?.mixLevels);
+  const falseDensity = normalizeFalseDensity(body?.falseDensity || env.DEFAULT_FALSE_DENSITY);
   const persona = sanitizeText(body?.persona || env.DEFAULT_PERSONA || "교육용 역사 챗봇", 240);
   const unsafePersona = findUnsafePersonaInstruction(persona);
   if (unsafePersona) {
@@ -1078,7 +1093,8 @@ function sanitizeTeacherConfig(body, env = {}) {
       level,
       persona,
       responseMode,
-      mixLevels
+      mixLevels,
+      falseDensity
     }
   };
 }
@@ -1093,6 +1109,10 @@ function normalizeStudentResponseMode(value) {
   return ["inherit", "truth", "experiment", "mixed"].includes(normalized)
     ? normalized
     : "inherit";
+}
+
+export function normalizeFalseDensity(value) {
+  return String(value || "single").trim().toLowerCase() === "all" ? "all" : "single";
 }
 
 export function normalizeMixLevels(value) {

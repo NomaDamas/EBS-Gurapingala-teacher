@@ -210,7 +210,7 @@ export const teacherHtml = `<!doctype html>
     }
     .studentConfigFields {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-columns: 1fr;
       gap: 6px;
     }
     .studentConfig label {
@@ -525,6 +525,13 @@ export const teacherHtml = `<!doctype html>
             </select>
             <span class="fieldHelp" id="levelHelp" aria-live="polite">실험 모드에서 학생 응답에 적용됩니다.</span>
           </label>
+          <label>거짓 밀도
+            <select id="falseDensity" aria-describedby="falseDensityHelp">
+              <option value="single" selected>거짓 주장 1개</option>
+              <option value="all">핵심 주장 전부 거짓</option>
+            </select>
+            <span class="fieldHelp" id="falseDensityHelp">실험 턴에는 선택과 관계없이 거짓 주장이 반드시 포함됩니다.</span>
+          </label>
           <label>연결 상태
             <input id="socketStatus" value="connecting" readonly aria-live="polite" />
             <span class="fieldHelp">마지막 텔레메트리 시각과 재시도 횟수를 표시합니다.</span>
@@ -604,6 +611,8 @@ export const teacherHtml = `<!doctype html>
     const responseModeEl = document.querySelector("#responseMode");
     const levelEl = document.querySelector("#level");
     const levelHelpEl = document.querySelector("#levelHelp");
+    const falseDensityEl = document.querySelector("#falseDensity");
+    const falseDensityHelpEl = document.querySelector("#falseDensityHelp");
     const mixControlEl = document.querySelector("#mixControl");
     const mixLevelEls = [...document.querySelectorAll('[name="mixLevel"]')];
     const roomWarningEl = document.querySelector("#roomWarning");
@@ -715,6 +724,7 @@ export const teacherHtml = `<!doctype html>
         responseMode: responseModeEl.value,
         level: levelEl.value,
         mixLevels,
+        falseDensity: falseDensityEl.value,
         persona: personaEl.value
       };
       if (socket && socket.readyState === WebSocket.OPEN) {
@@ -949,7 +959,7 @@ export const teacherHtml = `<!doctype html>
         freshness.textContent = telemetryAgeLabel(session.lastSeenMs);
         freshness.title = state + " · 마지막 이벤트 " + (session.updatedAt || "없음");
         metaRow.append(meta, freshness);
-        const studentConfig = session.studentConfig || { responseMode: "inherit", level: 2 };
+        const studentConfig = session.studentConfig || { responseMode: "inherit", level: 2, falseDensity: "single" };
         const configRow = document.createElement("div");
         configRow.className = "studentConfig";
         const configTitle = document.createElement("p");
@@ -973,22 +983,33 @@ export const teacherHtml = `<!doctype html>
           studentLevelSelect.add(new Option("Level " + level, String(level), false, Number(studentConfig.level) === level));
         }
         studentLevelSelect.disabled = !["experiment", "mixed"].includes(studentConfig.responseMode);
-        for (const control of [modeSelect, studentLevelSelect]) {
+        const studentDensitySelect = document.createElement("select");
+        studentDensitySelect.setAttribute("aria-label", session.name + " 개별 거짓 밀도");
+        studentDensitySelect.add(new Option("거짓 1개", "single", false, studentConfig.falseDensity !== "all"));
+        studentDensitySelect.add(new Option("전부 거짓", "all", false, studentConfig.falseDensity === "all"));
+        studentDensitySelect.disabled = !["experiment", "mixed"].includes(studentConfig.responseMode);
+        for (const control of [modeSelect, studentLevelSelect, studentDensitySelect]) {
           control.addEventListener("click", (event) => event.stopPropagation());
           control.addEventListener("keydown", (event) => event.stopPropagation());
         }
         modeSelect.addEventListener("change", async () => {
           studentLevelSelect.disabled = !["experiment", "mixed"].includes(modeSelect.value);
-          await updateStudentConfig(id, modeSelect.value, studentLevelSelect.value);
+          studentDensitySelect.disabled = !["experiment", "mixed"].includes(modeSelect.value);
+          await updateStudentConfig(id, modeSelect.value, studentLevelSelect.value, studentDensitySelect.value);
         });
         studentLevelSelect.addEventListener("change", async () => {
-          await updateStudentConfig(id, modeSelect.value, studentLevelSelect.value);
+          await updateStudentConfig(id, modeSelect.value, studentLevelSelect.value, studentDensitySelect.value);
+        });
+        studentDensitySelect.addEventListener("change", async () => {
+          await updateStudentConfig(id, modeSelect.value, studentLevelSelect.value, studentDensitySelect.value);
         });
         const modeLabel = document.createElement("label");
         modeLabel.append(document.createTextNode("응답 모드"), modeSelect);
         const levelLabel = document.createElement("label");
         levelLabel.append(document.createTextNode("거짓 Level"), studentLevelSelect);
-        configFields.append(modeLabel, levelLabel);
+        const densityLabel = document.createElement("label");
+        densityLabel.append(document.createTextNode("거짓 밀도"), studentDensitySelect);
+        configFields.append(modeLabel, levelLabel, densityLabel);
         configRow.append(configTitle, configFields);
         el.appendChild(titleRow);
         el.appendChild(metaRow);
@@ -1102,6 +1123,7 @@ export const teacherHtml = `<!doctype html>
         responseModeEl.value = config.responseMode;
       }
       if (config.level) levelEl.value = String(config.level);
+      falseDensityEl.value = config.falseDensity === "all" ? "all" : "single";
       if (Array.isArray(config.mixLevels)) {
         const selectedMix = new Set(config.mixLevels.map(Number));
         for (const checkbox of mixLevelEls) checkbox.checked = selectedMix.has(Number(checkbox.value));
@@ -1119,6 +1141,13 @@ export const teacherHtml = `<!doctype html>
       levelEl.disabled = truthMode || mixedMode;
       levelEl.setAttribute("aria-disabled", String(truthMode || mixedMode));
       mixControlEl.classList.toggle("hidden", !mixedMode);
+      falseDensityEl.disabled = truthMode;
+      falseDensityEl.setAttribute("aria-disabled", String(truthMode));
+      falseDensityHelpEl.textContent = truthMode
+        ? "진실 모드에서는 거짓 밀도를 적용하지 않습니다."
+        : falseDensityEl.value === "all"
+          ? "학생 답변의 핵심 역사 주장 전부를 선택 Level의 거짓으로 생성하고 독립 검수합니다."
+          : "정확한 역사 맥락에 선택 Level의 거짓 주장 1개를 반드시 섞습니다.";
       levelHelpEl.textContent = truthMode
         ? "진실 모드에서는 Level을 적용하지 않습니다. 검수된 사실만 학생에게 표시됩니다."
         : mixedMode
@@ -1143,17 +1172,23 @@ export const teacherHtml = `<!doctype html>
         ? audit.preflight.verdict
         : blockedForStudent ? "학생 노출 차단" : "검수 결과 없음";
       const approved = Boolean(audit.preflight && audit.preflight.approvedForStudent);
+      const density = audit.input?.falseDensity === "all" ? "핵심 주장 전부 거짓" : "거짓 주장 1개";
+      const falseClaims = Array.isArray(audit.falseClaims) && audit.falseClaims.length
+        ? audit.falseClaims.map((item, index) => (
+          (index + 1) + ". " + item.claim + "\n왜 거짓인가: " + item.whyFalse
+        )).join("\n\n")
+        : audit.falseClaim || audit.studentVisibleFalseAnswer;
       teacherReviewEl.append(
         reviewCard("정답 · 교사 기준", audit.correctAnswer, "wide"),
         reviewCard(
           truthMode ? "거짓 · truth 모드 비적용" : "거짓 · 학생용 생성안",
-          truthMode ? "생성하지 않음 · 학생에게 검수된 사실만 표시" : audit.falseClaim || audit.studentVisibleFalseAnswer
+          truthMode ? "생성하지 않음 · 학생에게 검수된 사실만 표시" : falseClaims
         ),
         reviewCard(
           truthMode ? "왜 거짓인가 · 비적용" : "왜 거짓인가",
           truthMode ? "truth 모드는 거짓 정보를 생성하거나 노출하지 않음" : audit.whyFalse
         ),
-        reviewCard("Level 근거", appliedLevel + (audit.levelFitReason ? " · " + audit.levelFitReason : ""), "wide"),
+        reviewCard("Level·거짓 밀도", appliedLevel + " · " + density + (audit.levelFitReason ? " · " + audit.levelFitReason : ""), "wide"),
         reviewCard(
           "검수 결과",
           verdict + " · " + (blockedForStudent ? "학생에게 차단됨" : approved ? "학생 노출 승인" : "승인 상태 확인 필요"),
@@ -1256,12 +1291,12 @@ export const teacherHtml = `<!doctype html>
       }
     }
 
-    async function updateStudentConfig(sessionId, responseMode, level) {
+    async function updateStudentConfig(sessionId, responseMode, level, falseDensity) {
       try {
         const res = await fetch(withRoom("/api/student-config"), {
           method: "POST",
           headers: authHeaders({ "content-type": "application/json" }),
-          body: JSON.stringify({ sessionId, responseMode, level: Number(level) })
+          body: JSON.stringify({ sessionId, responseMode, level: Number(level), falseDensity })
         });
         const data = await readJsonSafely(res);
         if (!res.ok) return alert(data.message || "학생별 응답 설정을 저장하지 못했습니다.");
@@ -1270,6 +1305,7 @@ export const teacherHtml = `<!doctype html>
           session.studentConfig = {
             responseMode: data.responseMode,
             level: data.level,
+            falseDensity: data.falseDensity,
             updatedAt: data.updatedAt
           };
           sessions.set(sessionId, session);
@@ -1289,6 +1325,7 @@ export const teacherHtml = `<!doctype html>
             responseMode: payload.responseMode,
             level: payload.level,
             mixLevels: payload.mixLevels,
+            falseDensity: payload.falseDensity,
             persona: payload.persona
           })
         });
@@ -1456,6 +1493,10 @@ export const teacherHtml = `<!doctype html>
       renderStudents();
     });
     levelEl.addEventListener("change", sendTeacherConfig);
+    falseDensityEl.addEventListener("change", () => {
+      updateResponseModeUi();
+      sendTeacherConfig();
+    });
     responseModeEl.addEventListener("change", () => {
       updateResponseModeUi();
       sendTeacherConfig();
