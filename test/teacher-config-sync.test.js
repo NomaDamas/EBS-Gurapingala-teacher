@@ -93,6 +93,12 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /event\.type === "student_deleted"/);
   assert.match(teacher, /답변의 말투·역할·설명 방식만 정합니다/);
   assert.match(teacher, /진실\/실험 모드, 거짓 Level, 교사용 정답·검수 규칙은 변경하거나 학생에게 공개할 수 없습니다/);
+  assert.match(teacher, /Powered by NomaDamas/);
+  assert.match(teacher, /id="dashboardSettings"/);
+  assert.match(teacher, /수업 운영 설정 · 응답 모드, Level, 연결 상태, 페르소나/);
+  assert.match(teacher, /id="savePersona"[^>]*>페르소나 저장/);
+  assert.match(teacher, /savePersonaEl\.addEventListener\("click", sendTeacherConfig\)/);
+  assert.doesNotMatch(teacher, /personaEl\.addEventListener\("change", sendTeacherConfig\)/);
   assert.match(teacher, /수업 기본값/);
   assert.match(teacher, /진실\+거짓 혼합/);
   assert.match(teacher, /반 전체 기본 응답 설정/);
@@ -147,6 +153,9 @@ test("teacher dashboard preserves response mode and separates teacher-only revie
   assert.match(teacher, /truth 모드는 거짓 정보를 생성하거나 노출하지 않음/);
   assert.match(teacher, /body\.textContent = value \|\| "정보 없음"/);
   assert.match(teacher, /원시 감사 JSON 보기/);
+  assert.match(teacher, /class="auditDetails"/);
+  assert.match(teacher, /\.reviewPanel \{ display: grid; grid-template-rows: auto minmax\(0, 1fr\) auto; \}/);
+  assert.match(teacher, /\.auditDetails\[open\] \{ max-height: 240px; overflow: auto; \}/);
 
   assert.match(teacher, /최대 35명/);
   assert.match(teacher, /#students \{[\s\S]*overflow-y: auto/);

@@ -56,7 +56,7 @@ export const teacherHtml = `<!doctype html>
       gap: 10px;
       overflow: hidden;
     }
-    header { padding: 16px 18px; }
+    header { padding: 13px 18px; }
     .brandRow, .panelHeading, .reviewHeading, .studentHeading {
       display: flex;
       align-items: center;
@@ -71,6 +71,17 @@ export const teacherHtml = `<!doctype html>
       letter-spacing: .08em;
       text-transform: uppercase;
     }
+    .poweredBy {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 7px 12px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--ebs-navy), var(--ebs-blue));
+      box-shadow: 0 8px 20px rgba(0, 110, 183, .22);
+      font: 700 11px "IBM Plex Sans KR", sans-serif;
+      letter-spacing: .02em;
+    }
     .roomPill, .teacherOnly, .modePill {
       display: inline-flex;
       align-items: center;
@@ -84,7 +95,7 @@ export const teacherHtml = `<!doctype html>
     .modePill { color: #08745d; background: #dff7ef; }
     h1 {
       font-family: "IBM Plex Sans KR", sans-serif;
-      font-size: clamp(25px, 3vw, 38px);
+      font-size: clamp(23px, 2.5vw, 34px);
       margin: 4px 0 0;
       letter-spacing: -.045em;
     }
@@ -286,6 +297,31 @@ export const teacherHtml = `<!doctype html>
       box-shadow: 0 0 0 3px rgba(154,168,179,.16);
     }
     .layout { display: grid; grid-template-rows: auto 1fr; gap: 14px; min-width: 0; min-height: 0; }
+    .settingsDrawer {
+      margin-top: 11px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #f8fbfc;
+    }
+    .settingsDrawer > summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      color: var(--ebs-navy);
+      background: #eef6fa;
+      font: 700 12px "IBM Plex Sans KR", sans-serif;
+      list-style: none;
+    }
+    .settingsDrawer > summary::-webkit-details-marker { display: none; }
+    .settingsDrawer > summary::after {
+      content: "열기 +";
+      color: var(--ebs-blue);
+      font-size: 10px;
+    }
+    .settingsDrawer[open] > summary::after { content: "닫기 −"; }
+    .settingsBody { padding: 0 12px 12px; }
     .defaultsHeading {
       display: flex;
       align-items: end;
@@ -363,7 +399,7 @@ export const teacherHtml = `<!doctype html>
       font-size: 9px;
       font-weight: 700;
     }
-    .reviewPanel { display: grid; grid-template-rows: auto auto minmax(110px, 1fr); }
+    .reviewPanel { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
     #teacherReview {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -388,7 +424,8 @@ export const teacherHtml = `<!doctype html>
     .reviewCard p { margin: 0; font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
     .verdictPass { border-left: 4px solid var(--chat-green); }
     .verdictFail { border-left: 4px solid var(--danger); }
-    details { border-top: 1px solid var(--line); background: #fff; min-height: 0; overflow: auto; }
+    .auditDetails { border-top: 1px solid var(--line); background: #fff; }
+    .auditDetails[open] { max-height: 240px; overflow: auto; }
     summary { padding: 9px 13px; cursor: pointer; color: var(--muted); font-size: 11px; font-weight: 700; }
     pre {
       margin: 0;
@@ -408,8 +445,8 @@ export const teacherHtml = `<!doctype html>
       aside { max-height: 48vh; }
       .layout { min-height: 100vh; }
       .panes { grid-template-columns: 1fr; }
-      .conversationPanel { min-height: 420px; }
-      .reviewPanel { min-height: 560px; }
+      .conversationPanel { min-height: 520px; }
+      .reviewPanel { min-height: 520px; }
     }
     @media (max-width: 560px) {
       main { padding: 8px; gap: 8px; }
@@ -453,16 +490,24 @@ export const teacherHtml = `<!doctype html>
     <div class="layout">
       <header>
         <div class="brandRow">
-          <span class="brand">EBS with ChatGPT · Teacher Console</span>
-          <span class="roomPill" id="roomStatus">room: default-classroom</span>
+          <div>
+            <span class="brand">EBS with ChatGPT · Teacher Console</span>
+            <h1>실시간 교실 관찰</h1>
+          </div>
+          <div class="brandRow">
+            <span class="poweredBy">Powered by NomaDamas</span>
+            <span class="roomPill" id="roomStatus">room: default-classroom</span>
+          </div>
         </div>
-        <h1>실시간 교실 관찰</h1>
         <p class="headerLead">학생 응답과 교사용 검수 근거를 분리해 한 화면에서 확인합니다.</p>
-        <div class="defaultsHeading">
-          <h2>반 전체 기본 응답 설정</h2>
-          <p>이 room의 모든 학생에게 기본 적용됩니다. 왼쪽 학생 카드에서 개별 모드를 선택하면 해당 학생에게만 이 기본값을 덮어씁니다.</p>
-        </div>
-        <div class="controls">
+        <details class="settingsDrawer" id="dashboardSettings">
+          <summary>수업 운영 설정 · 응답 모드, Level, 연결 상태, 페르소나</summary>
+          <div class="settingsBody">
+            <div class="defaultsHeading">
+              <h2>반 전체 기본 응답 설정</h2>
+              <p>이 room의 모든 학생에게 기본 적용됩니다. 왼쪽 학생 카드에서 개별 모드를 선택하면 해당 학생에게만 이 기본값을 덮어씁니다.</p>
+            </div>
+            <div class="controls">
           <label>응답 모드
             <select id="responseMode" aria-describedby="responseModeHelp">
               <option value="experiment" selected>실험 · 진실+거짓</option>
@@ -488,31 +533,34 @@ export const teacherHtml = `<!doctype html>
             <input id="configStatus" value="server sync 대기" readonly aria-live="polite" />
             <span class="fieldHelp">서버가 확인한 응답 모드와 Level을 표시합니다.</span>
           </label>
-        </div>
-        <div class="actions">
-          <button id="reconnectSocket">실시간 연결 재시도</button>
-          <button id="copyStudentUrl">학생 URL 복사</button>
-          <button id="copyTeacherUrl">교사용 URL 복사</button>
-          <button id="copyAuditJson">감사 JSON 복사</button>
-        </div>
-        <div id="mixControl" class="mixOptions hidden" aria-label="혼합 모드 구성">
-          <label><input type="checkbox" name="mixLevel" value="0" checked /> 진실</label>
-          <label><input type="checkbox" name="mixLevel" value="1" checked /> Level 1</label>
-          <label><input type="checkbox" name="mixLevel" value="2" checked /> Level 2</label>
-          <label><input type="checkbox" name="mixLevel" value="3" checked /> Level 3</label>
-          <label><input type="checkbox" name="mixLevel" value="4" checked /> Level 4</label>
-        </div>
-        <p class="roomWarning" id="roomWarning"></p>
-        <label style="margin-top:10px">페르소나 시스템 프롬프트
-          <textarea id="persona">일반적인 ChatGPT처럼 자연스럽고 명확한 한국어로 대화한다. 역할극 말투를 쓰지 않는다.</textarea>
-          <span class="fieldHelp">답변의 말투·역할·설명 방식만 정합니다. 진실/실험 모드, 거짓 Level, 교사용 정답·검수 규칙은 변경하거나 학생에게 공개할 수 없습니다. 입력 후 다른 곳을 클릭하면 저장됩니다.</span>
-        </label>
-        <div class="actions">
-          <button id="downloadExport">전체 로그 JSON</button>
-          <button class="secondary" id="downloadDebrief">정정 수업 오류표</button>
-          <button class="secondary" id="downloadDebriefCsv">오류표 CSV</button>
-          <button class="danger" id="purgeEvents">촬영 로그 삭제</button>
-        </div>
+            </div>
+            <div class="actions">
+              <button id="reconnectSocket">실시간 연결 재시도</button>
+              <button id="copyStudentUrl">학생 URL 복사</button>
+              <button id="copyTeacherUrl">교사용 URL 복사</button>
+              <button id="copyAuditJson">감사 JSON 복사</button>
+            </div>
+            <div id="mixControl" class="mixOptions hidden" aria-label="혼합 모드 구성">
+              <label><input type="checkbox" name="mixLevel" value="0" checked /> 진실</label>
+              <label><input type="checkbox" name="mixLevel" value="1" checked /> Level 1</label>
+              <label><input type="checkbox" name="mixLevel" value="2" checked /> Level 2</label>
+              <label><input type="checkbox" name="mixLevel" value="3" checked /> Level 3</label>
+              <label><input type="checkbox" name="mixLevel" value="4" checked /> Level 4</label>
+            </div>
+            <p class="roomWarning" id="roomWarning"></p>
+            <label style="margin-top:10px">페르소나 시스템 프롬프트
+              <textarea id="persona">일반적인 ChatGPT처럼 자연스럽고 명확한 한국어로 대화한다. 역할극 말투를 쓰지 않는다.</textarea>
+              <span class="fieldHelp">답변의 말투·역할·설명 방식만 정합니다. 진실/실험 모드, 거짓 Level, 교사용 정답·검수 규칙은 변경하거나 학생에게 공개할 수 없습니다.</span>
+            </label>
+            <div class="actions">
+              <button class="secondary" id="savePersona" type="button">페르소나 저장</button>
+              <button id="downloadExport">전체 로그 JSON</button>
+              <button class="secondary" id="downloadDebrief">정정 수업 오류표</button>
+              <button class="secondary" id="downloadDebriefCsv">오류표 CSV</button>
+              <button class="danger" id="purgeEvents">촬영 로그 삭제</button>
+            </div>
+          </div>
+        </details>
       </header>
       <div class="panes">
         <section class="conversationPanel" id="conversationPanel">
@@ -536,7 +584,7 @@ export const teacherHtml = `<!doctype html>
           <div id="teacherReview">
             <div class="empty">대화를 선택하면 정답·거짓·검수 근거가 표시됩니다.</div>
           </div>
-          <details>
+          <details class="auditDetails">
             <summary>원시 감사 JSON 보기</summary>
             <pre id="audit">교사용 감사 JSON 대기 중</pre>
           </details>
@@ -560,6 +608,7 @@ export const teacherHtml = `<!doctype html>
     const mixLevelEls = [...document.querySelectorAll('[name="mixLevel"]')];
     const roomWarningEl = document.querySelector("#roomWarning");
     const personaEl = document.querySelector("#persona");
+    const savePersonaEl = document.querySelector("#savePersona");
     const teacherReviewEl = document.querySelector("#teacherReview");
     const reviewPanelEl = document.querySelector("#reviewPanel");
     const teacherReviewContextEl = document.querySelector("#teacherReviewContext");
@@ -1412,7 +1461,7 @@ export const teacherHtml = `<!doctype html>
       sendTeacherConfig();
     });
     mixLevelEls.forEach((checkbox) => checkbox.addEventListener("change", sendTeacherConfig));
-    personaEl.addEventListener("change", sendTeacherConfig);
+    savePersonaEl.addEventListener("click", sendTeacherConfig);
     reconnectSocketEl.addEventListener("click", () => connect(true));
     latestTurnButtonEl.addEventListener("click", () => {
       reviewPinned = false;
