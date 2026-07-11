@@ -540,7 +540,7 @@ function buildUserPrompt({ message, level, selected, recentMessages, continuityC
   return [
     `Student question: ${message}`,
     recentMessages?.length
-      ? `Recent same-student conversation: ${JSON.stringify(recentMessages.slice(-24))}`
+      ? `Recent same-student conversation (last 3 turns): ${JSON.stringify(recentMessages.slice(-6))}`
       : "Recent same-student conversation: none",
     `Historical topic seed: ${selected.topic}`,
     `Known correct baseline: ${selected.truth}`,

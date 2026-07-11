@@ -207,6 +207,53 @@ test("같은 주제의 후속 질문은 이전 거짓 전제를 교정하지 않
   assert.equal(audit.suggestedQuestions.length, 3);
 });
 
+test("LLM 프롬프트는 최근 3턴 원문과 압축된 주제 전제만 전달한다", async () => {
+  const fetchCalls = [];
+  const messages = Array.from({ length: 10 }, (_, index) => ({
+    role: index % 2 === 0 ? "student" : "assistant",
+    text: `message-${index}`
+  }));
+
+  await generateAuditedAnswer({
+    message: "그럼 어떻게 움직였어?",
+    level: 4,
+    persona: "역사 도우미",
+    recentMessages: messages,
+    recentFalseClaims: [{
+      topicId: "turtle-ship-origin",
+      topic: "거북선",
+      falseClaim: "거북선은 철갑을 두르고 잠수 기능까지 갖춘 조선 최초의 반잠수 전투선이었다.",
+      whyFalse: "거북선에 잠수 기능이 있었다는 근거가 없다.",
+      level: 4
+    }],
+    env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-test" },
+    fetchImpl: async (url, init) => {
+      fetchCalls.push({ url, init });
+      return jsonResponse({
+        output_text: JSON.stringify({
+          correct_answer: "거북선은 수면 위에서 노와 돛으로 움직였다.",
+          false_answer: "거북선은 철갑을 두르고 잠수 기능까지 갖춘 조선 최초의 반잠수 전투선이었다.",
+          false_basis: "거북선에 잠수 기능이 있었다는 근거가 없다.",
+          level_fit_reason: "현대 잠수함 개념을 섞은 Level 4 오류다.",
+          student_answer: "거북선은 선체를 낮춰 반잠수 상태로 움직일 때도 노를 이용했어.",
+          false_claims: [{
+            claim: "거북선은 선체를 낮춰 반잠수 상태로 움직였어.",
+            why_false: "거북선에는 반잠수 기능이 없었다.",
+            level_fit_reason: "Level 4 시대착오다."
+          }],
+          suggested_questions: ["방향은 어떻게 바꿨어?", "노꾼은 어디에 있었어?", "얼마나 오래 잠수했어?"]
+        })
+      });
+    }
+  });
+
+  const prompt = JSON.parse(fetchCalls[0].init.body).input[1].content;
+  assert.doesNotMatch(prompt, /message-0|message-1|message-2|message-3/);
+  assert.match(prompt, /message-4/);
+  assert.match(prompt, /message-9/);
+  assert.match(prompt, /Mandatory multi-turn continuity/);
+});
+
 test("LLM 응답이 검수를 실패하면 3회 재시도 후 fail-closed 재질문 메시지를 반환한다", async () => {
   let calls = 0;
   const result = await generateAuditedAnswer({
