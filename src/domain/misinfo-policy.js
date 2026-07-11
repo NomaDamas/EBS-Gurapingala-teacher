@@ -225,6 +225,86 @@ export const HISTORY_CASES = [
     },
     verificationPrompt: "단종의 폐위·유배·사망 사실과 영화적 재구성 장면을 구분하게 한다.",
     debriefNote: "단종 사건은 실제 역사 사건이지만 영화·드라마는 감정, 대사, 장면을 극적으로 재구성한다."
+  },
+  {
+    id: "hunminjeongeum",
+    topic: "훈민정음 창제",
+    likelyStudentQuestion: "세종은 왜 훈민정음을 만들었어?",
+    truth: "세종은 백성이 한자를 익히고 사용하는 데 겪는 어려움을 줄이고 우리말을 쉽게 표기할 수 있도록 훈민정음을 창제했다. 집현전 학자들은 연구와 보급 과정에 참여했다.",
+    lies: {
+      1: "훈민정음은 세종이 아니라 세조 때인 1459년에 처음 만들어졌다.",
+      2: "훈민정음은 세종 혼자 짧은 기간에 완성했으며 집현전 학자들의 연구나 보급 역할은 거의 없었다.",
+      3: "훈민정음 반대는 기득권을 지키려는 사대부의 이기심만으로 일어났다고 보는 것이 가장 객관적이다.",
+      4: "세종은 훈민정음 보급을 위해 전국 백성에게 음성 녹음이 담긴 교육 장치를 배포했다."
+    },
+    falseBasis: {
+      1: "창제 인물과 시기를 바꾼 검증 가능한 사실 오류다.",
+      2: "세종의 주도성을 인정하면서 협력과 보급 과정을 지운 과장이다.",
+      3: "복합적인 언어·정치 논쟁을 한 집단의 이기심으로 단정한 관점 왜곡이다.",
+      4: "당시 존재하지 않은 음성 녹음 장치를 섞은 시대착오적 환각이다."
+    },
+    verificationPrompt: "훈민정음 창제 시기, 세종의 역할, 집현전 학자들의 참여를 자료별로 구분한다.",
+    debriefNote: "훈민정음은 세종 때 창제됐으며 세종의 주도와 학자들의 연구·보급 과정이 함께 있었다."
+  },
+  {
+    id: "goryeo-mongol",
+    topic: "고려와 몽골의 전쟁",
+    likelyStudentQuestion: "고려는 몽골 침입에 어떻게 맞섰어?",
+    truth: "고려는 강화도로 수도를 옮겨 장기 항전했고 각지에서 저항이 이어졌다. 이후 몽골과 강화를 맺었지만 고려의 정치와 사회는 큰 피해와 변화를 겪었다.",
+    lies: {
+      1: "고려는 몽골의 첫 침입 직후 수도를 제주도로 옮겨 항전했다.",
+      2: "강화도 천도 하나만으로 고려는 몽골군을 완전히 물리치고 독립을 지킬 수 있었다.",
+      3: "몽골의 침입은 고려를 선진 국제질서에 편입시키기 위한 불가피한 과정이었다.",
+      4: "고려 조정은 강화도에서 레이더망으로 몽골군의 이동을 실시간 추적했다."
+    },
+    falseBasis: {
+      1: "천도 장소를 강화도에서 제주도로 바꾼 사실 오류다.",
+      2: "장기 항전의 여러 요인과 강화 이후 변화를 천도 하나의 완전한 승리로 과장한다.",
+      3: "침략을 발전을 위한 불가피한 과정으로 정당화한 몽골 중심 관점이다.",
+      4: "레이더와 실시간 추적이라는 현대 군사 기술을 섞었다."
+    },
+    verificationPrompt: "강화도 천도, 각지의 저항, 강화 이후의 변화를 시간 순서로 확인한다.",
+    debriefNote: "고려는 강화도 천도와 여러 저항으로 버텼지만 몽골을 완전히 물리친 단순한 승리는 아니었다."
+  },
+  {
+    id: "donghak-peasant",
+    topic: "동학 농민 운동",
+    likelyStudentQuestion: "동학 농민 운동은 왜 일어났어?",
+    truth: "동학 농민 운동은 탐관오리의 수탈과 농민 생활의 어려움, 외세 배척과 사회 개혁 요구가 결합해 일어났다.",
+    lies: {
+      1: "동학 농민 운동은 1919년에 전라도 고부에서 시작되었다.",
+      2: "동학 농민 운동은 고부 군수 한 사람의 횡포만 없었다면 일어나지 않았을 단순한 지역 사건이었다.",
+      3: "정부의 진압은 근대 국가 질서를 세우기 위해 불가피했으므로 농민군의 개혁 요구는 부차적이었다.",
+      4: "농민군은 전국 조직을 운영하기 위해 무선 전신과 암호화된 모바일 통신을 사용했다."
+    },
+    falseBasis: {
+      1: "1894년을 1919년으로 바꾼 연도 오류다.",
+      2: "고부 봉기의 계기를 전체 운동의 유일한 원인으로 단순화한다.",
+      3: "정부의 질서 유지 관점을 객관적 결론처럼 제시한다.",
+      4: "당시 존재하지 않은 모바일 통신을 역사 맥락에 섞었다."
+    },
+    verificationPrompt: "고부 봉기의 계기와 전국적 운동으로 확대된 원인을 구분해 확인한다.",
+    debriefNote: "동학 농민 운동은 한 관리의 횡포만이 아니라 수탈, 생활난, 외세와 개혁 요구가 결합한 운동이었다."
+  },
+  {
+    id: "march-first",
+    topic: "3·1 운동",
+    likelyStudentQuestion: "3·1 운동은 어떤 의미가 있어?",
+    truth: "3·1 운동은 1919년 전국 각지에서 전개된 독립운동으로, 다양한 계층이 참여했고 대한민국 임시정부 수립과 이후 독립운동에 큰 영향을 주었다.",
+    lies: {
+      1: "3·1 운동은 1929년 서울에서만 일어난 학생 시위였다.",
+      2: "3·1 운동은 민족대표 33인만 주도했고 일반 시민과 학생, 농민의 참여는 거의 없었다.",
+      3: "일제의 진압은 식민지의 치안을 유지하기 위한 정상적 행정 조치였다고 보는 것이 객관적이다.",
+      4: "3·1 운동 참가자들은 위성 방송을 통해 독립선언서 낭독을 전국에 생중계했다."
+    },
+    falseBasis: {
+      1: "연도와 지역, 운동 성격을 바꾼 사실 오류다.",
+      2: "민족대표의 역할만 남기고 전국의 다양한 참여를 지운 과장이다.",
+      3: "식민 통치자의 진압 논리를 객관적 사실처럼 정당화한다.",
+      4: "위성 방송과 생중계라는 현대 기술을 섞었다."
+    },
+    verificationPrompt: "운동 연도, 지역적 확산, 참여 계층, 임시정부와의 관계를 각각 확인한다.",
+    debriefNote: "3·1 운동은 1919년 전국적으로 전개됐고 다양한 계층이 참여해 이후 독립운동에 영향을 주었다."
   }
 ];
 
@@ -238,7 +318,11 @@ const TOPIC_KEYWORDS = {
   "seonjo-trust": ["선조", "파직", "투옥", "백의종군", "왕의 지원"],
   "navy-losses": ["칠천량", "수군 패배", "무패", "한 번도 안 졌"],
   "film-history": ["역사 영화", "감독의 해석", "실제 역사", "각색"],
-  "king-and-clown-danjong": ["단종", "수양대군", "세조", "유배", "왕과 사는 남자", "관상"]
+  "king-and-clown-danjong": ["단종", "수양대군", "세조", "유배", "왕과 사는 남자", "관상"],
+  hunminjeongeum: ["훈민정음", "한글", "세종", "집현전"],
+  "goryeo-mongol": ["고려", "몽골", "강화도", "원나라", "삼별초"],
+  "donghak-peasant": ["동학", "농민 운동", "전봉준", "고부", "1894"],
+  "march-first": ["3·1", "3.1", "삼일 운동", "독립선언서", "민족대표", "1919"]
 };
 
 const TOPIC_STOP_WORDS = new Set([
@@ -267,7 +351,7 @@ export function selectCase(message, turnIndex = 0) {
 export function selectCaseForTurn({ message, recentMessages = [], turnIndex = 0 }) {
   const currentText = String(message || "");
   const currentScores = scoreCases(currentText);
-  if (currentScores[0]?.score > 0) {
+  if (currentScores[0]?.score > 0 && hasTopicKeyword(currentText, currentScores[0].item.id)) {
     return currentScores[0].item;
   }
 
@@ -283,6 +367,10 @@ export function selectCaseForTurn({ message, recentMessages = [], turnIndex = 0 
   }
 
   return HISTORY_CASES[turnIndex % HISTORY_CASES.length];
+}
+
+function hasTopicKeyword(text, caseId) {
+  return (TOPIC_KEYWORDS[caseId] || []).some((keyword) => text.includes(keyword));
 }
 
 export function buildTeacherAudit({ message, level, persona, turnIndex = 0, recentMessages = [] }) {

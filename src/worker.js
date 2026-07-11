@@ -97,6 +97,20 @@ export default {
       });
       return json(await deleted.json(), deleted.status);
     }
+    if (url.pathname === "/api/student-config" && request.method === "POST") {
+      if (!isTeacherAuthorized(request, env)) return unauthorized();
+      const parsed = await readJsonBody(request);
+      if (parsed.error) return parsed.error;
+      const sessionId = sanitizeText(parsed.body?.sessionId, 120);
+      if (!sessionId) return validationError("missing_session_id", "설정할 학생 세션이 없습니다.");
+      const responseMode = normalizeStudentResponseMode(parsed.body?.responseMode);
+      const level = normalizeLevel(parsed.body?.level);
+      const updated = await room.fetch("https://room.local/student-config", {
+        method: "POST",
+        body: JSON.stringify({ sessionId, responseMode, level })
+      });
+      return json(await updated.json(), updated.status);
+    }
     if (url.pathname === "/api/join" && request.method === "POST") {
       const parsed = await readJsonBody(request);
       if (parsed.error) return parsed.error;
@@ -192,14 +206,23 @@ export default {
       }
       try {
         const config = await readConfig(room, env);
+        const studentConfig = await readStudentConfig(room, body.sessionId);
         const events = await readEvents(room, env);
         const sessionContext = buildSessionContext(events, body.sessionId);
         const persona = config.persona || env.DEFAULT_PERSONA;
-        const responseMode = normalizeResponseMode(config.responseMode);
+        const responseMode = studentConfig.responseMode === "inherit"
+          ? normalizeResponseMode(config.responseMode)
+          : normalizeResponseMode(studentConfig.responseMode);
+        const configuredLevel = studentConfig.responseMode === "inherit"
+          ? config.level || env.DEFAULT_FALSE_LEVEL
+          : studentConfig.level;
+        const configuredMixLevels = studentConfig.responseMode === "mixed"
+          ? [0, normalizeLevel(studentConfig.level)]
+          : config.mixLevels;
         const applied = selectTurnMode({
           responseMode,
-          level: config.level || env.DEFAULT_FALSE_LEVEL,
-          mixLevels: config.mixLevels,
+          level: configuredLevel,
+          mixLevels: configuredMixLevels,
           turnIndex: sessionContext.turnIndex
         });
         const generateAnswer = applied.responseMode === "truth"
@@ -214,7 +237,8 @@ export default {
           env
         });
         result.audit.input.configuredResponseMode = responseMode;
-        result.audit.input.configuredMixLevels = config.mixLevels;
+        result.audit.input.configuredMixLevels = configuredMixLevels;
+        result.audit.input.studentOverride = studentConfig.responseMode !== "inherit";
         const { audit, answer } = result;
         const latencyMs = Date.now() - startedAtMs;
         const studentAnswer = result.shouldSendToStudent ? answer : FAIL_CLOSED_STUDENT_MESSAGE;
@@ -313,6 +337,12 @@ export class ClassroomRoom {
     if (url.pathname === "/student-delete" && request.method === "POST") {
       return json(await this.deleteStudent(await request.json()));
     }
+    if (url.pathname === "/student-config" && request.method === "POST") {
+      return json(await this.updateStudentConfig(await request.json()));
+    }
+    if (url.pathname === "/student-config") {
+      return json(await this.readStudentConfig(url.searchParams.get("sessionId")));
+    }
     if (url.pathname === "/session-register" && request.method === "POST") {
       return json(await this.registerStudentSession(await request.json()));
     }
@@ -330,6 +360,7 @@ export class ClassroomRoom {
       await this.state.storage.delete("rateLimits");
       await this.state.storage.delete("studentSessions");
       await this.state.storage.delete("chatQueue");
+      await this.state.storage.delete("studentConfigs");
       await this.deleteTranscripts();
       this.broadcast({
         type: "events_purged",
@@ -518,6 +549,9 @@ export class ClassroomRoom {
     delete rateLimits[key];
     await this.state.storage.put("rateLimits", rateLimits);
     await this.state.storage.delete(`transcript:${key}`);
+    const studentConfigs = await this.state.storage.get("studentConfigs") || {};
+    delete studentConfigs[key];
+    await this.state.storage.put("studentConfigs", studentConfigs);
 
     const queue = await this.state.storage.get("chatQueue") || { waiting: [], active: {}, starts: [] };
     queue.waiting = (queue.waiting || []).filter((item) => item.sessionId !== key);
@@ -534,6 +568,32 @@ export class ClassroomRoom {
     };
     this.broadcast(event);
     return { ok: true, sessionId: key, studentName };
+  }
+
+  async readStudentConfig(sessionId) {
+    const configs = await this.state.storage.get("studentConfigs") || {};
+    return configs[String(sessionId || "")] || { responseMode: "inherit", level: 2 };
+  }
+
+  async updateStudentConfig({ sessionId, responseMode, level }) {
+    const key = String(sessionId || "");
+    const config = {
+      responseMode: normalizeStudentResponseMode(responseMode),
+      level: normalizeLevel(level),
+      updatedAt: new Date().toISOString()
+    };
+    const configs = await this.state.storage.get("studentConfigs") || {};
+    configs[key] = config;
+    await this.state.storage.put("studentConfigs", configs);
+    const event = {
+      type: "student_config_updated",
+      sessionId: key,
+      studentName: (await this.state.storage.get("studentSessions") || {})[key]?.studentName || "이름 없음",
+      studentConfig: config,
+      at: config.updatedAt
+    };
+    this.broadcast(event);
+    return { ok: true, sessionId: key, ...config };
   }
 
   async registerStudentSession({ sessionId, sessionSecret, studentName }) {
@@ -628,11 +688,13 @@ export class ClassroomRoom {
     try {
       const events = await this.readEvents();
       const config = await this.state.storage.get("config") || null;
+      const studentConfigs = await this.state.storage.get("studentConfigs") || {};
       socket.send(JSON.stringify({
         type: "snapshot",
         sessionId: "teacher",
         studentName: "teacher",
         config,
+        studentConfigs,
         events: redactSensitiveFields(events),
         at: new Date().toISOString()
       }));
@@ -663,6 +725,20 @@ async function readConfig(room, env) {
     persona: config.persona || env.DEFAULT_PERSONA,
     responseMode: normalizeResponseMode(config.responseMode || env.DEFAULT_RESPONSE_MODE),
     mixLevels: normalizeMixLevels(config.mixLevels)
+  };
+}
+
+async function readStudentConfig(room, sessionId) {
+  const res = await room.fetch(
+    `https://room.local/student-config?sessionId=${encodeURIComponent(sessionId)}`
+  );
+  if (!res.ok || !String(res.headers.get("content-type") || "").includes("application/json")) {
+    return { responseMode: "inherit", level: 2 };
+  }
+  const config = await res.json();
+  return {
+    responseMode: normalizeStudentResponseMode(config.responseMode),
+    level: normalizeLevel(config.level)
   };
 }
 
@@ -987,6 +1063,13 @@ function sanitizeTeacherConfig(body, env = {}) {
 function normalizeResponseMode(value) {
   const normalized = String(value || "experiment").toLowerCase();
   return ["truth", "mixed"].includes(normalized) ? normalized : "experiment";
+}
+
+function normalizeStudentResponseMode(value) {
+  const normalized = String(value || "inherit").trim().toLowerCase();
+  return ["inherit", "truth", "experiment", "mixed"].includes(normalized)
+    ? normalized
+    : "inherit";
 }
 
 export function normalizeMixLevels(value) {

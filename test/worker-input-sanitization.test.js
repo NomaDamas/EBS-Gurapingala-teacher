@@ -302,6 +302,46 @@ test("ClassroomRoom bounds an individual student's queue and deletes only the se
   assert.equal(storage.get("chatQueue").waiting.some((item) => item.sessionId === "student-1"), false);
 });
 
+test("ClassroomRoom stores independent response mode and Level overrides per student", async () => {
+  const storage = new Map([
+    ["studentSessions", {
+      "student-1": { sessionSecret: "one", studentName: "민준" },
+      "student-2": { sessionSecret: "two", studentName: "서아" }
+    }]
+  ]);
+  const room = createStoredRoom(storage);
+
+  const first = await postRoomJson(room, "/student-config", {
+    sessionId: "student-1",
+    responseMode: "truth",
+    level: 4
+  });
+  const second = await postRoomJson(room, "/student-config", {
+    sessionId: "student-2",
+    responseMode: "mixed",
+    level: 3
+  });
+  const firstRead = await room.fetch(
+    new Request("https://room.local/student-config?sessionId=student-1")
+  );
+  const secondRead = await room.fetch(
+    new Request("https://room.local/student-config?sessionId=student-2")
+  );
+
+  assert.equal(first.responseMode, "truth");
+  assert.equal(second.responseMode, "mixed");
+  assert.deepEqual(await firstRead.json(), {
+    responseMode: "truth",
+    level: 4,
+    updatedAt: first.updatedAt
+  });
+  assert.deepEqual(await secondRead.json(), {
+    responseMode: "mixed",
+    level: 3,
+    updatedAt: second.updatedAt
+  });
+});
+
 function createStoredRoom(storage) {
   return new ClassroomRoom({
     storage: {

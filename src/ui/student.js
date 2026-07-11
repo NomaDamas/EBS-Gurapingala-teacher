@@ -183,6 +183,15 @@ export const studentHtml = `<!doctype html>
       font-size: 11px;
       line-height: 1.55;
     }
+    .powered-by {
+      position: relative;
+      z-index: 1;
+      margin-top: auto;
+      color: rgba(248, 246, 239, .58);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
 
     .workspace {
       display: grid;
@@ -766,6 +775,7 @@ export const studentHtml = `<!doctype html>
       <p class="lesson-number">EBS DOCUPRIME</p>
       <h1>EBS with<br />ChatGPT</h1>
       <p class="lesson-summary">이름을 입력하고 AI와 자유롭게 대화해 보세요.</p>
+      <p class="powered-by">Powered by NomaDamas</p>
     </aside>
 
     <main class="workspace">
@@ -774,7 +784,7 @@ export const studentHtml = `<!doctype html>
           <span class="ebs-mark" aria-hidden="true">EBS</span>
           <span>EBS with ChatGPT</span>
         </div>
-        <div class="course-label">임진왜란 수업</div>
+        <div class="course-label">AI 대화 수업</div>
         <div class="status-group">
           <button class="session-switch hidden" id="newStudent" type="button">새 학생</button>
           <span class="room-pill" id="roomStatus">수업 코드 default-classroom</span>
@@ -795,7 +805,7 @@ export const studentHtml = `<!doctype html>
             <div class="join-copy">
               <p class="eyebrow">EBS with ChatGPT</p>
               <h2 id="joinTitle">AI와 대화를<br />시작해 보세요</h2>
-              <p>임진왜란과 이순신 장군에 대해 궁금한 내용을 자유롭게 질문할 수 있습니다.</p>
+              <p>이름을 입력하면 바로 AI와 대화를 시작할 수 있습니다.</p>
             </div>
             <div class="join-form">
               <label class="field-label" for="name">수업에서 사용할 이름</label>
@@ -815,19 +825,19 @@ export const studentHtml = `<!doctype html>
           <section class="welcome hidden" id="welcome" aria-labelledby="welcomeTitle">
             <p class="eyebrow">Ready to explore</p>
             <h2 id="welcomeTitle">무엇이 궁금한가요?</h2>
-            <p class="welcome-description">임진왜란과 이순신 장군에 대해 궁금한 내용을 자유롭게 물어보세요.</p>
+            <p class="welcome-description">궁금한 역사 사건, 인물, 기록에 대해 자유롭게 물어보세요.</p>
             <p class="suggestion-label">이런 질문으로 시작해 보세요</p>
             <div class="suggestions">
-              <button class="suggestion" type="button" data-prompt="조선 수군이 일본 수군을 막을 수 있었던 핵심 조건은 무엇이야?">
-                <span>조선 수군이 일본 수군을 막을 수 있었던 핵심 조건은 무엇이야?</span>
+              <button class="suggestion" type="button" data-prompt="역사 영화의 장면은 실제 역사와 얼마나 같아?">
+                <span>역사 영화의 장면은 실제 역사와 얼마나 같아?</span>
                 <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"><path d="M3 8.5h10M9 4l4.5 4.5L9 13" stroke="currentColor" stroke-width="1.5"/></svg>
               </button>
-              <button class="suggestion" type="button" data-prompt="명량해전의 지형은 전투 결과에 어떤 영향을 주었어?">
-                <span>명량해전의 지형은 전투 결과에 어떤 영향을 주었어?</span>
+              <button class="suggestion" type="button" data-prompt="단종은 왜 왕위에서 물러나 유배를 가게 됐어?">
+                <span>단종은 왜 왕위에서 물러나 유배를 가게 됐어?</span>
                 <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"><path d="M3 8.5h10M9 4l4.5 4.5L9 13" stroke="currentColor" stroke-width="1.5"/></svg>
               </button>
-              <button class="suggestion" type="button" data-prompt="의병의 활동이 전쟁의 흐름을 어떻게 바꾸었는지 설명해 줘.">
-                <span>의병의 활동이 전쟁의 흐름을 어떻게 바꾸었는지 설명해 줘.</span>
+              <button class="suggestion" type="button" data-prompt="임진왜란에서 의병은 어떤 역할을 했어?">
+                <span>임진왜란에서 의병은 어떤 역할을 했어?</span>
                 <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"><path d="M3 8.5h10M9 4l4.5 4.5L9 13" stroke="currentColor" stroke-width="1.5"/></svg>
               </button>
             </div>

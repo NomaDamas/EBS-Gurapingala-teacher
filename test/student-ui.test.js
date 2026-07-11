@@ -64,7 +64,9 @@ test("student UI presents an EBS inquiry experience without leaking teacher-only
 
   assert.match(student, /EBS with ChatGPT/);
   assert.match(student, /AI와 대화를/);
-  assert.match(student, /궁금한 내용을 자유롭게 질문/);
+  assert.match(student, /궁금한 역사 사건, 인물, 기록에 대해 자유롭게/);
+  assert.match(student, /Powered by NomaDamas/);
+  assert.doesNotMatch(student, /임진왜란과 이순신 장군에 대해 궁금한 내용/);
   assert.doesNotMatch(student, /질문의 온도/);
   assert.doesNotMatch(student, /교과서, 검색, 친구 토론/);
   assert.doesNotMatch(student, /근거를 다시 확인/);

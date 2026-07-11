@@ -66,7 +66,7 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /blockedTurns \+= session\.blockedTurns \|\| 0/);
   assert.match(teacher, /debriefRequiredTurns \+= session\.debriefRequiredTurns \|\| 0/);
   assert.match(teacher, /summaryMetric\("차단턴", blockedTurns\)/);
-  assert.match(teacher, /summaryMetric\("정정필요", debriefRequiredTurns\)/);
+  assert.match(teacher, /summaryMetric\("사후정정", debriefRequiredTurns\)/);
   assert.match(teacher, /blocked\.textContent = session\.blockedTurns \? "blocked " \+ session\.blockedTurns : "blocked"/);
   assert.match(teacher, /debrief\.textContent = "정정 " \+ session\.debriefRequiredTurns/);
   assert.match(teacher, /document\.createTextNode\(session\.name\)/);
@@ -93,6 +93,11 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /event\.type === "student_deleted"/);
   assert.match(teacher, /답변의 말투·역할·설명 방식만 정합니다/);
   assert.match(teacher, /진실\/실험 모드, 거짓 Level, 교사용 정답·검수 규칙은 변경하거나 학생에게 공개할 수 없습니다/);
+  assert.match(teacher, /수업 기본값/);
+  assert.match(teacher, /진실\+거짓 혼합/);
+  assert.match(teacher, /async function updateStudentConfig\(sessionId, responseMode, level\)/);
+  assert.match(teacher, /fetch\(withRoom\("\/api\/student-config"\)/);
+  assert.match(teacher, /event\.type === "student_config_updated"/);
 });
 
 test("teacher dashboard preserves response mode and separates teacher-only review evidence", async () => {

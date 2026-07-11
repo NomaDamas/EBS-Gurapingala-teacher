@@ -184,6 +184,18 @@ export const teacherHtml = `<!doctype html>
       font: 700 18px/1 sans-serif;
     }
     .studentDelete:hover { color: #fff; background: var(--danger); }
+    .studentConfig {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 92px;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .studentConfig select {
+      min-width: 0;
+      padding: 6px 7px;
+      border-radius: 8px;
+      font-size: 10.5px;
+    }
     .studentMeta {
       display: flex;
       align-items: center;
@@ -368,7 +380,7 @@ export const teacherHtml = `<!doctype html>
         <span>온라인<strong>0</strong></span>
         <span>채팅턴<strong>0</strong></span>
         <span>차단턴<strong>0</strong></span>
-        <span>정정필요<strong>0</strong></span>
+        <span>사후정정 턴<strong>0</strong></span>
       </div>
       <div class="studentFilters" aria-label="학생 목록 필터">
         <button class="studentFilter" type="button" data-filter="all" aria-pressed="true">전체</button>
@@ -625,6 +637,10 @@ export const teacherHtml = `<!doctype html>
         } finally {
           processingSnapshot = false;
         }
+        for (const [sessionId, studentConfig] of Object.entries(event.studentConfigs || {})) {
+          const session = sessions.get(sessionId);
+          if (session) session.studentConfig = studentConfig;
+        }
         if (previousSelected && sessions.has(previousSelected)) selected = previousSelected;
         selectedTurn = selected && previousReviewPinned ? previousSelectedTurn : null;
         reviewPinned = Boolean(selected && previousReviewPinned);
@@ -679,6 +695,15 @@ export const teacherHtml = `<!doctype html>
           auditEl.textContent = "교사용 감사 JSON 대기 중";
         }
         renderStudents();
+        return;
+      }
+      if (event.type === "student_config_updated") {
+        const current = sessions.get(event.sessionId);
+        if (current) {
+          current.studentConfig = event.studentConfig;
+          sessions.set(event.sessionId, current);
+          renderStudents();
+        }
         return;
       }
       if (!event.sessionId) return;
@@ -807,8 +832,40 @@ export const teacherHtml = `<!doctype html>
         freshness.textContent = telemetryAgeLabel(session.lastSeenMs);
         freshness.title = state + " · 마지막 이벤트 " + (session.updatedAt || "없음");
         metaRow.append(meta, freshness);
+        const studentConfig = session.studentConfig || { responseMode: "inherit", level: 2 };
+        const configRow = document.createElement("div");
+        configRow.className = "studentConfig";
+        const modeSelect = document.createElement("select");
+        modeSelect.setAttribute("aria-label", session.name + " 개별 응답 모드");
+        for (const [value, label] of [
+          ["inherit", "수업 기본값"],
+          ["truth", "진실만"],
+          ["experiment", "거짓 Level"],
+          ["mixed", "진실+거짓 혼합"]
+        ]) {
+          modeSelect.add(new Option(label, value, false, studentConfig.responseMode === value));
+        }
+        const studentLevelSelect = document.createElement("select");
+        studentLevelSelect.setAttribute("aria-label", session.name + " 개별 거짓 Level");
+        for (const level of [1, 2, 3, 4]) {
+          studentLevelSelect.add(new Option("Level " + level, String(level), false, Number(studentConfig.level) === level));
+        }
+        studentLevelSelect.disabled = !["experiment", "mixed"].includes(studentConfig.responseMode);
+        for (const control of [modeSelect, studentLevelSelect]) {
+          control.addEventListener("click", (event) => event.stopPropagation());
+          control.addEventListener("keydown", (event) => event.stopPropagation());
+        }
+        modeSelect.addEventListener("change", async () => {
+          studentLevelSelect.disabled = !["experiment", "mixed"].includes(modeSelect.value);
+          await updateStudentConfig(id, modeSelect.value, studentLevelSelect.value);
+        });
+        studentLevelSelect.addEventListener("change", async () => {
+          await updateStudentConfig(id, modeSelect.value, studentLevelSelect.value);
+        });
+        configRow.append(modeSelect, studentLevelSelect);
         el.appendChild(titleRow);
         el.appendChild(metaRow);
+        el.appendChild(configRow);
         el.addEventListener("click", () => {
           selected = id;
           selectedTurn = null;
@@ -849,7 +906,7 @@ export const teacherHtml = `<!doctype html>
         summaryMetric("온라인", online),
         summaryMetric("채팅턴", chatTurns),
         summaryMetric("차단턴", blockedTurns),
-        summaryMetric("정정필요", debriefRequiredTurns)
+        summaryMetric("사후정정", debriefRequiredTurns)
       );
     }
 
@@ -1067,6 +1124,30 @@ export const teacherHtml = `<!doctype html>
         renderStudents();
       } catch (error) {
         alert("네트워크 문제로 학생을 삭제하지 못했습니다.");
+      }
+    }
+
+    async function updateStudentConfig(sessionId, responseMode, level) {
+      try {
+        const res = await fetch(withRoom("/api/student-config"), {
+          method: "POST",
+          headers: authHeaders({ "content-type": "application/json" }),
+          body: JSON.stringify({ sessionId, responseMode, level: Number(level) })
+        });
+        const data = await readJsonSafely(res);
+        if (!res.ok) return alert(data.message || "학생별 응답 설정을 저장하지 못했습니다.");
+        const session = sessions.get(sessionId);
+        if (session) {
+          session.studentConfig = {
+            responseMode: data.responseMode,
+            level: data.level,
+            updatedAt: data.updatedAt
+          };
+          sessions.set(sessionId, session);
+          renderStudents();
+        }
+      } catch {
+        alert("네트워크 문제로 학생별 응답 설정을 저장하지 못했습니다.");
       }
     }
 

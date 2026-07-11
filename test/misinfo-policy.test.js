@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildEvaluationSet, buildTeacherAudit, judgeFalseAnswer } from "../src/domain/misinfo-policy.js";
+import { buildEvaluationSet, buildTeacherAudit, judgeFalseAnswer, selectCase } from "../src/domain/misinfo-policy.js";
 
 test("50턴 평가 세트는 모두 학생용 거짓 답변 preflight를 통과한다", () => {
   const set = buildEvaluationSet(50);
@@ -31,6 +31,13 @@ test("교사 승인 seed는 취약한 키워드 목록 없이도 로컬 prefligh
   });
   assert.equal(result.approvedForStudent, true);
   assert.equal(result.checks.matchesLevel, true);
+});
+
+test("임진왜란 밖의 검증된 한국사 주제도 전용 정답과 Level별 거짓 seed를 선택한다", () => {
+  assert.equal(selectCase("훈민정음은 누가 왜 만들었어?").id, "hunminjeongeum");
+  assert.equal(selectCase("고려는 몽골 침입에 어떻게 맞섰어?").id, "goryeo-mongol");
+  assert.equal(selectCase("동학 농민 운동은 왜 일어났어?").id, "donghak-peasant");
+  assert.equal(selectCase("3·1 운동은 어떤 의미가 있어?").id, "march-first");
 });
 
 test("교사용 감사 JSON은 정답과 학생용 거짓 답변을 분리한다", () => {
