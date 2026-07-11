@@ -124,7 +124,7 @@ test("ClassroomRoom redacts secrets before telemetry is stored", async () => {
         bearerAuthorizationHeader: "Bearer hidden",
         safe: "kept"
       },
-      at: "2026-07-10T01:00:00.000Z"
+      at: new Date().toISOString()
     })
   }));
   assert.equal(write.status, 200);
