@@ -166,6 +166,24 @@ export const teacherHtml = `<!doctype html>
     .student small { color: var(--muted); font-size: 10.5px; line-height: 1.25; }
     .student.stale { background: #fafafa; }
     .student.attention { border-left: 4px solid var(--warning); }
+    .studentTitleRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .studentDelete {
+      width: 26px;
+      height: 26px;
+      flex: 0 0 26px;
+      padding: 0;
+      border: 1px solid #efc5c1;
+      border-radius: 50%;
+      color: var(--danger);
+      background: #fff7f6;
+      font: 700 18px/1 sans-serif;
+    }
+    .studentDelete:hover { color: #fff; background: var(--danger); }
     .studentMeta {
       display: flex;
       align-items: center;
@@ -410,6 +428,7 @@ export const teacherHtml = `<!doctype html>
         <p class="roomWarning" id="roomWarning"></p>
         <label style="margin-top:10px">페르소나 시스템 프롬프트
           <textarea id="persona">일반적인 ChatGPT처럼 자연스럽고 명확한 한국어로 대화한다. 역할극 말투를 쓰지 않는다.</textarea>
+          <span class="fieldHelp">답변의 말투·역할·설명 방식만 정합니다. 진실/실험 모드, 거짓 Level, 교사용 정답·검수 규칙은 변경하거나 학생에게 공개할 수 없습니다. 입력 후 다른 곳을 클릭하면 저장됩니다.</span>
         </label>
         <div class="actions">
           <button id="downloadExport">전체 로그 JSON</button>
@@ -646,6 +665,22 @@ export const teacherHtml = `<!doctype html>
         renderEmptyChat("촬영 로그가 삭제되었습니다.");
         return;
       }
+      if (event.type === "student_deleted") {
+        sessions.delete(event.sessionId);
+        if (selected === event.sessionId) {
+          selected = null;
+          selectedTurn = null;
+          reviewPinned = false;
+          renderEmptyChat("삭제된 학생입니다.");
+          const emptyReview = document.createElement("div");
+          emptyReview.className = "empty";
+          emptyReview.textContent = "학생 카드를 클릭하면 검수 정보가 표시됩니다.";
+          teacherReviewEl.replaceChildren(emptyReview);
+          auditEl.textContent = "교사용 감사 JSON 대기 중";
+        }
+        renderStudents();
+        return;
+      }
       if (!event.sessionId) return;
       const current = sessions.get(event.sessionId) || { messages: [], name: event.studentName || "이름 없음", online: true };
       current.name = event.studentName || current.name;
@@ -732,6 +767,8 @@ export const teacherHtml = `<!doctype html>
         el.setAttribute("aria-current", String(id === selected));
         el.setAttribute("aria-label", session.name + " 학생 대화 보기 · " + state + needsAttentionLabel + " · " + modeLevel);
         const latency = Number.isFinite(session.latencyMs) ? " · " + session.latencyMs + "ms" : "";
+        const titleRow = document.createElement("div");
+        titleRow.className = "studentTitleRow";
         const title = document.createElement("strong");
         const dot = document.createElement("span");
         dot.className = dotClass;
@@ -749,6 +786,18 @@ export const teacherHtml = `<!doctype html>
           debrief.textContent = "정정 " + session.debriefRequiredTurns;
           title.appendChild(debrief);
         }
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.className = "studentDelete";
+        deleteButton.textContent = "×";
+        deleteButton.title = session.name + " 학생 삭제";
+        deleteButton.setAttribute("aria-label", session.name + " 학생과 대화 기록 삭제");
+        deleteButton.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          await deleteStudent(id, session.name);
+        });
+        deleteButton.addEventListener("keydown", (event) => event.stopPropagation());
+        titleRow.append(title, deleteButton);
         const metaRow = document.createElement("div");
         metaRow.className = "studentMeta";
         const meta = document.createElement("small");
@@ -758,7 +807,7 @@ export const teacherHtml = `<!doctype html>
         freshness.textContent = telemetryAgeLabel(session.lastSeenMs);
         freshness.title = state + " · 마지막 이벤트 " + (session.updatedAt || "없음");
         metaRow.append(meta, freshness);
-        el.appendChild(title);
+        el.appendChild(titleRow);
         el.appendChild(metaRow);
         el.addEventListener("click", () => {
           selected = id;
@@ -992,6 +1041,32 @@ export const teacherHtml = `<!doctype html>
         auditEl.textContent = "교사용 감사 JSON 대기 중";
       } catch (error) {
         alert("네트워크 문제로 촬영 로그를 삭제하지 못했습니다.");
+      }
+    }
+
+    async function deleteStudent(sessionId, studentName) {
+      if (!confirm(studentName + " 학생과 해당 대화 기록만 삭제할까요?")) return;
+      try {
+        const path = "/api/student?room=" + encodeURIComponent(roomId)
+          + "&sessionId=" + encodeURIComponent(sessionId);
+        const res = await fetch(path, {
+          method: "DELETE",
+          headers: authHeaders()
+        });
+        const data = await readJsonSafely(res);
+        if (!res.ok) {
+          return alert(data.message || "학생 삭제 권한과 연결 상태를 확인하세요.");
+        }
+        sessions.delete(sessionId);
+        if (selected === sessionId) {
+          selected = null;
+          selectedTurn = null;
+          reviewPinned = false;
+          renderEmptyChat("삭제된 학생입니다.");
+        }
+        renderStudents();
+      } catch (error) {
+        alert("네트워크 문제로 학생을 삭제하지 못했습니다.");
       }
     }
 

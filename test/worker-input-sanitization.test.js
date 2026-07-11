@@ -216,6 +216,115 @@ test("ClassroomRoom purge deletes more than 128 transcripts without deleting con
   assert.equal(deleteBatches.some((batch) => batch.length > 128), false);
 });
 
+test("ClassroomRoom queues repeated requests per student while allowing different students concurrently", async () => {
+  const storage = new Map();
+  const room = createStoredRoom(storage);
+
+  const first = await postRoomJson(room, "/chat-queue/acquire", {
+    sessionId: "student-1",
+    ticketId: "ticket-1",
+    maxConcurrent: 40,
+    maxStartsPerMinute: 45
+  });
+  const sameStudent = await postRoomJson(room, "/chat-queue/acquire", {
+    sessionId: "student-1",
+    ticketId: "ticket-2",
+    maxConcurrent: 40,
+    maxStartsPerMinute: 45
+  });
+  const otherStudent = await postRoomJson(room, "/chat-queue/acquire", {
+    sessionId: "student-2",
+    ticketId: "ticket-3",
+    maxConcurrent: 40,
+    maxStartsPerMinute: 45
+  });
+
+  assert.equal(first.acquired, true);
+  assert.equal(sameStudent.acquired, false);
+  assert.equal(sameStudent.terminal, false);
+  assert.equal(otherStudent.acquired, true);
+
+  await postRoomJson(room, "/chat-queue/release", {
+    sessionId: "student-1",
+    ticketId: "ticket-1"
+  });
+  const resumed = await postRoomJson(room, "/chat-queue/acquire", {
+    sessionId: "student-1",
+    ticketId: "ticket-2",
+    maxConcurrent: 40,
+    maxStartsPerMinute: 45
+  });
+  assert.equal(resumed.acquired, true);
+});
+
+test("ClassroomRoom bounds an individual student's queue and deletes only the selected student", async () => {
+  const storage = new Map([
+    ["studentSessions", {
+      "student-1": { sessionSecret: "one", studentName: "민준" },
+      "student-2": { sessionSecret: "two", studentName: "서아" }
+    }],
+    ["events", [
+      { type: "chat_turn", sessionId: "student-1" },
+      { type: "chat_turn", sessionId: "student-2" }
+    ]],
+    ["rateLimits", { "student-1": [1], "student-2": [2] }],
+    ["transcript:student-1", [{ turn: 1 }]],
+    ["transcript:student-2", [{ turn: 1 }]]
+  ]);
+  const room = createStoredRoom(storage);
+
+  for (const ticketId of ["ticket-1", "ticket-2", "ticket-3"]) {
+    await postRoomJson(room, "/chat-queue/acquire", {
+      sessionId: "student-1",
+      ticketId,
+      maxConcurrent: 1,
+      maxStartsPerMinute: 45,
+      maxQueuedPerSession: 3
+    });
+  }
+  const overflow = await postRoomJson(room, "/chat-queue/acquire", {
+    sessionId: "student-1",
+    ticketId: "ticket-4",
+    maxConcurrent: 1,
+    maxStartsPerMinute: 45,
+    maxQueuedPerSession: 3
+  });
+  assert.equal(overflow.error, "student_queue_full");
+
+  const deleted = await postRoomJson(room, "/student-delete", { sessionId: "student-1" });
+  assert.equal(deleted.ok, true);
+  assert.equal(storage.get("studentSessions")["student-1"], undefined);
+  assert.ok(storage.get("studentSessions")["student-2"]);
+  assert.deepEqual(storage.get("events"), [{ type: "chat_turn", sessionId: "student-2" }]);
+  assert.equal(storage.has("transcript:student-1"), false);
+  assert.equal(storage.has("transcript:student-2"), true);
+  assert.deepEqual(storage.get("rateLimits"), { "student-2": [2] });
+  assert.equal(storage.get("chatQueue").waiting.some((item) => item.sessionId === "student-1"), false);
+});
+
+function createStoredRoom(storage) {
+  return new ClassroomRoom({
+    storage: {
+      get: async (key) => storage.get(key),
+      put: async (key, value) => storage.set(key, value),
+      list: async ({ prefix }) => new Map(
+        [...storage].filter(([key]) => key.startsWith(prefix))
+      ),
+      delete: async (key) => {
+        for (const item of Array.isArray(key) ? key : [key]) storage.delete(item);
+      }
+    }
+  });
+}
+
+async function postRoomJson(room, path, body) {
+  const response = await room.fetch(new Request(`https://room.local${path}`, {
+    method: "POST",
+    body: JSON.stringify(body)
+  }));
+  return await response.json();
+}
+
 function jsonResponse(body) {
   return new Response(JSON.stringify(body), {
     headers: { "content-type": "application/json" }

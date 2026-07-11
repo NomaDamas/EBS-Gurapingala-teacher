@@ -85,6 +85,14 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /copyAuditJsonEl\.addEventListener\("click", \(\) => copyText\(auditEl\.textContent, "audit json"\)\)/);
   assert.match(teacher, /네트워크 문제로 다운로드하지 못했습니다/);
   assert.match(teacher, /네트워크 문제로 촬영 로그를 삭제하지 못했습니다/);
+  assert.match(teacher, /className = "studentDelete"/);
+  assert.match(teacher, /deleteButton\.textContent = "×"/);
+  assert.match(teacher, /event\.stopPropagation\(\)/);
+  assert.match(teacher, /async function deleteStudent\(sessionId, studentName\)/);
+  assert.match(teacher, /method: "DELETE"/);
+  assert.match(teacher, /event\.type === "student_deleted"/);
+  assert.match(teacher, /답변의 말투·역할·설명 방식만 정합니다/);
+  assert.match(teacher, /진실\/실험 모드, 거짓 Level, 교사용 정답·검수 규칙은 변경하거나 학생에게 공개할 수 없습니다/);
 });
 
 test("teacher dashboard preserves response mode and separates teacher-only review evidence", async () => {

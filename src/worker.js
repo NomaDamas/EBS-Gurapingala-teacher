@@ -14,6 +14,7 @@ const JSON_HEADERS = {
 };
 const FAIL_CLOSED_STUDENT_MESSAGE = "답변을 다시 점검해야 해. 질문을 한 번만 더 다르게 물어봐 줄래?";
 const MAX_JSON_BODY_BYTES = 8 * 1024;
+const CHAT_QUEUE_POLL_MS = 250;
 
 export default {
   async fetch(request, env) {
@@ -85,6 +86,16 @@ export default {
       if (purgeCheck) return purgeCheck;
       await room.fetch("https://room.local/purge", { method: "POST" });
       return json({ ok: true });
+    }
+    if (url.pathname === "/api/student" && request.method === "DELETE") {
+      if (!isTeacherAuthorized(request, env)) return unauthorized();
+      const sessionId = sanitizeText(url.searchParams.get("sessionId"), 120);
+      if (!sessionId) return validationError("missing_session_id", "삭제할 학생 세션이 없습니다.");
+      const deleted = await room.fetch("https://room.local/student-delete", {
+        method: "POST",
+        body: JSON.stringify({ sessionId })
+      });
+      return json(await deleted.json(), deleted.status);
     }
     if (url.pathname === "/api/join" && request.method === "POST") {
       const parsed = await readJsonBody(request);
@@ -170,64 +181,77 @@ export default {
           message: sessionCheck.message
         }, sessionCheck.status || 401);
       }
-      const rateLimit = await checkRateLimit(room, body.sessionId, env);
-      if (!rateLimit.allowed) {
+      const queueTicket = crypto.randomUUID();
+      const queueResult = await waitForChatSlot(room, body.sessionId, queueTicket, env);
+      if (!queueResult.acquired) {
         return json({
-          error: "rate_limited",
-          message: "질문이 너무 빠르게 이어졌어. 잠시 후 다시 물어봐.",
-          retryAfterMs: rateLimit.retryAfterMs
-        }, 429);
+          error: queueResult.error || "chat_queue_unavailable",
+          message: queueResult.message || "앞선 질문을 처리하고 있어. 잠시 후 다시 보내 줘.",
+          retryAfterMs: queueResult.retryAfterMs || 0
+        }, queueResult.status || 429);
       }
-      const config = await readConfig(room, env);
-      const events = await readEvents(room, env);
-      const sessionContext = buildSessionContext(events, body.sessionId);
-      const persona = config.persona || env.DEFAULT_PERSONA;
-      const responseMode = normalizeResponseMode(config.responseMode);
-      const applied = selectTurnMode({
-        responseMode,
-        level: config.level || env.DEFAULT_FALSE_LEVEL,
-        mixLevels: config.mixLevels,
-        turnIndex: sessionContext.turnIndex
-      });
-      const generateAnswer = applied.responseMode === "truth"
-        ? generateTruthAnswer
-        : generateAuditedAnswer;
-      const result = await generateAnswer({
-        message: body.message,
-        level: applied.level,
-        persona,
-        turnIndex: sessionContext.turnIndex,
-        recentMessages: sessionContext.recentMessages,
-        env
-      });
-      result.audit.input.configuredResponseMode = responseMode;
-      result.audit.input.configuredMixLevels = config.mixLevels;
-      const { audit, answer } = result;
-      const latencyMs = Date.now() - startedAtMs;
-      const studentAnswer = result.shouldSendToStudent ? answer : FAIL_CLOSED_STUDENT_MESSAGE;
+      try {
+        const config = await readConfig(room, env);
+        const events = await readEvents(room, env);
+        const sessionContext = buildSessionContext(events, body.sessionId);
+        const persona = config.persona || env.DEFAULT_PERSONA;
+        const responseMode = normalizeResponseMode(config.responseMode);
+        const applied = selectTurnMode({
+          responseMode,
+          level: config.level || env.DEFAULT_FALSE_LEVEL,
+          mixLevels: config.mixLevels,
+          turnIndex: sessionContext.turnIndex
+        });
+        const generateAnswer = applied.responseMode === "truth"
+          ? generateTruthAnswer
+          : generateAuditedAnswer;
+        const result = await generateAnswer({
+          message: body.message,
+          level: applied.level,
+          persona,
+          turnIndex: sessionContext.turnIndex,
+          recentMessages: sessionContext.recentMessages,
+          env
+        });
+        result.audit.input.configuredResponseMode = responseMode;
+        result.audit.input.configuredMixLevels = config.mixLevels;
+        const { audit, answer } = result;
+        const latencyMs = Date.now() - startedAtMs;
+        const studentAnswer = result.shouldSendToStudent ? answer : FAIL_CLOSED_STUDENT_MESSAGE;
+        const stillRegistered = await validateStudentSession(room, body);
+        if (!stillRegistered.ok) {
+          return json({
+            error: "student_deleted",
+            message: "교사가 이 학생 세션을 종료했습니다. 다시 입장하려면 이름을 입력해 주세요."
+          }, 410);
+        }
 
-      await room.fetch(roomEventUrl(env), {
-        method: "POST",
-        body: JSON.stringify({
-          type: "chat_turn",
+        await room.fetch(roomEventUrl(env), {
+          method: "POST",
+          body: JSON.stringify({
+            type: "chat_turn",
+            roomId,
+            sessionId: body.sessionId,
+            studentName: body.studentName,
+            studentMessage: body.message,
+            studentVisibleAnswer: studentAnswer,
+            blockedForStudent: !result.shouldSendToStudent,
+            latencyMs,
+            teacherAudit: audit,
+            at: new Date().toISOString()
+          })
+        });
+
+        return json({
+          answer: studentAnswer,
+          telemetry: "sent",
           roomId,
-          sessionId: body.sessionId,
-          studentName: body.studentName,
-          studentMessage: body.message,
-          studentVisibleAnswer: studentAnswer,
-          blockedForStudent: !result.shouldSendToStudent,
           latencyMs,
-          teacherAudit: audit,
-          at: new Date().toISOString()
-        })
-      });
-
-      return json({
-        answer: studentAnswer,
-        telemetry: "sent",
-        roomId,
-        latencyMs
-      });
+          queuedMs: queueResult.queuedMs || 0
+        });
+      } finally {
+        await releaseChatSlot(room, body.sessionId, queueTicket);
+      }
     }
     if (url.pathname === "/ws/teacher") {
       if (!isTeacherAuthorized(request, env)) return unauthorized();
@@ -280,6 +304,15 @@ export class ClassroomRoom {
       const body = await request.json();
       return json(await this.checkRateLimit(body.sessionId, body.limit));
     }
+    if (url.pathname === "/chat-queue/acquire" && request.method === "POST") {
+      return json(await this.acquireChatSlot(await request.json()));
+    }
+    if (url.pathname === "/chat-queue/release" && request.method === "POST") {
+      return json(await this.releaseChatSlot(await request.json()));
+    }
+    if (url.pathname === "/student-delete" && request.method === "POST") {
+      return json(await this.deleteStudent(await request.json()));
+    }
     if (url.pathname === "/session-register" && request.method === "POST") {
       return json(await this.registerStudentSession(await request.json()));
     }
@@ -296,6 +329,7 @@ export class ClassroomRoom {
       await this.state.storage.delete("events");
       await this.state.storage.delete("rateLimits");
       await this.state.storage.delete("studentSessions");
+      await this.state.storage.delete("chatQueue");
       await this.deleteTranscripts();
       this.broadcast({
         type: "events_purged",
@@ -387,6 +421,119 @@ export class ClassroomRoom {
       allowed: decision.allowed,
       retryAfterMs: decision.retryAfterMs
     };
+  }
+
+  async acquireChatSlot({
+    sessionId,
+    ticketId,
+    maxConcurrent = 40,
+    maxStartsPerMinute = 45,
+    maxQueuedPerSession = 3,
+    leaseMs = 120000
+  }) {
+    const now = Date.now();
+    const key = String(sessionId || "anonymous");
+    const ticket = String(ticketId || "");
+    const state = await this.state.storage.get("chatQueue") || {
+      waiting: [],
+      active: {},
+      starts: []
+    };
+    state.waiting = (state.waiting || []).filter((item) => now - item.enqueuedAt < leaseMs);
+    state.starts = (state.starts || []).filter((startedAt) => now - startedAt < 60000);
+    for (const [activeTicket, item] of Object.entries(state.active || {})) {
+      if (now - item.startedAt >= leaseMs) delete state.active[activeTicket];
+    }
+    if (state.active[ticket]) {
+      return { acquired: true, queuedMs: now - state.active[ticket].enqueuedAt };
+    }
+    let waiting = state.waiting.find((item) => item.ticketId === ticket);
+    if (!waiting) {
+      const sessionDepth = state.waiting.filter((item) => item.sessionId === key).length
+        + Object.values(state.active).filter((item) => item.sessionId === key).length;
+      if (sessionDepth >= Number(maxQueuedPerSession)) {
+        return {
+          acquired: false,
+          terminal: true,
+          status: 429,
+          error: "student_queue_full",
+          message: "이미 여러 질문이 대기 중이야. 앞선 답변을 받은 뒤 다시 보내 줘."
+        };
+      }
+      waiting = { ticketId: ticket, sessionId: key, enqueuedAt: now };
+      state.waiting.push(waiting);
+    }
+    const sessionActive = Object.values(state.active).some((item) => item.sessionId === key);
+    const firstForSession = state.waiting.find((item) => item.sessionId === key)?.ticketId === ticket;
+    const capacityAvailable = Object.keys(state.active).length < Number(maxConcurrent);
+    const rateAvailable = state.starts.length < Number(maxStartsPerMinute);
+    if (!sessionActive && firstForSession && capacityAvailable && rateAvailable) {
+      state.waiting = state.waiting.filter((item) => item.ticketId !== ticket);
+      state.active[ticket] = {
+        sessionId: key,
+        enqueuedAt: waiting.enqueuedAt,
+        startedAt: now
+      };
+      state.starts.push(now);
+      await this.state.storage.put("chatQueue", state);
+      return { acquired: true, queuedMs: now - waiting.enqueuedAt };
+    }
+    await this.state.storage.put("chatQueue", state);
+    const retryAfterMs = rateAvailable
+      ? CHAT_QUEUE_POLL_MS
+      : Math.max(CHAT_QUEUE_POLL_MS, 60000 - (now - state.starts[0]));
+    return {
+      acquired: false,
+      terminal: false,
+      position: state.waiting.findIndex((item) => item.ticketId === ticket) + 1,
+      retryAfterMs
+    };
+  }
+
+  async releaseChatSlot({ sessionId, ticketId }) {
+    const state = await this.state.storage.get("chatQueue") || {
+      waiting: [],
+      active: {},
+      starts: []
+    };
+    delete state.active?.[String(ticketId || "")];
+    state.waiting = (state.waiting || []).filter((item) =>
+      item.ticketId !== String(ticketId || "") ||
+      item.sessionId !== String(sessionId || "anonymous")
+    );
+    await this.state.storage.put("chatQueue", state);
+    return { ok: true };
+  }
+
+  async deleteStudent({ sessionId }) {
+    const key = String(sessionId || "");
+    const sessions = await this.state.storage.get("studentSessions") || {};
+    const studentName = sessions[key]?.studentName || "이름 없음";
+    delete sessions[key];
+    await this.state.storage.put("studentSessions", sessions);
+
+    const events = await this.state.storage.get("events") || [];
+    await this.state.storage.put("events", events.filter((event) => event.sessionId !== key));
+    const rateLimits = await this.state.storage.get("rateLimits") || {};
+    delete rateLimits[key];
+    await this.state.storage.put("rateLimits", rateLimits);
+    await this.state.storage.delete(`transcript:${key}`);
+
+    const queue = await this.state.storage.get("chatQueue") || { waiting: [], active: {}, starts: [] };
+    queue.waiting = (queue.waiting || []).filter((item) => item.sessionId !== key);
+    for (const [ticketId, item] of Object.entries(queue.active || {})) {
+      if (item.sessionId === key) delete queue.active[ticketId];
+    }
+    await this.state.storage.put("chatQueue", queue);
+
+    const event = {
+      type: "student_deleted",
+      sessionId: key,
+      studentName,
+      at: new Date().toISOString()
+    };
+    this.broadcast(event);
+    return { ok: true, sessionId: key, studentName };
   }
 
   async registerStudentSession({ sessionId, sessionSecret, studentName }) {
@@ -577,6 +724,9 @@ function buildHealthPayload(env) {
     defaultFalseLevel: Number(env.DEFAULT_FALSE_LEVEL || 2),
     defaultResponseMode: normalizeResponseMode(env.DEFAULT_RESPONSE_MODE),
     chatRateLimitPerMinute: Number(env.CHAT_RATE_LIMIT_PER_MINUTE || 12),
+    chatMaxConcurrent: Number(env.CHAT_MAX_CONCURRENT || 40),
+    chatGlobalRateLimitPerMinute: Number(env.CHAT_GLOBAL_RATE_LIMIT_PER_MINUTE || 45),
+    chatMaxQueuedPerSession: Number(env.CHAT_MAX_QUEUED_PER_SESSION || 3),
     eventTtlHours: Number(env.EVENT_TTL_HOURS || 24),
     openaiTimeoutMs: normalizeTimeoutMs(env.OPENAI_TIMEOUT_MS),
     defaultRoomId: normalizeRoomId(env.DEFAULT_ROOM_ID),
@@ -589,7 +739,8 @@ function buildHealthPayload(env) {
       exportJson: "/api/export",
       debriefJson: "/api/debrief",
       debriefCsv: "/api/debrief.csv",
-      purge: "/api/purge"
+      purge: "/api/purge",
+      deleteStudent: "/api/student"
     }
   };
 }
@@ -603,6 +754,62 @@ async function checkRateLimit(room, sessionId, env) {
     })
   });
   return await res.json();
+}
+
+async function waitForChatSlot(room, sessionId, ticketId, env) {
+  const deadline = Date.now() + Number(env.CHAT_QUEUE_WAIT_TIMEOUT_MS || 120000);
+  while (Date.now() < deadline) {
+    const res = await room.fetch("https://room.local/chat-queue/acquire", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId,
+        ticketId,
+        maxConcurrent: Number(env.CHAT_MAX_CONCURRENT || 40),
+        maxStartsPerMinute: Number(env.CHAT_GLOBAL_RATE_LIMIT_PER_MINUTE || 45),
+        maxQueuedPerSession: Number(env.CHAT_MAX_QUEUED_PER_SESSION || 3),
+        leaseMs: Number(env.CHAT_LEASE_MS || 120000)
+      })
+    });
+    if (res.status === 404 || !String(res.headers.get("content-type") || "").includes("application/json")) {
+      const legacy = await checkRateLimit(room, sessionId, env);
+      return {
+        acquired: Boolean(legacy.allowed),
+        terminal: true,
+        status: legacy.allowed ? 200 : 429,
+        error: legacy.allowed ? undefined : "rate_limited",
+        message: legacy.allowed ? undefined : "질문이 너무 빠르게 이어졌어. 잠시 후 다시 물어봐.",
+        retryAfterMs: legacy.retryAfterMs
+      };
+    }
+    const result = await res.json();
+    if (result.acquired || result.terminal) return result;
+    await sleep(Math.min(2000, Math.max(
+      CHAT_QUEUE_POLL_MS,
+      Number(result.retryAfterMs) || CHAT_QUEUE_POLL_MS
+    )));
+  }
+  return {
+    acquired: false,
+    terminal: true,
+    status: 503,
+    error: "chat_queue_timeout",
+    message: "질문이 많이 몰려 있어. 잠시 후 다시 보내 줘."
+  };
+}
+
+async function releaseChatSlot(room, sessionId, ticketId) {
+  try {
+    await room.fetch("https://room.local/chat-queue/release", {
+      method: "POST",
+      body: JSON.stringify({ sessionId, ticketId })
+    });
+  } catch {
+    // The lease expires automatically; a cleanup failure must not hide a valid student answer.
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function registerStudentSession(room, body) {
