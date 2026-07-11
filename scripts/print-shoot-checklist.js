@@ -95,7 +95,7 @@ function parsePlan(value) {
   const persona = parts.join(":").trim();
   const failures = [];
   if (!isFilmingRoom(roomId)) failures.push("roomId must be a filming room");
-  if (!Number.isInteger(level) || level < 1 || level > 4) failures.push("level must be 1, 2, 3, or 4");
+  if (!Number.isInteger(level) || level < 1 || level > 5) failures.push("level must be 1, 2, 3, 4, or 5 (Combination)");
   if (!persona) failures.push("persona is required");
   if (failures.length) {
     console.error(`FAIL invalid CLASSROOM_PLANS entry "${value}": ${failures.join("; ")}`);

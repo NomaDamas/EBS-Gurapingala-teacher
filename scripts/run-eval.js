@@ -48,7 +48,8 @@ for (const model of setupFailures.length ? [] : models) {
       1: { total: 0, passed: 0 },
       2: { total: 0, passed: 0 },
       3: { total: 0, passed: 0 },
-      4: { total: 0, passed: 0 }
+      4: { total: 0, passed: 0 },
+      5: { total: 0, passed: 0 }
     },
     failures: [],
     turns: []
@@ -172,8 +173,8 @@ function pct(value) {
 function normalizeFixedLevel(value) {
   if (value === undefined || value === null || value === "") return null;
   const level = Number(value);
-  if (![1, 2, 3, 4].includes(level)) {
-    throw new Error("EVAL_FIXED_LEVEL must be one of 1, 2, 3, or 4.");
+  if (![1, 2, 3, 4, 5].includes(level)) {
+    throw new Error("EVAL_FIXED_LEVEL must be one of 1, 2, 3, 4, or 5 (Combination).");
   }
   return level;
 }

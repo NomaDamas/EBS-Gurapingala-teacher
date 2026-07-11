@@ -157,7 +157,7 @@ jobs:
           WORKER_URL: ${{ vars.WORKER_HEALTH_URL }}
           TEACHER_TOKEN: ${{ secrets.TEACHER_TOKEN }}
           CLASSROOM_ROOM: 2026-07-13-3-5
-          EXPECTED_FALSE_LEVEL: "2"
+          EXPECTED_FALSE_LEVEL: "5"
           EXPECTED_PERSONA: "일반적인 ChatGPT처럼 자연스럽고 명확한 한국어로 대화한다. 역할극 말투를 쓰지 않는다."
           EXPECTED_RESPONSE_MODE: experiment
           APPLY_CLASSROOM_CONFIG: "true"
@@ -176,7 +176,7 @@ jobs:
           WORKER_URL: ${{ vars.WORKER_HEALTH_URL }}
           TEACHER_TOKEN: ${{ secrets.TEACHER_TOKEN }}
           CLASSROOM_ROOM: 2026-07-16-3-1
-          EXPECTED_FALSE_LEVEL: "2"
+          EXPECTED_FALSE_LEVEL: "5"
           EXPECTED_PERSONA: "일반적인 ChatGPT처럼 자연스럽고 명확한 한국어로 대화한다. 역할극 말투를 쓰지 않는다."
           EXPECTED_RESPONSE_MODE: experiment
           APPLY_CLASSROOM_CONFIG: "true"

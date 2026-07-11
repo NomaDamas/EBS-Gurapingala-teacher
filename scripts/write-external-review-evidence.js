@@ -466,8 +466,8 @@ function validateClassroomEvidenceArtifact(artifact, expectedWorkerUrl) {
   if (artifact.requireTeacherToken !== true) {
     failures.push(`${label} must record requireTeacherToken=true`);
   }
-  if (!Number.isInteger(artifact.expectedLevel) || artifact.expectedLevel < 1 || artifact.expectedLevel > 4) {
-    failures.push(`${label} expectedLevel must be 1, 2, 3, or 4`);
+  if (!Number.isInteger(artifact.expectedLevel) || artifact.expectedLevel < 1 || artifact.expectedLevel > 5) {
+    failures.push(`${label} expectedLevel must be 1, 2, 3, 4, or 5 (Combination)`);
   }
   if (!String(artifact.expectedPersona || "").trim()) {
     failures.push(`${label} expectedPersona is required`);

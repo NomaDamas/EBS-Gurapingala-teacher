@@ -1,4 +1,21 @@
 export const LEVELS = {
+  5: {
+    name: "Combination · 기본",
+    goal: "사실 맥락에 미묘한 과장·단순화·관점 왜곡을 우선 조합한다.",
+    subtlety: "높음",
+    rule: "질문과 관련된 거짓을 최소 1개 포함하고 같은 문장을 반복하지 않는다. 원인 환원, 인물 중심화, 예외 삭제, 범위 확대, 관점 정당화를 우선하며 사실 오류와 시대착오는 제한적으로 사용한다.",
+    factors: [
+      "복합 원인을 하나로 환원",
+      "공로·책임을 한 인물이나 세력에 집중",
+      "일부 사례를 전쟁 전체로 일반화",
+      "항상·전부·한 번도 같은 표현으로 예외 삭제",
+      "보조 무기·세력을 주력 또는 결정적 요인으로 확대",
+      "국가·권력자의 관점을 객관적 사실처럼 정당화",
+      "목적·결과를 뒤집는 반사실 가정",
+      "개인 기록과 공식 기록의 성격 혼동",
+      "실제 역사 요소에 시대착오 기술 결합"
+    ]
+  },
   1: {
     name: "사실 오류",
     goal: "교과서나 기본 검색으로 검증 가능한 단일 사실을 바꾼다.",
@@ -347,7 +364,47 @@ const TOPIC_STOP_WORDS = new Set([
 
 export function normalizeLevel(level) {
   const n = Number(level);
-  return LEVELS[n] ? n : 2;
+  return LEVELS[n] ? n : 5;
+}
+
+export function resolveFalsehoodForTurn({ selected, level, turnIndex = 0 }) {
+  const normalizedLevel = normalizeLevel(level);
+  if (normalizedLevel !== 5) {
+    return {
+      sourceLevel: normalizedLevel,
+      falseClaim: selected.lies[normalizedLevel],
+      falseBasis: selected.falseBasis[normalizedLevel],
+      factors: LEVELS[normalizedLevel].factors || []
+    };
+  }
+
+  const sequence = [2, 3, 2, 3, 2, 1, 3, 2, 4, 2, 3, 2];
+  const topicOffset = Math.max(0, HISTORY_CASES.findIndex((item) => item.id === selected.id));
+  const sourceLevel = sequence[(topicOffset + Number(turnIndex || 0)) % sequence.length];
+  return {
+    sourceLevel,
+    falseClaim: selected.lies[sourceLevel],
+    falseBasis: `${selected.falseBasis[sourceLevel]} Combination 기본 모드에서 ${combinationFactorLabel(sourceLevel)} factor를 적용했다.`,
+    factors: combinationFactorsFor(sourceLevel)
+  };
+}
+
+function combinationFactorsFor(sourceLevel) {
+  if (sourceLevel === 2) {
+    return ["원인 환원", "인물 중심화", "예외 삭제", "범위 확대", "결정적 요인 과장"];
+  }
+  if (sourceLevel === 3) {
+    return ["관점 정당화", "행위자 관점 객관화", "침략 목적 완곡화", "책임 축소"];
+  }
+  if (sourceLevel === 1) return ["연도·수량·역할·순서의 단일 사실 변경"];
+  return ["실제 역사 요소와 시대착오 기술의 자연스러운 결합"];
+}
+
+function combinationFactorLabel(sourceLevel) {
+  if (sourceLevel === 2) return "과장·단순화";
+  if (sourceLevel === 3) return "관점 왜곡";
+  if (sourceLevel === 1) return "단일 사실 변경";
+  return "제한적 시대착오";
 }
 
 export function selectCase(message, turnIndex = 0) {
@@ -387,9 +444,10 @@ export function buildTeacherAudit({ message, level, persona, turnIndex = 0, rece
   const normalizedLevel = normalizeLevel(level);
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const policy = LEVELS[normalizedLevel];
-  const falseAnswer = selected.lies[normalizedLevel];
+  const resolved = resolveFalsehoodForTurn({ selected, level: normalizedLevel, turnIndex });
+  const falseAnswer = resolved.falseClaim;
   const truth = selected.truth;
-  const falseBasis = selected.falseBasis[normalizedLevel];
+  const falseBasis = resolved.falseBasis;
   const mixedStudentAnswer = `${falseAnswer}\n\n${buildFollowUpPrompt(selected, turnIndex)}`;
 
   return {
@@ -399,6 +457,8 @@ export function buildTeacherAudit({ message, level, persona, turnIndex = 0, rece
       responseMode: "experiment",
       requestedLevel: level,
       appliedLevel: normalizedLevel,
+      combinationSourceLevel: resolved.sourceLevel,
+      falsehoodFactors: resolved.factors,
       persona,
       turnIndex,
       recentContext: recentMessages.slice(-6)

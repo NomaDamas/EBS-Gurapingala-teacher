@@ -640,8 +640,8 @@ function validateClassroomConfigEvidence(classroomConfigEvidence, file, seenRoom
   } else {
     seenRooms.add(classroomConfigEvidence.roomId);
   }
-  if (!Number.isInteger(classroomConfigEvidence.expectedLevel) || classroomConfigEvidence.expectedLevel < 1 || classroomConfigEvidence.expectedLevel > 4) {
-    failures.push(`${label} expectedLevel must be 1, 2, 3, or 4`);
+  if (!Number.isInteger(classroomConfigEvidence.expectedLevel) || classroomConfigEvidence.expectedLevel < 1 || classroomConfigEvidence.expectedLevel > 5) {
+    failures.push(`${label} expectedLevel must be 1, 2, 3, 4, or 5 (Combination)`);
   }
   if (!String(classroomConfigEvidence.expectedPersona || "").trim()) {
     failures.push(`${label} expectedPersona is required`);

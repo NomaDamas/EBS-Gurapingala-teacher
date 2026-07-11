@@ -3,7 +3,8 @@ import {
   judgeFalseAnswer,
   LEVELS,
   selectCaseForTurn,
-  normalizeLevel
+  normalizeLevel,
+  resolveFalsehoodForTurn
 } from "./misinfo-policy.js";
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
@@ -166,8 +167,9 @@ export async function generateAuditedAnswer({
 export function normalizeLlmAudit({ draft, message, level, persona, falseDensity = "single", turnIndex, recentMessages = [], recentFalseClaims = [], attempt, model, timeoutMs = DEFAULT_OPENAI_TIMEOUT_MS }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
-  const calibrationSeed = continuityClaim?.falseClaim || selected.lies[level];
-  const calibrationBasis = continuityClaim?.whyFalse || selected.falseBasis[level];
+  const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex });
+  const calibrationSeed = continuityClaim?.falseClaim || resolved.falseClaim;
+  const calibrationBasis = continuityClaim?.whyFalse || resolved.falseBasis;
   const correctAnswer = cleanString(draft.correct_answer);
   const falseClaim = cleanString(draft.false_answer);
   const falseBasis = cleanString(draft.false_basis || draft.level_fit_reason);
@@ -214,6 +216,8 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
       persona,
       falseDensity,
       turnIndex,
+      combinationSourceLevel: resolved.sourceLevel,
+      falsehoodFactors: resolved.factors,
       recentContext: recentMessages.slice(-6)
     },
     selectedCase: {
@@ -337,6 +341,7 @@ export function applyVerifierVerdict({ audit, draft, model }) {
 
 function buildFailedAudit({ message, level, persona, falseDensity = "single", turnIndex, recentMessages = [], recentFalseClaims = [], model, verifierModel, timeoutMs = DEFAULT_OPENAI_TIMEOUT_MS, failures }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
+  const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex });
   return {
     audit: {
       schemaVersion: "misinfo-audit/v1",
@@ -348,6 +353,8 @@ function buildFailedAudit({ message, level, persona, falseDensity = "single", tu
         persona,
         falseDensity,
         turnIndex,
+        combinationSourceLevel: resolved.sourceLevel,
+        falsehoodFactors: resolved.factors,
         recentContext: recentMessages.slice(-6)
       },
       selectedCase: {
@@ -394,6 +401,7 @@ function buildFailedAudit({ message, level, persona, falseDensity = "single", tu
 async function callOpenAI({ apiKey, model, message, level, persona, falseDensity, turnIndex, recentMessages, recentFalseClaims, previousFailures, timeoutMs, fetchImpl }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
+  const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(`OpenAI request timed out after ${timeoutMs}ms`), timeoutMs);
   let response;
@@ -414,7 +422,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
           },
           {
             role: "user",
-            content: buildUserPrompt({ message, level, selected, recentMessages, continuityClaim, falseDensity, previousFailures })
+            content: buildUserPrompt({ message, level, selected, resolved, recentMessages, continuityClaim, falseDensity, previousFailures })
           }
         ],
         text: {
@@ -534,9 +542,9 @@ function buildSystemPrompt({ level, persona, falseDensity }) {
   ].join("\n");
 }
 
-function buildUserPrompt({ message, level, selected, recentMessages, continuityClaim, falseDensity, previousFailures }) {
-  const requiredFalseSeed = continuityClaim?.falseClaim || selected.lies[level];
-  const requiredFalseBasis = continuityClaim?.whyFalse || selected.falseBasis[level];
+function buildUserPrompt({ message, level, selected, resolved, recentMessages, continuityClaim, falseDensity, previousFailures }) {
+  const requiredFalseSeed = continuityClaim?.falseClaim || resolved.falseClaim;
+  const requiredFalseBasis = continuityClaim?.whyFalse || resolved.falseBasis;
   return [
     `Student question: ${message}`,
     recentMessages?.length
@@ -550,6 +558,9 @@ function buildUserPrompt({ message, level, selected, recentMessages, continuityC
       ? `Mandatory multi-turn continuity: preserve this prior false premise without correction or contradiction: ${JSON.stringify(continuityClaim)}`
       : "Mandatory multi-turn continuity: no prior false premise for this topic.",
     `Requested falsehood level: ${level}`,
+    level === 5
+      ? `Combination source Level: ${resolved.sourceLevel}; preferred factors: ${JSON.stringify(resolved.factors)}`
+      : `Level factors: ${JSON.stringify(resolved.factors)}`,
     `Requested falsehood density: ${falseDensity}`,
     "Write Korean suitable for middle-school students.",
     "Use a neutral, general ChatGPT-style conversational voice. Do not role-play Yi Sun-sin or speak like a historical character unless the student explicitly asks for role-play.",
@@ -565,6 +576,8 @@ function buildUserPrompt({ message, level, selected, recentMessages, continuityC
     "Express the required false seed clearly in student_answer, but paraphrase it naturally for the current question. Do not copy the same sentence verbatim from a prior assistant turn.",
     "List every false historical claim actually phrased in student_answer in false_claims with why it is false and why it fits the requested Level. In single density, false_claims must contain exactly one paraphrased claim with the same meaning as the calibrated seed. In all density, it must cover every substantive historical claim.",
     "When returning to a topic after other topics, recover that topic's prior false premise and continue it consistently while answering the new question directly.",
+    "Every experiment answer must contain at least one false claim directly related to the current question.",
+    "Prefer subtle exaggeration, causal simplification, exception removal, scope expansion, actor-centered credit, and viewpoint distortion over conspicuous fabricated trivia.",
     "Keep the answer concise, conversational, and plausible.",
     "If the student asks whether the previous answer is true, asks for textbook accuracy, or challenges the answer, keep the student_answer aligned to the calibrated falsehood.",
     "Never say that an earlier assistant claim was wrong, unnecessary, false, or mistaken. If the current question refers to it, continue reasoning from that same premise.",
@@ -685,7 +698,7 @@ function verifierSchema() {
       },
       level_fit: {
         type: "boolean",
-        description: "Whether the false claim precisely matches the requested Level 1-4 policy."
+        description: "Whether the false claim precisely matches the requested Level 1-4 or Combination policy."
       },
       truth_context_present: {
         type: "boolean",

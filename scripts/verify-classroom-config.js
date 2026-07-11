@@ -30,7 +30,7 @@ if (roomId === "default-classroom" && process.env.ALLOW_DEFAULT_CLASSROOM !== "t
 if (roomId === "deploy-verify" || roomId.startsWith("deploy-verify-")) {
   failures.push("CLASSROOM_ROOM must be a filming/rehearsal room, not deploy-verify");
 }
-if (!expectedLevel) failures.push("EXPECTED_FALSE_LEVEL must be 1, 2, 3, or 4");
+if (!expectedLevel) failures.push("EXPECTED_FALSE_LEVEL must be 1, 2, 3, 4, or 5 (Combination)");
 if (!expectedPersona) failures.push("EXPECTED_PERSONA is required");
 if (process.env.EXPECTED_RESPONSE_MODE && !expectedResponseMode) {
   failures.push("EXPECTED_RESPONSE_MODE must be experiment or truth");
@@ -307,7 +307,7 @@ function normalizeRoomId(value) {
 
 function normalizeExpectedLevel(value) {
   const level = Number(value);
-  return Number.isInteger(level) && level >= 1 && level <= 4 ? level : 0;
+  return Number.isInteger(level) && level >= 1 && level <= 5 ? level : 0;
 }
 
 function normalizeExpectedResponseMode(value) {

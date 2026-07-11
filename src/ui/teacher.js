@@ -530,8 +530,9 @@ export const teacherHtml = `<!doctype html>
           </label>
           <label>거짓 Level
             <select id="level" aria-describedby="levelHelp">
+              <option value="5" selected>Combination · 기본</option>
               <option value="1">Level 1 사실 오류</option>
-              <option value="2" selected>Level 2 과장·단순화</option>
+              <option value="2">Level 2 과장·단순화</option>
               <option value="3">Level 3 관점 왜곡</option>
               <option value="4">Level 4 AI 환각</option>
             </select>
@@ -561,6 +562,7 @@ export const teacherHtml = `<!doctype html>
             </div>
             <div id="mixControl" class="mixOptions hidden" aria-label="혼합 모드 구성">
               <label><input type="checkbox" name="mixLevel" value="0" checked /> 진실</label>
+              <label><input type="checkbox" name="mixLevel" value="5" checked /> Combination</label>
               <label><input type="checkbox" name="mixLevel" value="1" checked /> Level 1</label>
               <label><input type="checkbox" name="mixLevel" value="2" checked /> Level 2</label>
               <label><input type="checkbox" name="mixLevel" value="3" checked /> Level 3</label>
@@ -971,7 +973,7 @@ export const teacherHtml = `<!doctype html>
         freshness.textContent = telemetryAgeLabel(session.lastSeenMs);
         freshness.title = state + " · 마지막 이벤트 " + (session.updatedAt || "없음");
         metaRow.append(meta, freshness);
-        const studentConfig = session.studentConfig || { responseMode: "inherit", level: 2, falseDensity: "single" };
+        const studentConfig = session.studentConfig || { responseMode: "inherit", level: 5, falseDensity: "single" };
         const configRow = document.createElement("div");
         configRow.className = "studentConfig";
         const configTitle = document.createElement("p");
@@ -991,8 +993,9 @@ export const teacherHtml = `<!doctype html>
         }
         const studentLevelSelect = document.createElement("select");
         studentLevelSelect.setAttribute("aria-label", session.name + " 개별 거짓 Level");
-        for (const level of [1, 2, 3, 4]) {
-          studentLevelSelect.add(new Option("Level " + level, String(level), false, Number(studentConfig.level) === level));
+        for (const level of [5, 1, 2, 3, 4]) {
+          const levelLabel = level === 5 ? "Combination · 기본" : "Level " + level;
+          studentLevelSelect.add(new Option(levelLabel, String(level), false, Number(studentConfig.level) === level));
         }
         studentLevelSelect.disabled = !["experiment", "mixed"].includes(studentConfig.responseMode);
         const studentDensitySelect = document.createElement("select");
@@ -1123,7 +1126,9 @@ export const teacherHtml = `<!doctype html>
       const selectedMode = selectedAudit?.input?.responseMode || session.responseMode || "experiment";
       const selectedLevel = selectedMode === "truth"
         ? "Level 비적용"
-        : "Level " + (selectedAudit?.input?.appliedLevel || session.appliedLevel || "확인 중");
+        : Number(selectedAudit?.input?.appliedLevel || session.appliedLevel) === 5
+          ? "Combination · 기본"
+          : "Level " + (selectedAudit?.input?.appliedLevel || session.appliedLevel || "확인 중");
       teacherReviewContextEl.textContent = session.name
         + " · " + (selectedBotMessage ? selectedBotMessage.turn + "턴" : "입장 이벤트")
         + " · " + selectedMode + " · " + selectedLevel;
@@ -1165,7 +1170,9 @@ export const teacherHtml = `<!doctype html>
         ? "진실 모드에서는 Level을 적용하지 않습니다. 검수된 사실만 학생에게 표시됩니다."
         : mixedMode
           ? "선택한 진실/Level을 학생별 턴 순서대로 반복 적용합니다."
-          : "실험 모드에서 통제된 거짓의 강도를 Level 1~4로 적용합니다.";
+          : levelEl.value === "5"
+            ? "기본 모드입니다. 과장·단순화와 관점 왜곡을 우선 조합하며 모든 답변에 관련 거짓을 포함합니다."
+            : "실험 모드에서 통제된 거짓의 강도를 Level 1~4로 적용합니다.";
     }
 
     function renderTeacherReview(audit, blockedForStudent = false) {
@@ -1179,7 +1186,9 @@ export const teacherHtml = `<!doctype html>
       }
       const truthMode = Boolean(audit.input && audit.input.responseMode === "truth");
       const appliedLevel = audit.input && audit.input.appliedLevel
-        ? "Level " + audit.input.appliedLevel
+        ? Number(audit.input.appliedLevel) === 5
+          ? "Combination · 기본"
+          : "Level " + audit.input.appliedLevel
         : truthMode ? "비적용 · truth 모드는 검수된 사실만 제공" : "Level 정보 없음";
       const verdict = audit.preflight && audit.preflight.verdict
         ? audit.preflight.verdict
@@ -1430,9 +1439,9 @@ export const teacherHtml = `<!doctype html>
     function responseModeLabel(mode, level, mixLevels) {
       if (mode === "truth") return "truth · Level 비적용";
       if (mode === "mixed") {
-        return "mixed · " + mixLevels.map((item) => item === 0 ? "진실" : "L" + item).join("+");
+        return "mixed · " + mixLevels.map((item) => item === 0 ? "진실" : item === 5 ? "Combination" : "L" + item).join("+");
       }
-      return "experiment · Level " + level;
+      return Number(level) === 5 ? "experiment · Combination" : "experiment · Level " + level;
     }
 
     function buildRoomUrl(path, includeToken = false) {

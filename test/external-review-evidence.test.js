@@ -446,7 +446,7 @@ test("review:evidence rejects approval when classroom evidence lacks production 
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* workerUrl must be an https URL/);
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* must record requireOpenAI=true/);
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* must record requireTeacherToken=true/);
-  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* expectedLevel must be 1, 2, 3, or 4/);
+  assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* expectedLevel must be 1, 2, 3, 4, or 5 \(Combination\)/);
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* expectedPersona is required/);
   assert.match(result.stderr, /CLASSROOM_CONFIG_EVIDENCE_FILE .* sanitized \/api\/health evidence snapshot/);
 });

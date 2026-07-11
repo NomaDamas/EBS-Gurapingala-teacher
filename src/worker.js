@@ -601,7 +601,7 @@ export class ClassroomRoom {
 
   async readStudentConfig(sessionId) {
     const configs = await this.state.storage.get("studentConfigs") || {};
-    return configs[String(sessionId || "")] || { responseMode: "inherit", level: 2, falseDensity: "single" };
+    return configs[String(sessionId || "")] || { responseMode: "inherit", level: 5, falseDensity: "single" };
   }
 
   async updateStudentConfig({ sessionId, responseMode, level, falseDensity }) {
@@ -767,7 +767,7 @@ async function readStudentConfig(room, sessionId) {
     `https://room.local/student-config?sessionId=${encodeURIComponent(sessionId)}`
   );
   if (!res.ok || !String(res.headers.get("content-type") || "").includes("application/json")) {
-    return { responseMode: "inherit", level: 2, falseDensity: "single" };
+    return { responseMode: "inherit", level: 5, falseDensity: "single" };
   }
   const config = await res.json();
   return {
@@ -833,7 +833,7 @@ function buildHealthPayload(env) {
     openaiVerifierModel: env.OPENAI_VERIFIER_MODEL || env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
     openaiConfigured: Boolean(env.OPENAI_API_KEY),
     teacherProtected: Boolean(env.TEACHER_TOKEN),
-    defaultFalseLevel: Number(env.DEFAULT_FALSE_LEVEL || 2),
+    defaultFalseLevel: Number(env.DEFAULT_FALSE_LEVEL || 5),
     defaultFalseDensity: normalizeFalseDensity(env.DEFAULT_FALSE_DENSITY),
     defaultResponseMode: normalizeResponseMode(env.DEFAULT_RESPONSE_MODE),
     chatRateLimitPerMinute: Number(env.CHAT_RATE_LIMIT_PER_MINUTE || 12),
@@ -1119,8 +1119,8 @@ export function normalizeMixLevels(value) {
   const source = Array.isArray(value) ? value : [];
   const normalized = [...new Set(source
     .map((item) => Number(item))
-    .filter((item) => Number.isInteger(item) && item >= 0 && item <= 4))];
-  return normalized.length ? normalized : [0, 1, 2, 3, 4];
+    .filter((item) => Number.isInteger(item) && item >= 0 && item <= 5))];
+  return normalized.length ? normalized : [0, 5, 1, 2, 3, 4];
 }
 
 export function selectTurnMode({ responseMode, level, mixLevels, turnIndex = 0 }) {

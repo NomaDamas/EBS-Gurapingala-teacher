@@ -238,7 +238,7 @@ GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 |---|---:|---|
 | `CHAT_RATE_LIMIT_PER_MINUTE` | `12` | 학생 session별 분당 채팅 제한 |
 | `EVENT_TTL_HOURS` | `24` | Durable Object 이벤트 로그 보관 시간 |
-| `DEFAULT_FALSE_LEVEL` | `2` | 교사 설정 전 기본 거짓 Level |
+| `DEFAULT_FALSE_LEVEL` | `5` | 교사 설정 전 기본값. Combination은 과장·단순화와 관점 왜곡을 우선 조합 |
 | `DEFAULT_ROOM_ID` | `default-classroom` | `room` query가 없을 때 사용할 기본 촬영방 |
 | `OPENAI_MODEL` | `gpt-5.6-terra` | OpenAI provider 모델 |
 | `OPENAI_VERIFIER_MODEL` | `OPENAI_MODEL` | 학생 전송 전 독립 OpenAI verifier 모델 |

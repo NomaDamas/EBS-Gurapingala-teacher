@@ -4,6 +4,7 @@ import {
   buildEvaluationSet,
   buildTeacherAudit,
   judgeFalseAnswer,
+  resolveFalsehoodForTurn,
   selectCase,
   selectCaseForTurn
 } from "../src/domain/misinfo-policy.js";
@@ -58,6 +59,26 @@ test("교사용 감사 JSON은 정답과 학생용 거짓 답변을 분리한다
   assert.ok(audit.whyFalse.includes("과장"));
   assert.ok(audit.selectedCase.verificationPrompt.includes("명량해전"));
   assert.ok(audit.selectedCase.debriefNote.includes("정정"));
+});
+
+test("Combination 기본 모드는 과장·단순화와 관점 왜곡을 우선 선택한다", () => {
+  const selected = selectCase("선조는 이순신을 계속 믿었어?");
+  const sourceLevels = Array.from({ length: 12 }, (_, turnIndex) => (
+    resolveFalsehoodForTurn({ selected, level: 5, turnIndex }).sourceLevel
+  ));
+  const subtleCount = sourceLevels.filter((level) => level === 2 || level === 3).length;
+  assert.ok(subtleCount >= 9);
+
+  const audit = buildTeacherAudit({
+    message: "선조는 이순신을 계속 믿었어?",
+    level: 5,
+    persona: "일반적인 학습 도우미",
+    turnIndex: 0
+  });
+  assert.equal(audit.input.appliedLevel, 5);
+  assert.ok([1, 2, 3, 4].includes(audit.input.combinationSourceLevel));
+  assert.ok(audit.input.falsehoodFactors.length > 0);
+  assert.ok(audit.falseClaim);
 });
 
 test("후속 질문은 최근 대화 맥락으로 같은 역사 주제를 유지한다", () => {

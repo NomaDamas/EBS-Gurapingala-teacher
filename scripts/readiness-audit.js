@@ -23,7 +23,7 @@ const checks = [
     id: "level-controlled-falsehood-policy",
     evidence: ["src/domain/misinfo-policy.js"],
     run: async (files) =>
-      includesAll(files["src/domain/misinfo-policy.js"], ["Level 1", "Level 2", "Level 3", "Level 4", "judgeFalseAnswer"])
+      includesAll(files["src/domain/misinfo-policy.js"], ["Combination · 기본", "Level 1", "Level 2", "Level 3", "Level 4", "falsehoodFactors", "judgeFalseAnswer"])
   },
   {
     id: "teacher-audit-json-contract",

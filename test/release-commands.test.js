@@ -9,7 +9,7 @@ test("release:commands prints commit-bound deploy, classroom, review, and releas
     TEACHER_TOKEN: "secret-token",
     EXPECTED_OPENAI_MODEL: "gpt-5.5",
     EXPECTED_OPENAI_TIMEOUT_MS: "15000",
-    CLASSROOM_PLANS: "2026-07-13-3-5:2:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:3:조선 수군 기록관처럼 차분하게 설명한다."
+    CLASSROOM_PLANS: "2026-07-13-3-5:5:이순신 장군처럼 친절하게 설명한다.;;2026-07-16-3-1:3:조선 수군 기록관처럼 차분하게 설명한다."
   });
 
   assert.equal(result.code, 0, result.stdout + result.stderr);
@@ -34,7 +34,7 @@ test("release:commands prints commit-bound deploy, classroom, review, and releas
   assert.match(result.stdout, /PR_HEAD_SHA=abc123/);
   assert.match(result.stdout, /EXPECTED_OPENAI_TIMEOUT_MS=15000/);
   assert.match(result.stdout, /CLASSROOM_ROOM=2026-07-13-3-5/);
-  assert.match(result.stdout, /EXPECTED_FALSE_LEVEL=2/);
+  assert.match(result.stdout, /EXPECTED_FALSE_LEVEL=5/);
   assert.match(result.stdout, /CLASSROOM_ROOM=2026-07-13-3-5[\s\S]*EXPECTED_OPENAI_TIMEOUT_MS=15000[\s\S]*npm run rehearsal:config/);
   assert.doesNotMatch(result.stdout, /VERIFY_CLASSROOM_CHAT=true/);
   assert.match(result.stdout, /CLASSROOM_CONFIG_EVIDENCE_FILE=artifacts\/2026-07-16-3-1-config\.json/);
