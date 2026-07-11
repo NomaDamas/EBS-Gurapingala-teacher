@@ -74,7 +74,7 @@ test("Deploy workflow verifies the real Worker with the same strict production g
   assert.match(classroomSteps, /CLASSROOM_ROOM: 2026-07-13-3-5/);
   assert.match(classroomSteps, /CLASSROOM_ROOM: 2026-07-16-3-1/);
   assert.equal((classroomSteps.match(/EXPECTED_FALSE_LEVEL: "2"/g) || []).length, 2);
-  assert.equal((classroomSteps.match(/EXPECTED_PERSONA: "이순신 장군처럼 친절하게 설명한다\."/g) || []).length, 2);
+  assert.equal((classroomSteps.match(/EXPECTED_PERSONA: "일반적인 ChatGPT처럼 자연스럽고 명확한 한국어로 대화한다\. 역할극 말투를 쓰지 않는다\."/g) || []).length, 2);
   assert.equal((classroomSteps.match(/EXPECTED_RESPONSE_MODE: experiment/g) || []).length, 2);
   assert.equal((classroomSteps.match(/APPLY_CLASSROOM_CONFIG: "true"/g) || []).length, 2);
   assert.equal(classroomSteps.includes("VERIFY_CLASSROOM_CHAT"), false);

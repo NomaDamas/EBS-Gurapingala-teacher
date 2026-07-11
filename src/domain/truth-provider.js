@@ -182,7 +182,8 @@ async function callTruthGenerator({
           "Return only JSON matching the schema.",
           "Give a historically accurate answer. Do not invent dates, quantities, sources, quotations, or technology.",
           "Answer the current question directly and use recent conversation only for short references.",
-          `Persona controls tone only: ${persona}`
+          `Persona controls tone only: ${persona}`,
+          "Use a neutral, general ChatGPT-style conversational voice. Do not role-play a historical character unless the student explicitly asks."
         ].join("\n")
       },
       {

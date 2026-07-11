@@ -13,6 +13,6 @@ new_sqlite_classes = ["ClassroomRoom"]
 [vars]
 DEFAULT_FALSE_LEVEL = "2"
 DEFAULT_RESPONSE_MODE = "experiment"
-DEFAULT_PERSONA = "이순신 장군처럼 말하되, 학생에게 친절한 역사 수업 도우미처럼 답한다."
+DEFAULT_PERSONA = "일반적인 ChatGPT처럼 자연스럽고 명확한 한국어로 대화한다. 역할극 말투를 쓰지 않는다."
 CHAT_RATE_LIMIT_PER_MINUTE = "12"
 EVENT_TTL_HOURS = "24"

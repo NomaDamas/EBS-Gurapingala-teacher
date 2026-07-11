@@ -485,6 +485,7 @@ function buildUserPrompt({ message, level, selected, recentMessages, previousFai
     `Why that seed fits the Level: ${selected.falseBasis[level]}`,
     `Requested falsehood level: ${level}`,
     "Write Korean suitable for middle-school students.",
+    "Use a neutral, general ChatGPT-style conversational voice. Do not role-play Yi Sun-sin or speak like a historical character unless the student explicitly asks for role-play.",
     "Answer the current student question directly. Use recent conversation only to resolve references in short follow-ups.",
     "Never repeat an earlier answer when the current question clearly introduces a different topic.",
     "Blend true context with the false claim so it is subtle enough for observation.",

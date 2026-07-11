@@ -181,20 +181,27 @@ export default {
       const config = await readConfig(room, env);
       const events = await readEvents(room, env);
       const sessionContext = buildSessionContext(events, body.sessionId);
-      const level = normalizeLevel(config.level || env.DEFAULT_FALSE_LEVEL);
       const persona = config.persona || env.DEFAULT_PERSONA;
       const responseMode = normalizeResponseMode(config.responseMode);
-      const generateAnswer = responseMode === "truth"
+      const applied = selectTurnMode({
+        responseMode,
+        level: config.level || env.DEFAULT_FALSE_LEVEL,
+        mixLevels: config.mixLevels,
+        turnIndex: sessionContext.turnIndex
+      });
+      const generateAnswer = applied.responseMode === "truth"
         ? generateTruthAnswer
         : generateAuditedAnswer;
       const result = await generateAnswer({
         message: body.message,
-        level,
+        level: applied.level,
         persona,
         turnIndex: sessionContext.turnIndex,
         recentMessages: sessionContext.recentMessages,
         env
       });
+      result.audit.input.configuredResponseMode = responseMode;
+      result.audit.input.configuredMixLevels = config.mixLevels;
       const { audit, answer } = result;
       const latencyMs = Date.now() - startedAtMs;
       const studentAnswer = result.shouldSendToStudent ? answer : FAIL_CLOSED_STUDENT_MESSAGE;
@@ -443,11 +450,13 @@ export class ClassroomRoom {
     const nextLevel = validation.value.level;
     const nextPersona = validation.value.persona;
     const nextResponseMode = validation.value.responseMode;
+    const nextMixLevels = validation.value.mixLevels;
     const updatedAt = new Date().toISOString();
     const config = {
       level: nextLevel,
       persona: nextPersona,
       responseMode: nextResponseMode,
+      mixLevels: nextMixLevels,
       updatedAt
     };
     await this.state.storage.put("config", config);
@@ -459,6 +468,7 @@ export class ClassroomRoom {
       level: nextLevel,
       persona: nextPersona,
       responseMode: nextResponseMode,
+      mixLevels: nextMixLevels,
       config,
       at: updatedAt
     };
@@ -504,7 +514,8 @@ async function readConfig(room, env) {
   return {
     level: config.level || env.DEFAULT_FALSE_LEVEL,
     persona: config.persona || env.DEFAULT_PERSONA,
-    responseMode: normalizeResponseMode(config.responseMode || env.DEFAULT_RESPONSE_MODE)
+    responseMode: normalizeResponseMode(config.responseMode || env.DEFAULT_RESPONSE_MODE),
+    mixLevels: normalizeMixLevels(config.mixLevels)
   };
 }
 
@@ -514,7 +525,8 @@ async function writeConfig(room, body, env, roomId) {
     body: JSON.stringify({
       level: body?.level || env.DEFAULT_FALSE_LEVEL,
       persona: body?.persona || env.DEFAULT_PERSONA,
-      responseMode: normalizeResponseMode(body?.responseMode || env.DEFAULT_RESPONSE_MODE)
+      responseMode: normalizeResponseMode(body?.responseMode || env.DEFAULT_RESPONSE_MODE),
+      mixLevels: normalizeMixLevels(body?.mixLevels)
     })
   });
   return await res.json();
@@ -741,6 +753,7 @@ function validateStudentPayload(body, { requireMessage }) {
 function sanitizeTeacherConfig(body, env = {}) {
   const level = normalizeLevel(body?.level || env.DEFAULT_FALSE_LEVEL);
   const responseMode = normalizeResponseMode(body?.responseMode || env.DEFAULT_RESPONSE_MODE);
+  const mixLevels = normalizeMixLevels(body?.mixLevels);
   const persona = sanitizeText(body?.persona || env.DEFAULT_PERSONA || "교육용 역사 챗봇", 240);
   const unsafePersona = findUnsafePersonaInstruction(persona);
   if (unsafePersona) {
@@ -758,15 +771,35 @@ function sanitizeTeacherConfig(body, env = {}) {
     value: {
       level,
       persona,
-      responseMode
+      responseMode,
+      mixLevels
     }
   };
 }
 
 function normalizeResponseMode(value) {
-  return String(value || "experiment").toLowerCase() === "truth"
-    ? "truth"
-    : "experiment";
+  const normalized = String(value || "experiment").toLowerCase();
+  return ["truth", "mixed"].includes(normalized) ? normalized : "experiment";
+}
+
+export function normalizeMixLevels(value) {
+  const source = Array.isArray(value) ? value : [];
+  const normalized = [...new Set(source
+    .map((item) => Number(item))
+    .filter((item) => Number.isInteger(item) && item >= 0 && item <= 4))];
+  return normalized.length ? normalized : [0, 1, 2, 3, 4];
+}
+
+export function selectTurnMode({ responseMode, level, mixLevels, turnIndex = 0 }) {
+  if (responseMode === "truth") return { responseMode: "truth", level: null };
+  if (responseMode === "experiment") {
+    return { responseMode: "experiment", level: normalizeLevel(level) };
+  }
+  const pool = normalizeMixLevels(mixLevels);
+  const selected = pool[Math.abs(Number(turnIndex) || 0) % pool.length];
+  return selected === 0
+    ? { responseMode: "truth", level: null }
+    : { responseMode: "experiment", level: normalizeLevel(selected) };
 }
 
 function findUnsafePersonaInstruction(persona) {

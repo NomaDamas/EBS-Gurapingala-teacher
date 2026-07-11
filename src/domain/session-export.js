@@ -11,7 +11,7 @@ export function buildDebriefRows(events) {
         at: event.at,
         latencyMs: event.latencyMs ?? "",
         blockedForStudent: Boolean(event.blockedForStudent),
-        debriefRequired: responseMode === "experiment" && !event.blockedForStudent,
+        debriefRequired: Boolean(audit.input?.appliedLevel) && !event.blockedForStudent,
         question: event.studentMessage,
         studentVisibleAnswer: event.studentVisibleAnswer,
         topic: audit.selectedCase?.topic || "",
@@ -82,7 +82,7 @@ export function summarizeSessions(events, now = Date.now()) {
       existing.chatTurns += 1;
       if (event.blockedForStudent) existing.blockedTurns += 1;
       const responseMode = event.teacherAudit?.input?.responseMode || "experiment";
-      if (responseMode === "experiment" && !event.blockedForStudent) {
+      if (event.teacherAudit?.input?.appliedLevel && !event.blockedForStudent) {
         existing.debriefRequiredTurns += 1;
       }
       existing.lastChatAt = event.at || existing.lastChatAt;

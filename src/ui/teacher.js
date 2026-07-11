@@ -131,6 +131,17 @@ export const teacherHtml = `<!doctype html>
       font-size: 11px;
       line-height: 1.35;
     }
+    .mixOptions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+    .mixOptions label {
+      display: inline-flex; align-items: center; gap: 4px; width: auto;
+      padding: 6px 8px; border: 1px solid var(--line); border-radius: 999px;
+      background: #fff; font-size: 10.5px; cursor: pointer;
+    }
+    .mixOptions input { width: auto; margin: 0; }
+    .roomWarning {
+      margin: 9px 0 0; padding: 8px 10px; border-left: 4px solid var(--warning);
+      background: #fff8e8; color: #694d00; font-size: 11px;
+    }
     #students {
       min-height: 0;
       display: grid;
@@ -361,8 +372,9 @@ export const teacherHtml = `<!doctype html>
             <select id="responseMode" aria-describedby="responseModeHelp">
               <option value="experiment" selected>실험 · 진실+거짓</option>
               <option value="truth">진실 · 검수 사실만</option>
+              <option value="mixed">혼합 · 진실/복수 Level</option>
             </select>
-            <span class="fieldHelp" id="responseModeHelp">실험 모드는 통제된 진실+거짓에 Level 1~4를 적용합니다.</span>
+            <span class="fieldHelp" id="responseModeHelp">단일 Level 또는 선택한 진실/Level 조합을 턴별로 적용합니다.</span>
           </label>
           <label>거짓 Level
             <select id="level" aria-describedby="levelHelp">
@@ -388,8 +400,16 @@ export const teacherHtml = `<!doctype html>
           <button id="copyTeacherUrl">교사용 URL 복사</button>
           <button id="copyAuditJson">감사 JSON 복사</button>
         </div>
+        <div id="mixControl" class="mixOptions hidden" aria-label="혼합 모드 구성">
+          <label><input type="checkbox" name="mixLevel" value="0" checked /> 진실</label>
+          <label><input type="checkbox" name="mixLevel" value="1" checked /> Level 1</label>
+          <label><input type="checkbox" name="mixLevel" value="2" checked /> Level 2</label>
+          <label><input type="checkbox" name="mixLevel" value="3" checked /> Level 3</label>
+          <label><input type="checkbox" name="mixLevel" value="4" checked /> Level 4</label>
+        </div>
+        <p class="roomWarning" id="roomWarning"></p>
         <label style="margin-top:10px">페르소나 시스템 프롬프트
-          <textarea id="persona">이순신 장군처럼 말하되, 학생에게 친절한 역사 수업 도우미처럼 답한다.</textarea>
+          <textarea id="persona">일반적인 ChatGPT처럼 자연스럽고 명확한 한국어로 대화한다. 역할극 말투를 쓰지 않는다.</textarea>
         </label>
         <div class="actions">
           <button id="downloadExport">전체 로그 JSON</button>
@@ -440,6 +460,9 @@ export const teacherHtml = `<!doctype html>
     const responseModeEl = document.querySelector("#responseMode");
     const levelEl = document.querySelector("#level");
     const levelHelpEl = document.querySelector("#levelHelp");
+    const mixControlEl = document.querySelector("#mixControl");
+    const mixLevelEls = [...document.querySelectorAll('[name="mixLevel"]')];
+    const roomWarningEl = document.querySelector("#roomWarning");
     const personaEl = document.querySelector("#persona");
     const teacherReviewEl = document.querySelector("#teacherReview");
     const reviewPanelEl = document.querySelector("#reviewPanel");
@@ -460,6 +483,9 @@ export const teacherHtml = `<!doctype html>
     const teacherToken = params.get("token") || localStorage.getItem("teacher-token") || "";
     const roomId = normalizeRoomId(params.get("room") || "default-classroom");
     roomStatusEl.textContent = "room: " + roomId;
+    roomWarningEl.textContent = roomId === "default-classroom"
+      ? "현재 기본방입니다. 학생 URL에 room 파라미터가 없으면 이 방으로 들어옵니다. ebs test 기록은 이 기본방에 있습니다."
+      : "현재 " + roomId + " 방만 보고 있습니다. 학생 URL에도 ?room=" + roomId + "가 있어야 이 대시보드에 표시됩니다.";
     if (params.get("token")) {
       localStorage.setItem("teacher-token", params.get("token"));
       params.delete("token");
@@ -529,12 +555,18 @@ export const teacherHtml = `<!doctype html>
     }
 
     async function sendTeacherConfig() {
-      const modeLabel = responseModeEl.value === "truth" ? "truth · Level 비적용" : "experiment · Level " + levelEl.value;
+      const mixLevels = selectedMixLevels();
+      if (responseModeEl.value === "mixed" && mixLevels.length < 2) {
+        configStatusEl.value = "저장 실패: 혼합 모드는 2개 이상 선택";
+        return;
+      }
+      const modeLabel = responseModeLabel(responseModeEl.value, levelEl.value, mixLevels);
       configStatusEl.value = "저장 중: " + modeLabel;
       const payload = {
         type: "teacher_config",
         responseMode: responseModeEl.value,
         level: levelEl.value,
+        mixLevels,
         persona: personaEl.value
       };
       if (socket && socket.readyState === WebSocket.OPEN) {
@@ -593,6 +625,7 @@ export const teacherHtml = `<!doctype html>
           type: "teacher_config_updated",
           responseMode: responseModeEl.value,
           level: levelEl.value,
+          mixLevels: selectedMixLevels(),
           persona: personaEl.value,
           at: event.at
         }, null, 2);
@@ -639,7 +672,7 @@ export const teacherHtml = `<!doctype html>
         current.responseMode = event.teacherAudit?.input?.responseMode || current.responseMode || "experiment";
         current.appliedLevel = event.teacherAudit?.input?.appliedLevel ?? current.appliedLevel ?? null;
         if (event.blockedForStudent) current.blockedTurns = (current.blockedTurns || 0) + 1;
-        if (!event.blockedForStudent && event.teacherAudit?.input?.responseMode !== "truth") {
+        if (!event.blockedForStudent && event.teacherAudit?.input?.appliedLevel) {
           current.debriefRequiredTurns = (current.debriefRequiredTurns || 0) + 1;
         }
       }
@@ -830,26 +863,32 @@ export const teacherHtml = `<!doctype html>
     }
 
     function applyTeacherConfig(config) {
-      if (config.responseMode === "experiment" || config.responseMode === "truth") {
+      if (["experiment", "truth", "mixed"].includes(config.responseMode)) {
         responseModeEl.value = config.responseMode;
       }
       if (config.level) levelEl.value = String(config.level);
+      if (Array.isArray(config.mixLevels)) {
+        const selectedMix = new Set(config.mixLevels.map(Number));
+        for (const checkbox of mixLevelEls) checkbox.checked = selectedMix.has(Number(checkbox.value));
+      }
       if (config.persona) personaEl.value = config.persona;
       updateResponseModeUi();
       const appliedAt = config.updatedAt ? new Date(config.updatedAt).toLocaleTimeString() : new Date().toLocaleTimeString();
-      const appliedMode = responseModeEl.value === "truth"
-        ? "truth · Level 비적용"
-        : "experiment · Level " + levelEl.value;
+      const appliedMode = responseModeLabel(responseModeEl.value, levelEl.value, selectedMixLevels());
       configStatusEl.value = "적용됨: " + appliedMode + " · " + appliedAt;
     }
 
     function updateResponseModeUi() {
       const truthMode = responseModeEl.value === "truth";
-      levelEl.disabled = truthMode;
-      levelEl.setAttribute("aria-disabled", String(truthMode));
+      const mixedMode = responseModeEl.value === "mixed";
+      levelEl.disabled = truthMode || mixedMode;
+      levelEl.setAttribute("aria-disabled", String(truthMode || mixedMode));
+      mixControlEl.classList.toggle("hidden", !mixedMode);
       levelHelpEl.textContent = truthMode
         ? "진실 모드에서는 Level을 적용하지 않습니다. 검수된 사실만 학생에게 표시됩니다."
-        : "실험 모드에서 통제된 거짓의 강도를 Level 1~4로 적용합니다.";
+        : mixedMode
+          ? "선택한 진실/Level을 학생별 턴 순서대로 반복 적용합니다."
+          : "실험 모드에서 통제된 거짓의 강도를 Level 1~4로 적용합니다.";
     }
 
     function renderTeacherReview(audit, blockedForStudent = false) {
@@ -964,6 +1003,7 @@ export const teacherHtml = `<!doctype html>
           body: JSON.stringify({
             responseMode: payload.responseMode,
             level: payload.level,
+            mixLevels: payload.mixLevels,
             persona: payload.persona
           })
         });
@@ -987,6 +1027,18 @@ export const teacherHtml = `<!doctype html>
 
     function withRoom(path) {
       return path + "?room=" + encodeURIComponent(roomId);
+    }
+
+    function selectedMixLevels() {
+      return mixLevelEls.filter((item) => item.checked).map((item) => Number(item.value));
+    }
+
+    function responseModeLabel(mode, level, mixLevels) {
+      if (mode === "truth") return "truth · Level 비적용";
+      if (mode === "mixed") {
+        return "mixed · " + mixLevels.map((item) => item === 0 ? "진실" : "L" + item).join("+");
+      }
+      return "experiment · Level " + level;
     }
 
     function buildRoomUrl(path, includeToken = false) {
@@ -1111,6 +1163,7 @@ export const teacherHtml = `<!doctype html>
       updateResponseModeUi();
       sendTeacherConfig();
     });
+    mixLevelEls.forEach((checkbox) => checkbox.addEventListener("change", sendTeacherConfig));
     personaEl.addEventListener("change", sendTeacherConfig);
     reconnectSocketEl.addEventListener("click", () => connect(true));
     latestTurnButtonEl.addEventListener("click", () => {

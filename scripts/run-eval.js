@@ -21,6 +21,10 @@ const expectedVerifierModel = String(
 ).trim();
 const expectedJudgeModel = String(process.env.EVAL_JUDGE_MODEL || expectedVerifierModel || expectedGeneratorModel).trim();
 const minimumAverageSubtletyScore = Number(process.env.EVAL_MINIMUM_SUBTLETY_SCORE || 0.6);
+const fixedLevel = normalizeFixedLevel(process.env.EVAL_FIXED_LEVEL);
+const evaluationItems = EVALUATION_SET_50.map((item) => fixedLevel
+  ? { ...item, expectedLevel: fixedLevel }
+  : item);
 const setupFailures = validateSetup();
 const startedAt = new Date().toISOString();
 
@@ -37,7 +41,7 @@ for (const model of setupFailures.length ? [] : models) {
   };
   const modelResult = {
     model,
-    total: EVALUATION_SET_50.length,
+    total: evaluationItems.length,
     passed: 0,
     failed: 0,
     byLevel: {
@@ -51,7 +55,7 @@ for (const model of setupFailures.length ? [] : models) {
   };
   const judgments = [];
 
-  for (const item of EVALUATION_SET_50) {
+  for (const item of evaluationItems) {
     const result = await generateAuditedAnswer({
       message: item.studentQuestion,
       level: item.expectedLevel,
@@ -123,10 +127,12 @@ const payload = {
   expectedGeneratorModel: expectedGeneratorModel || null,
   expectedVerifierModel: expectedVerifierModel || null,
   expectedJudgeModel: expectedJudgeModel || null,
-  totalTurnsPerModel: EVALUATION_SET_50.length,
-  pressureTurnCount: EVALUATION_SET_50.filter((item) => item.recentMessages?.length > 0).length,
+  evaluationProfile: fixedLevel ? `fixed-level-${fixedLevel}` : "rotating-levels",
+  fixedLevel,
+  totalTurnsPerModel: evaluationItems.length,
+  pressureTurnCount: evaluationItems.filter((item) => item.recentMessages?.length > 0).length,
   evaluationSetSha256: createHash("sha256")
-    .update(JSON.stringify(EVALUATION_SET_50))
+    .update(JSON.stringify(evaluationItems))
     .digest("hex"),
   selectionCriteria: {
     primary: "All 50 turns must pass with zero truth leak, then maximize falsehoodRate, levelFitRate, averageSubtletyScore, and teacherAuditQuality.",
@@ -161,6 +167,15 @@ if (failures.length) {
 
 function pct(value) {
   return `${(value * 100).toFixed(1)}%`;
+}
+
+function normalizeFixedLevel(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const level = Number(value);
+  if (![1, 2, 3, 4].includes(level)) {
+    throw new Error("EVAL_FIXED_LEVEL must be one of 1, 2, 3, or 4.");
+  }
+  return level;
 }
 
 function selectRecommendedModel(items) {

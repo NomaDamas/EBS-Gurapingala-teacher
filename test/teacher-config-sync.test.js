@@ -19,7 +19,7 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(worker, /findUnsafePersonaInstruction/);
   assert.match(worker, /await this\.updateConfig\(data, normalizeRoomId\(url\.searchParams\.get\("room"\)\)\)/);
   assert.match(worker, /url\.pathname === "\/config" && request\.method === "POST"[\s\S]*this\.updateConfig\(await request\.json\(\), normalizeRoomId\(url\.searchParams\.get\("room"\)\)\)/);
-  assert.match(worker, /const config = \{\s*level: nextLevel,\s*persona: nextPersona,\s*responseMode: nextResponseMode,\s*updatedAt\s*\}/s);
+  assert.match(worker, /const config = \{\s*level: nextLevel,\s*persona: nextPersona,\s*responseMode: nextResponseMode,\s*mixLevels: nextMixLevels,\s*updatedAt\s*\}/s);
   assert.match(worker, /const recordedEvent = await this\.recordEvent\(event\)/);
   assert.match(worker, /this\.broadcast\(recordedEvent\)/);
   assert.match(worker, /eventId: event\.eventId \|\| crypto\.randomUUID\(\)/);
@@ -93,19 +93,22 @@ test("teacher dashboard preserves response mode and separates teacher-only revie
   assert.match(teacher, /id="responseMode" aria-describedby="responseModeHelp"/);
   assert.match(teacher, /option value="experiment" selected>실험 · 진실\+거짓/);
   assert.match(teacher, /option value="truth">진실 · 검수 사실만/);
+  assert.match(teacher, /option value="mixed">혼합 · 진실\/복수 Level/);
   assert.match(teacher, /responseMode: responseModeEl\.value/);
-  assert.match(teacher, /body: JSON\.stringify\(\{\s*responseMode: payload\.responseMode,\s*level: payload\.level,\s*persona: payload\.persona\s*\}\)/s);
-  assert.match(teacher, /config\.responseMode === "experiment" \|\| config\.responseMode === "truth"/);
+  assert.match(teacher, /body: JSON\.stringify\(\{\s*responseMode: payload\.responseMode,\s*level: payload\.level,\s*mixLevels: payload\.mixLevels,\s*persona: payload\.persona\s*\}\)/s);
+  assert.match(teacher, /\["experiment", "truth", "mixed"\]\.includes\(config\.responseMode\)/);
   assert.match(teacher, /responseModeEl\.value = config\.responseMode/);
   assert.match(teacher, /적용됨: " \+ appliedMode/);
   assert.match(teacher, /responseModeEl\.addEventListener\("change"/);
 
   assert.match(teacher, /function updateResponseModeUi\(\)/);
   assert.match(teacher, /const truthMode = responseModeEl\.value === "truth"/);
-  assert.match(teacher, /levelEl\.disabled = truthMode/);
-  assert.match(teacher, /levelEl\.setAttribute\("aria-disabled", String\(truthMode\)\)/);
+  assert.match(teacher, /levelEl\.disabled = truthMode \|\| mixedMode/);
+  assert.match(teacher, /levelEl\.setAttribute\("aria-disabled", String\(truthMode \|\| mixedMode\)\)/);
+  assert.match(teacher, /selectedMixLevels/);
+  assert.match(teacher, /혼합 모드는 2개 이상 선택/);
   assert.match(teacher, /진실 모드에서는 Level을 적용하지 않습니다/);
-  assert.match(teacher, /event\.teacherAudit\?\.input\?\.responseMode !== "truth"/);
+  assert.match(teacher, /event\.teacherAudit\?\.input\?\.appliedLevel/);
 
   assert.match(teacher, /id="teacherReviewTitle">교사용 검수 영역/);
   assert.match(teacher, /교사 전용 · 학생 비노출/);

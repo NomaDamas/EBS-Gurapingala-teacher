@@ -1,0 +1,47 @@
+name: Level Evaluation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    name: Level ${{ matrix.level }} - 50 turns
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        level: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Run 50 real OpenAI turns for Level ${{ matrix.level }}
+        run: node scripts/run-eval.js
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LLM_PROVIDER: openai
+          EVAL_MODELS: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EVAL_JUDGE: openai
+          EVAL_JUDGE_MODEL: ${{ vars.EVAL_JUDGE_MODEL || vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
+          REQUIRE_OPENAI_EVAL: "true"
+          EVAL_FIXED_LEVEL: ${{ matrix.level }}
+          EVAL_OUTPUT: artifacts/level-${{ matrix.level }}-evaluation.json
+          PR_HEAD_SHA: ${{ github.sha }}
+      - name: Upload Level evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: level-${{ matrix.level }}-evaluation
+          path: artifacts/level-${{ matrix.level }}-evaluation.json
+          if-no-files-found: error
