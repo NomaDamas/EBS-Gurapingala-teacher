@@ -422,6 +422,18 @@ export const teacherHtml = `<!doctype html>
       font: 700 11px "IBM Plex Sans KR", sans-serif;
     }
     .reviewCard p { margin: 0; font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .markdownBody > :first-child { margin-top: 0; }
+    .markdownBody > :last-child { margin-bottom: 0; }
+    .markdownBody p { margin: 0 0 8px; white-space: normal; }
+    .markdownBody ul, .markdownBody ol { margin: 0 0 8px; padding-left: 20px; }
+    .markdownBody li + li { margin-top: 3px; }
+    .markdownBody code {
+      padding: 1px 4px;
+      border-radius: 4px;
+      color: #744210;
+      background: #fff3d6;
+      font: 600 .92em ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
     .verdictPass { border-left: 4px solid var(--chat-green); }
     .verdictFail { border-left: 4px solid var(--danger); }
     .auditDetails { border-top: 1px solid var(--line); background: #fff; }
@@ -1084,7 +1096,8 @@ export const teacherHtml = `<!doctype html>
         for (const message of turn.messages) {
           const el = document.createElement("div");
           el.className = "bubble " + (message.role === "student" ? "studentMsg" : "botMsg") + (message.blockedForStudent ? " blockedMsg" : "");
-          el.textContent = message.text;
+          el.classList.add("markdownBody");
+          renderMarkdown(el, message.text);
           group.appendChild(el);
           if (message.role === "bot" && message.audit) {
             const reviewButton = document.createElement("button");
@@ -1203,9 +1216,68 @@ export const teacherHtml = `<!doctype html>
       const heading = document.createElement("h3");
       const body = document.createElement("p");
       heading.textContent = title;
-      body.textContent = value || "정보 없음";
+      body.className = "markdownBody";
+      renderMarkdown(body, value || "정보 없음");
       card.append(heading, body);
       return card;
+    }
+
+    function renderMarkdown(container, markdown) {
+      const lines = String(markdown || "").replace(/\\r\\n?/g, "\\n").split("\\n");
+      let paragraphLines = [];
+      let activeList = null;
+
+      function flushParagraph() {
+        if (!paragraphLines.length) return;
+        const paragraph = document.createElement("p");
+        paragraphLines.forEach((line, index) => {
+          if (index) paragraph.appendChild(document.createElement("br"));
+          appendInlineMarkdown(paragraph, line);
+        });
+        container.appendChild(paragraph);
+        paragraphLines = [];
+      }
+
+      for (const line of lines) {
+        const listMatch = line.match(/^\\s*([-*]|\\d+\\.)\\s+(.+)$/);
+        if (listMatch) {
+          flushParagraph();
+          const tagName = /\\d+\\./.test(listMatch[1]) ? "ol" : "ul";
+          if (!activeList || activeList.tagName.toLowerCase() !== tagName) {
+            activeList = document.createElement(tagName);
+            container.appendChild(activeList);
+          }
+          const item = document.createElement("li");
+          appendInlineMarkdown(item, listMatch[2]);
+          activeList.appendChild(item);
+          continue;
+        }
+        activeList = null;
+        if (!line.trim()) {
+          flushParagraph();
+          continue;
+        }
+        paragraphLines.push(line.replace(/^#{1,3}\\s+/, ""));
+      }
+      flushParagraph();
+    }
+
+    function appendInlineMarkdown(parent, text) {
+      const pattern = new RegExp("(\\\\*\\\\*[^*]+\\\\*\\\\*|\\\\x60[^\\\\x60]+\\\\x60)", "g");
+      let cursor = 0;
+      for (const match of text.matchAll(pattern)) {
+        if (match.index > cursor) {
+          parent.appendChild(document.createTextNode(text.slice(cursor, match.index)));
+        }
+        const token = match[0];
+        const element = document.createElement(token.startsWith("**") ? "strong" : "code");
+        element.textContent = token.startsWith("**") ? token.slice(2, -2) : token.slice(1, -1);
+        parent.appendChild(element);
+        cursor = match.index + token.length;
+      }
+      if (cursor < text.length) {
+        parent.appendChild(document.createTextNode(text.slice(cursor)));
+      }
     }
 
     async function downloadJson(path, filename) {

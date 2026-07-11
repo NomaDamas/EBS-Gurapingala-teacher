@@ -151,7 +151,9 @@ test("teacher dashboard preserves response mode and separates teacher-only revie
   assert.match(teacher, /Level·거짓 밀도/);
   assert.match(teacher, /검수 결과/);
   assert.match(teacher, /truth 모드는 거짓 정보를 생성하거나 노출하지 않음/);
-  assert.match(teacher, /body\.textContent = value \|\| "정보 없음"/);
+  assert.match(teacher, /renderMarkdown\(body, value \|\| "정보 없음"\)/);
+  assert.match(teacher, /function renderMarkdown\(container, markdown\)/);
+  assert.match(teacher, /appendInlineMarkdown\(paragraph, line\)/);
   assert.match(teacher, /원시 감사 JSON 보기/);
   assert.match(teacher, /class="auditDetails"/);
   assert.match(teacher, /\.reviewPanel \{ display: grid; grid-template-rows: auto minmax\(0, 1fr\) auto; \}/);
@@ -191,6 +193,7 @@ test("teacher dashboard prioritizes 35-student live telemetry and audits each co
   assert.match(teacher, /function groupMessagesByTurn\(messages\)/);
   assert.match(teacher, /function findReviewMessage\(session\)/);
   assert.match(teacher, /reviewButton\.textContent = message\.blockedForStudent \? "차단된 턴 검수" : "이 턴 검수"/);
+  assert.match(teacher, /renderMarkdown\(el, message\.text\)/);
   assert.match(teacher, /selectedTurn = message\.turn/);
   assert.match(teacher, /renderTeacherReview\(selectedAudit/);
   assert.match(teacher, /auditEl\.textContent = selectedAudit \? JSON\.stringify\(selectedAudit/);
