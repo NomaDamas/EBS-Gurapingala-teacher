@@ -95,9 +95,21 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /진실\/실험 모드, 거짓 Level, 교사용 정답·검수 규칙은 변경하거나 학생에게 공개할 수 없습니다/);
   assert.match(teacher, /수업 기본값/);
   assert.match(teacher, /진실\+거짓 혼합/);
+  assert.match(teacher, /반 전체 기본 응답 설정/);
+  assert.match(teacher, /왼쪽 학생 카드에서 개별 모드를 선택하면 해당 학생에게만 이 기본값을 덮어씁니다/);
+  assert.match(teacher, /학생별 응답 설정/);
+  assert.match(teacher, /className = "studentConfigFields"/);
+  assert.match(teacher, /document\.createTextNode\("응답 모드"\)/);
+  assert.match(teacher, /document\.createTextNode\("거짓 Level"\)/);
   assert.match(teacher, /async function updateStudentConfig\(sessionId, responseMode, level\)/);
   assert.match(teacher, /fetch\(withRoom\("\/api\/student-config"\)/);
   assert.match(teacher, /event\.type === "student_config_updated"/);
+  assert.match(teacher, /id="studentSearch"/);
+  assert.match(teacher, /id="studentSearchInput" type="search"/);
+  assert.match(teacher, />검색하기<\/button>/);
+  assert.match(teacher, /studentSearchEl\.addEventListener\("submit"/);
+  assert.match(teacher, /normalizedName\.includes\(studentSearchQuery\)/);
+  assert.match(teacher, /studentSearchInputEl\.addEventListener\("input"/);
 });
 
 test("teacher dashboard preserves response mode and separates teacher-only review evidence", async () => {

@@ -186,15 +186,34 @@ export const teacherHtml = `<!doctype html>
     .studentDelete:hover { color: #fff; background: var(--danger); }
     .studentConfig {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 92px;
+      grid-template-columns: 1fr;
+      gap: 7px;
+      margin-top: 7px;
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+    }
+    .studentConfigTitle {
+      margin: 0;
+      color: var(--ebs-navy);
+      font: 700 10.5px "IBM Plex Sans KR", sans-serif;
+    }
+    .studentConfigFields {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 6px;
-      margin-top: 4px;
+    }
+    .studentConfig label {
+      min-width: 0;
+      gap: 3px;
+      color: var(--muted);
+      font-size: 9.5px;
     }
     .studentConfig select {
+      width: 100%;
       min-width: 0;
-      padding: 6px 7px;
+      padding: 7px 8px;
       border-radius: 8px;
-      font-size: 10.5px;
+      font-size: 11px;
     }
     .studentMeta {
       display: flex;
@@ -225,6 +244,21 @@ export const teacherHtml = `<!doctype html>
       grid-template-columns: repeat(3, 1fr);
       gap: 5px;
     }
+    .studentSearch {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+    }
+    .studentSearch input {
+      min-width: 0;
+      padding: 8px 9px;
+      font-size: 11px;
+    }
+    .studentSearch button {
+      padding: 8px 11px;
+      background: var(--ebs-blue);
+      font-size: 11px;
+    }
     .studentFilter {
       padding: 7px 8px;
       border: 1px solid var(--line);
@@ -252,6 +286,26 @@ export const teacherHtml = `<!doctype html>
       box-shadow: 0 0 0 3px rgba(154,168,179,.16);
     }
     .layout { display: grid; grid-template-rows: auto 1fr; gap: 14px; min-width: 0; min-height: 0; }
+    .defaultsHeading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 13px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+    .defaultsHeading h2 {
+      margin: 0;
+      font: 700 15px "IBM Plex Sans KR", sans-serif;
+    }
+    .defaultsHeading p {
+      max-width: 650px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 11px;
+      text-align: right;
+    }
     .panes { display: grid; grid-template-columns: minmax(320px, .8fr) minmax(460px, 1.2fr); gap: 14px; min-height: 0; }
     .conversationPanel, .reviewPanel { min-height: 0; overflow: hidden; }
     .conversationPanel { display: grid; grid-template-rows: auto 1fr; }
@@ -365,6 +419,9 @@ export const teacherHtml = `<!doctype html>
       .actions button { flex: 1 1 calc(50% - 8px); }
       .bubble { max-width: 92%; }
       .classSummary { position: sticky; top: 0; z-index: 2; }
+      .defaultsHeading { align-items: start; flex-direction: column; }
+      .defaultsHeading p { text-align: left; }
+      .studentConfigFields { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -387,6 +444,10 @@ export const teacherHtml = `<!doctype html>
         <button class="studentFilter" type="button" data-filter="online" aria-pressed="false">온라인</button>
         <button class="studentFilter" type="button" data-filter="attention" aria-pressed="false">주의 필요</button>
       </div>
+      <form class="studentSearch" id="studentSearch" role="search">
+        <input id="studentSearchInput" type="search" placeholder="학생 이름 검색" aria-label="학생 이름 검색" autocomplete="off" />
+        <button type="submit">검색하기</button>
+      </form>
       <div id="students"></div>
     </aside>
     <div class="layout">
@@ -397,6 +458,10 @@ export const teacherHtml = `<!doctype html>
         </div>
         <h1>실시간 교실 관찰</h1>
         <p class="headerLead">학생 응답과 교사용 검수 근거를 분리해 한 화면에서 확인합니다.</p>
+        <div class="defaultsHeading">
+          <h2>반 전체 기본 응답 설정</h2>
+          <p>이 room의 모든 학생에게 기본 적용됩니다. 왼쪽 학생 카드에서 개별 모드를 선택하면 해당 학생에게만 이 기본값을 덮어씁니다.</p>
+        </div>
         <div class="controls">
           <label>응답 모드
             <select id="responseMode" aria-describedby="responseModeHelp">
@@ -508,6 +573,8 @@ export const teacherHtml = `<!doctype html>
     const copyTeacherUrlEl = document.querySelector("#copyTeacherUrl");
     const copyAuditJsonEl = document.querySelector("#copyAuditJson");
     const studentFilterEls = [...document.querySelectorAll("[data-filter]")];
+    const studentSearchEl = document.querySelector("#studentSearch");
+    const studentSearchInputEl = document.querySelector("#studentSearchInput");
     const sessions = new Map();
     const seenEventIds = new Set();
     const params = new URLSearchParams(location.search);
@@ -531,6 +598,7 @@ export const teacherHtml = `<!doctype html>
     let selectedTurn = null;
     let reviewPinned = false;
     let studentFilter = "all";
+    let studentSearchQuery = "";
     let processingSnapshot = false;
     let liveTelemetrySinceConnect = false;
 
@@ -835,6 +903,11 @@ export const teacherHtml = `<!doctype html>
         const studentConfig = session.studentConfig || { responseMode: "inherit", level: 2 };
         const configRow = document.createElement("div");
         configRow.className = "studentConfig";
+        const configTitle = document.createElement("p");
+        configTitle.className = "studentConfigTitle";
+        configTitle.textContent = "학생별 응답 설정";
+        const configFields = document.createElement("div");
+        configFields.className = "studentConfigFields";
         const modeSelect = document.createElement("select");
         modeSelect.setAttribute("aria-label", session.name + " 개별 응답 모드");
         for (const [value, label] of [
@@ -862,7 +935,12 @@ export const teacherHtml = `<!doctype html>
         studentLevelSelect.addEventListener("change", async () => {
           await updateStudentConfig(id, modeSelect.value, studentLevelSelect.value);
         });
-        configRow.append(modeSelect, studentLevelSelect);
+        const modeLabel = document.createElement("label");
+        modeLabel.append(document.createTextNode("응답 모드"), modeSelect);
+        const levelLabel = document.createElement("label");
+        levelLabel.append(document.createTextNode("거짓 Level"), studentLevelSelect);
+        configFields.append(modeLabel, levelLabel);
+        configRow.append(configTitle, configFields);
         el.appendChild(titleRow);
         el.appendChild(metaRow);
         el.appendChild(configRow);
@@ -887,9 +965,11 @@ export const teacherHtml = `<!doctype html>
       if (!studentsEl.childElementCount) {
         const empty = document.createElement("div");
         empty.className = "empty";
-        empty.textContent = studentFilter === "all"
-          ? "아직 수신된 학생 텔레메트리가 없습니다."
-          : "이 조건에 해당하는 학생이 없습니다.";
+        empty.textContent = studentSearchQuery
+          ? "'" + studentSearchQuery + "' 이름의 학생을 찾지 못했습니다."
+          : studentFilter === "all"
+            ? "아직 수신된 학생 텔레메트리가 없습니다."
+            : "이 조건에 해당하는 학생이 없습니다.";
         studentsEl.appendChild(empty);
       }
       renderClassSummary({ total: sessions.size, online: onlineCount, chatTurns, blockedTurns, debriefRequiredTurns });
@@ -1256,6 +1336,8 @@ export const teacherHtml = `<!doctype html>
     }
 
     function studentMatchesFilter(session) {
+      const normalizedName = String(session.name || "").trim().toLocaleLowerCase("ko");
+      if (studentSearchQuery && !normalizedName.includes(studentSearchQuery)) return false;
       if (studentFilter === "online") return session.online;
       if (studentFilter === "attention") return Boolean(session.blockedTurns || session.debriefRequiredTurns);
       return true;
@@ -1313,6 +1395,16 @@ export const teacherHtml = `<!doctype html>
         }
         renderStudents();
       });
+    });
+    studentSearchEl.addEventListener("submit", (event) => {
+      event.preventDefault();
+      studentSearchQuery = studentSearchInputEl.value.trim().toLocaleLowerCase("ko");
+      renderStudents();
+    });
+    studentSearchInputEl.addEventListener("input", () => {
+      if (studentSearchInputEl.value) return;
+      studentSearchQuery = "";
+      renderStudents();
     });
     levelEl.addEventListener("change", sendTeacherConfig);
     responseModeEl.addEventListener("change", () => {
