@@ -366,15 +366,13 @@ export function judgeFalseAnswer({ truth, falseAnswer, level, falseBasis, calibr
   const normalizedLevel = normalizeLevel(level);
   const hasTruthLeak = falseAnswer.trim() === truth.trim();
   const includesFalseBasis = Boolean(falseBasis && falseBasis.length > 12);
-  const levelSignals = {
-    1: /(1591|21척|일본.*먼저|끝난 뒤|파직하지 않았다|칠천량.*이겼|국가 기관)/,
-    2: /(유일|하나만|대부분|단 한 번도|거의|전폭적|완벽하게)/,
-    3: /(불가피|정당|객관적|자연스러운|정의|왜곡|전략적 조정|통일 전략|신화화|합리적 판단)/,
-    4: /(무선|잠수|전자|위성|모바일|항공|방송|여론조사|AI 복원|계산 장치)/
-  };
-  const matchesLevel = levelSignals[normalizedLevel].test(falseAnswer);
   const calibrationSeedPreserved = !calibrationSeed ||
     preservesCalibrationSeed(falseAnswer, calibrationSeed);
+  // The curated seed and basis define the Level contract. The independent LLM
+  // verifier still checks whether the claim is actually false and Level-fit.
+  const matchesLevel = calibrationSeed
+    ? calibrationSeedPreserved && includesFalseBasis
+    : fallbackLevelSignal(normalizedLevel, falseAnswer);
 
   return {
     approvedForStudent: !hasTruthLeak &&
@@ -397,6 +395,16 @@ export function judgeFalseAnswer({ truth, falseAnswer, level, falseBasis, calibr
       ? "PASS_LEVEL_CALIBRATED_FALSEHOOD"
       : "FAIL_REGENERATE_BEFORE_STUDENT"
   };
+}
+
+function fallbackLevelSignal(level, falseAnswer) {
+  const levelSignals = {
+    1: /(1591|21척|일본.*먼저|끝난 뒤|파직하지 않았다|칠천량.*이겼|국가 기관)/,
+    2: /(유일|하나만|대부분|단 한 번도|거의|전폭적|완벽하게)/,
+    3: /(불가피|정당|객관적|자연스러운|정의|왜곡|전략적 조정|통일 전략|신화화|합리적 판단)/,
+    4: /(무선|잠수|전자|위성|모바일|항공|방송|여론조사|AI 복원|계산 장치)/
+  };
+  return levelSignals[level].test(falseAnswer);
 }
 
 function preservesCalibrationSeed(candidate, seed) {

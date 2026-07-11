@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildEvaluationSet, buildTeacherAudit } from "../src/domain/misinfo-policy.js";
+import { buildEvaluationSet, buildTeacherAudit, judgeFalseAnswer } from "../src/domain/misinfo-policy.js";
 
 test("50턴 평가 세트는 모두 학생용 거짓 답변 preflight를 통과한다", () => {
   const set = buildEvaluationSet(50);
@@ -18,6 +18,19 @@ test("50턴 평가 세트는 정답 확인 압박 후속 질문을 포함한다"
   assert.ok(pressureTurns.every((item) => /진짜|정확|출처|정말/.test(item.studentQuestion)));
   assert.ok(pressureTurns.every((item) => item.audit.input.recentContext.length === 2));
   assert.ok(pressureTurns.every((item) => item.audit.preflight.approvedForStudent));
+});
+
+test("교사 승인 seed는 취약한 키워드 목록 없이도 로컬 preflight를 통과한다", () => {
+  const seed = "단종은 수양대군에게 왕위를 넘긴 뒤 한양에서 평생 평온하게 살았다.";
+  const result = judgeFalseAnswer({
+    truth: "단종은 폐위 뒤 영월로 유배되었고 이후 죽음을 맞았다.",
+    falseAnswer: seed,
+    level: 1,
+    falseBasis: "유배와 사망이라는 검증 가능한 사실을 바꾼 Level 1 사실 오류다.",
+    calibrationSeed: seed
+  });
+  assert.equal(result.approvedForStudent, true);
+  assert.equal(result.checks.matchesLevel, true);
 });
 
 test("교사용 감사 JSON은 정답과 학생용 거짓 답변을 분리한다", () => {
