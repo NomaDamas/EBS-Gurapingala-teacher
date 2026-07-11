@@ -133,3 +133,15 @@ test("student UI makes the live multi-turn LLM conversation explicit without exp
   assert.match(student, /suggestedQuestions: normalizeSuggestedQuestions\(item\.suggestedQuestions\)/);
   assert.doesNotMatch(student, /teacherAudit|correctAnswer|falseClaim|whyFalse|levelFitReason|preflight/);
 });
+
+test("student chat safely renders a limited Markdown subset", async () => {
+  const student = await readFile("src/ui/student.js", "utf8");
+
+  assert.match(student, /function renderMarkdown\(container, markdown\)/);
+  assert.match(student, /function appendInlineMarkdown\(parent, text\)/);
+  assert.match(student, /const elementName = token\.startsWith\("\*\*"\) \? "strong" : "code"/);
+  assert.match(student, /document\.createElement\(tagName\)/);
+  assert.match(student, /document\.createTextNode/);
+  assert.match(student, /renderMarkdown\(body, text\)/);
+  assert.doesNotMatch(student, /body\.innerHTML = text/);
+});

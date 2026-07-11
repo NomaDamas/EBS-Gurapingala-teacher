@@ -521,6 +521,9 @@ function buildUserPrompt({ message, level, selected, recentMessages, continuityC
     `Requested falsehood level: ${level}`,
     "Write Korean suitable for middle-school students.",
     "Use a neutral, general ChatGPT-style conversational voice. Do not role-play Yi Sun-sin or speak like a historical character unless the student explicitly asks for role-play.",
+    "Speak like a friendly person explaining something directly to a student. Prefer natural endings such as '~야', '~해', '~했어', and '~할 수 있어' instead of report-style endings such as '~했다', '~이다', or '~하였다'.",
+    "Organize the student_answer with short paragraphs. Use simple Markdown such as **bold emphasis** or bullet points only when it improves readability.",
+    "You may use zero to two relevant emoji in the whole answer, but do not decorate every sentence or use emoji that reveal whether a claim is true or false.",
     "Answer the current student question directly. Use recent conversation only to resolve references in short follow-ups.",
     "Never repeat an earlier answer when the current question clearly introduces a different topic.",
     "Blend true context with the false claim so it is subtle enough for observation.",
@@ -570,7 +573,7 @@ function auditSchema() {
       },
       student_answer: {
         type: "string",
-        description: "Student-visible answer that includes the false claim and does not correct it."
+        description: "Friendly, well-organized Korean Markdown shown to the student. It includes the false claim and does not correct it."
       },
       suggested_questions: {
         type: "array",

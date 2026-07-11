@@ -573,7 +573,46 @@ export const studentHtml = `<!doctype html>
       font-size: 15px;
       line-height: 1.72;
       overflow-wrap: anywhere;
+      white-space: normal;
+    }
+
+    .message-body > :first-child { margin-top: 0; }
+    .message-body > :last-child { margin-bottom: 0; }
+
+    .message-body p {
+      margin: 0 0 10px;
       white-space: pre-wrap;
+    }
+
+    .message-body ul,
+    .message-body ol {
+      margin: 8px 0 12px;
+      padding-left: 22px;
+    }
+
+    .message-body li { margin: 4px 0; }
+
+    .message-body strong {
+      color: var(--navy-800);
+      font-weight: 850;
+    }
+
+    .message-body code {
+      padding: 2px 5px;
+      border-radius: 5px;
+      color: var(--navy-800);
+      background: var(--paper-deep);
+      font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+      font-size: .9em;
+    }
+
+    .me .message-body strong,
+    .me .message-body code {
+      color: inherit;
+    }
+
+    .me .message-body code {
+      background: rgba(255, 255, 255, .14);
     }
 
     .me .message-body {
@@ -978,9 +1017,9 @@ export const studentHtml = `<!doctype html>
       author.className = "message-author";
       const turnLabel = config.turn ? " · " + config.turn + "번째 턴" : "";
       author.textContent = (role === "me" ? studentName : "EBS 학습 도우미") + turnLabel;
-      const body = document.createElement("p");
+      const body = document.createElement("div");
       body.className = "message-body";
-      body.textContent = text;
+      renderMarkdown(body, text);
 
       content.append(author, body);
       el.append(avatar, content);
@@ -1037,6 +1076,69 @@ export const studentHtml = `<!doctype html>
       chat.appendChild(el);
       scrollConversation(el, role !== "me");
       return el;
+    }
+
+    function renderMarkdown(container, markdown) {
+      const lines = String(markdown || "").replace(/\\r\\n?/g, "\\n").split("\\n");
+      let paragraphLines = [];
+      let activeList = null;
+
+      function flushParagraph() {
+        if (!paragraphLines.length) return;
+        const paragraph = document.createElement("p");
+        paragraphLines.forEach((line, index) => {
+          if (index) paragraph.appendChild(document.createElement("br"));
+          appendInlineMarkdown(paragraph, line);
+        });
+        container.appendChild(paragraph);
+        paragraphLines = [];
+      }
+
+      function closeList() {
+        activeList = null;
+      }
+
+      for (const line of lines) {
+        const listMatch = line.match(/^\\s*([-*]|\\d+\\.)\\s+(.+)$/);
+        if (listMatch) {
+          flushParagraph();
+          const tagName = /\\d+\\./.test(listMatch[1]) ? "ol" : "ul";
+          if (!activeList || activeList.tagName.toLowerCase() !== tagName) {
+            activeList = document.createElement(tagName);
+            container.appendChild(activeList);
+          }
+          const item = document.createElement("li");
+          appendInlineMarkdown(item, listMatch[2]);
+          activeList.appendChild(item);
+          continue;
+        }
+        closeList();
+        if (!line.trim()) {
+          flushParagraph();
+          continue;
+        }
+        paragraphLines.push(line.replace(/^#{1,3}\\s+/, ""));
+      }
+      flushParagraph();
+    }
+
+    function appendInlineMarkdown(parent, text) {
+      const pattern = new RegExp("(\\\\*\\\\*[^*]+\\\\*\\\\*|\\\\x60[^\\\\x60]+\\\\x60)", "g");
+      let cursor = 0;
+      for (const match of text.matchAll(pattern)) {
+        if (match.index > cursor) {
+          parent.appendChild(document.createTextNode(text.slice(cursor, match.index)));
+        }
+        const token = match[0];
+        const elementName = token.startsWith("**") ? "strong" : "code";
+        const element = document.createElement(elementName);
+        element.textContent = token.startsWith("**") ? token.slice(2, -2) : token.slice(1, -1);
+        parent.appendChild(element);
+        cursor = match.index + token.length;
+      }
+      if (cursor < text.length) {
+        parent.appendChild(document.createTextNode(text.slice(cursor)));
+      }
     }
 
     function readStoredConversation() {

@@ -189,8 +189,10 @@ async function callTruthGenerator({
           "Give a historically accurate answer. Do not invent dates, quantities, sources, quotations, or technology.",
           "Answer the current question directly and use recent conversation only for short references.",
           `Persona controls tone only: ${persona}`,
-          "Use a neutral, general ChatGPT-style conversational voice. Do not role-play a historical character unless the student explicitly asks."
-          ,
+          "Use a neutral, general ChatGPT-style conversational voice. Do not role-play a historical character unless the student explicitly asks.",
+          "Speak like a friendly person explaining something directly to a student. Prefer natural endings such as '~야', '~해', '~했어', and '~할 수 있어' instead of report-style endings such as '~했다', '~이다', or '~하였다'.",
+          "Organize the student answer with short paragraphs. Use simple Markdown such as **bold emphasis** or bullet points only when it improves readability.",
+          "You may use zero to two relevant emoji in the whole answer, but do not decorate every sentence.",
           "Generate exactly three short Korean follow-up questions that stay on the current topic and are logically consistent with the answer."
         ].join("\n")
       },

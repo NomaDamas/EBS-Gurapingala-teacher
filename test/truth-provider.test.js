@@ -54,6 +54,10 @@ test("truth mode returns only independently verified OpenAI truth", async () => 
   assert.match(result.answer, /개인 일기/);
   assert.match(JSON.parse(calls[0].init.body).input[1].content, /난중일기/);
   assert.match(JSON.parse(calls[0].init.body).input[1].content, /Recent same-student conversation/);
+  const systemPrompt = JSON.parse(calls[0].init.body).input[0].content;
+  assert.match(systemPrompt, /friendly person/);
+  assert.match(systemPrompt, /simple Markdown/);
+  assert.match(systemPrompt, /zero to two relevant emoji/);
 });
 
 test("truth mode fails closed without OpenAI instead of using rules", async () => {

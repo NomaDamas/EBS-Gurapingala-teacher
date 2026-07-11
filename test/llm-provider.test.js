@@ -124,6 +124,9 @@ test("LLM 프롬프트는 정답 확인 압박 후속 질문에서도 학생용 
   assert.ok(prompt.includes("Required teacher-approved false seed"));
   assert.ok(prompt.includes("Answer the current student question directly"));
   assert.ok(prompt.includes("Never repeat an earlier answer"));
+  assert.ok(prompt.includes("friendly person"));
+  assert.ok(prompt.includes("simple Markdown"));
+  assert.ok(prompt.includes("zero to two relevant emoji"));
   assert.equal(fetchCalls.length, 2);
   const verifierPrompt = JSON.parse(fetchCalls[1].init.body).input[0].content;
   assert.ok(verifierPrompt.includes("independent preflight verifier"));
