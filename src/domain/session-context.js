@@ -1,10 +1,10 @@
-export function buildSessionContext(events, sessionId, maxMessages = 6) {
+export function buildSessionContext(events, sessionId, maxTurns = 12) {
   const turns = events.filter((event) => (
     event.type === "chat_turn" &&
     event.sessionId === sessionId
   ));
   const recentMessages = turns
-    .slice(-maxMessages)
+    .slice(-maxTurns)
     .flatMap((event) => [
       {
         role: "student",
@@ -17,7 +17,7 @@ export function buildSessionContext(events, sessionId, maxMessages = 6) {
     ])
     .filter((message) => message.text);
   const recentFalseClaims = turns
-    .slice(-maxMessages)
+    .slice(-maxTurns)
     .map((event) => ({
       topicId: cleanText(event.teacherAudit?.selectedCase?.id),
       topic: cleanText(event.teacherAudit?.selectedCase?.topic),

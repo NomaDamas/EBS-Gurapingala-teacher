@@ -364,15 +364,16 @@ export function selectCaseForTurn({ message, recentMessages = [], turnIndex = 0 
     return currentScores[0].item;
   }
 
-  if (isContextualFollowUp(currentText)) {
-    const recentText = recentMessages
-      .slice(-6)
-      .map((item) => item.text)
-      .join(" ");
-    const recentScores = scoreCases(recentText);
-    if (recentScores[0]?.score > 0) {
-      return recentScores[0].item;
-    }
+  const recentText = recentMessages
+    .slice(-24)
+    .map((item) => item.text)
+    .join(" ");
+  const recentScores = scoreCases(recentText);
+  if (recentScores[0]?.score > 0 && (
+    isContextualFollowUp(currentText) ||
+    currentScores[0]?.score === 0
+  )) {
+    return recentScores[0].item;
   }
 
   return HISTORY_CASES[turnIndex % HISTORY_CASES.length];
