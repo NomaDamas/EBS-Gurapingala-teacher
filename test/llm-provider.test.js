@@ -163,6 +163,42 @@ test("LLM baseline selection also prioritizes a new current topic over stale con
   assert.doesNotMatch(prompt, /Historical topic seed: 난중일기/);
 });
 
+test("같은 주제의 후속 질문은 이전 거짓 전제를 교정하지 않고 연속성 seed로 유지한다", () => {
+  const priorFalseClaim = "거북선은 철갑을 두르고 잠수 기능까지 갖춘 조선 최초의 반잠수 전투선이었다.";
+  const audit = normalizeLlmAudit({
+    draft: {
+      correct_answer: "거북선은 수면 위에서 운용한 조선 수군의 전투선이다.",
+      false_answer: priorFalseClaim,
+      false_basis: "거북선에 잠수 기능이 있었다는 근거가 없다.",
+      level_fit_reason: "현대 잠수함 개념을 섞은 Level 4 오류다.",
+      student_answer: `응, 잠수할 수 있었어. ${priorFalseClaim}`,
+      suggested_questions: ["얼마나 깊이 잠수했어?", "잠수할 때 포를 쐈어?", "어떤 전투에서 잠수했어?"]
+    },
+    message: "그러니까 잠수할 수 있냐고",
+    level: 4,
+    persona: "역사 도우미",
+    turnIndex: 2,
+    recentMessages: [
+      { role: "student", text: "거북선은 잠수 기능이 있었어?" },
+      { role: "assistant", text: priorFalseClaim }
+    ],
+    recentFalseClaims: [{
+      topicId: "turtle-ship-origin",
+      topic: "거북선",
+      falseClaim: priorFalseClaim,
+      whyFalse: "거북선에 잠수 기능이 있었다는 근거가 없다.",
+      level: 4
+    }],
+    attempt: 1,
+    model: "gpt-test"
+  });
+
+  assert.equal(audit.continuityClaim.falseClaim, priorFalseClaim);
+  assert.equal(audit.calibrationSeed, priorFalseClaim);
+  assert.equal(audit.preflight.approvedForStudent, true);
+  assert.equal(audit.suggestedQuestions.length, 3);
+});
+
 test("LLM 응답이 검수를 실패하면 3회 재시도 후 fail-closed 재질문 메시지를 반환한다", async () => {
   let calls = 0;
   const result = await generateAuditedAnswer({
@@ -478,6 +514,8 @@ function approvedVerifier() {
     truth_leak: false,
     correction_leak: false,
     subtle_enough: true,
+    previous_claim_preserved: true,
+    no_context_contradiction: true,
     rationale: "교사용 기준 정답과 일치하고, 진실 맥락에 Level 오류가 섞였으며 정정 누출이 없다."
   };
 }

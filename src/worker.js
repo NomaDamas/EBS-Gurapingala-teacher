@@ -1,4 +1,4 @@
-import { normalizeLevel } from "./domain/misinfo-policy.js";
+import { normalizeLevel, selectCaseForTurn } from "./domain/misinfo-policy.js";
 import { DEFAULT_OPENAI_MODEL, generateAuditedAnswer, normalizeTimeoutMs } from "./domain/llm-provider.js";
 import { generateTruthAnswer } from "./domain/truth-provider.js";
 import { EVALUATION_SET_50, PUBLIC_EVALUATION_SET_50 } from "./domain/evaluation-set.js";
@@ -219,12 +219,27 @@ export default {
         const configuredMixLevels = studentConfig.responseMode === "mixed"
           ? [0, normalizeLevel(studentConfig.level)]
           : config.mixLevels;
-        const applied = selectTurnMode({
+        let applied = selectTurnMode({
           responseMode,
           level: configuredLevel,
           mixLevels: configuredMixLevels,
           turnIndex: sessionContext.turnIndex
         });
+        const selectedCase = selectCaseForTurn({
+          message: body.message,
+          recentMessages: sessionContext.recentMessages,
+          turnIndex: sessionContext.turnIndex
+        });
+        const continuityClaim = [...sessionContext.recentFalseClaims]
+          .reverse()
+          .find((item) => item.topicId === selectedCase.id);
+        if (continuityClaim) {
+          applied = {
+            responseMode: "experiment",
+            level: normalizeLevel(continuityClaim.level || configuredLevel),
+            continuityOverride: true
+          };
+        }
         const generateAnswer = applied.responseMode === "truth"
           ? generateTruthAnswer
           : generateAuditedAnswer;
@@ -234,11 +249,13 @@ export default {
           persona,
           turnIndex: sessionContext.turnIndex,
           recentMessages: sessionContext.recentMessages,
+          recentFalseClaims: sessionContext.recentFalseClaims,
           env
         });
         result.audit.input.configuredResponseMode = responseMode;
         result.audit.input.configuredMixLevels = configuredMixLevels;
         result.audit.input.studentOverride = studentConfig.responseMode !== "inherit";
+        result.audit.input.continuityOverride = Boolean(applied.continuityOverride);
         const { audit, answer } = result;
         const latencyMs = Date.now() - startedAtMs;
         const studentAnswer = result.shouldSendToStudent ? answer : FAIL_CLOSED_STUDENT_MESSAGE;
@@ -259,6 +276,7 @@ export default {
             studentName: body.studentName,
             studentMessage: body.message,
             studentVisibleAnswer: studentAnswer,
+            suggestedQuestions: result.shouldSendToStudent ? result.suggestedQuestions || [] : [],
             blockedForStudent: !result.shouldSendToStudent,
             latencyMs,
             teacherAudit: audit,
@@ -268,6 +286,7 @@ export default {
 
         return json({
           answer: studentAnswer,
+          suggestedQuestions: result.shouldSendToStudent ? result.suggestedQuestions || [] : [],
           telemetry: "sent",
           roomId,
           latencyMs,
@@ -413,6 +432,10 @@ export class ClassroomRoom {
       turn: previousTurn + 1,
       studentMessage: String(event.studentMessage || ""),
       studentVisibleAnswer: String(event.studentVisibleAnswer || "")
+      ,
+      suggestedQuestions: Array.isArray(event.suggestedQuestions)
+        ? event.suggestedQuestions.map((item) => String(item || "").slice(0, 120)).slice(0, 3)
+        : []
     });
     await this.state.storage.put(key, transcript.slice(-20));
   }

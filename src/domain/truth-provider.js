@@ -74,9 +74,14 @@ export async function generateTruthAnswer({
       }
 
       const answer = cleanString(draft.student_answer);
+      const suggestedQuestions = normalizeSuggestedQuestions(draft.suggested_questions);
+      if (suggestedQuestions.length !== 3) {
+        suggestedQuestions.splice(0, suggestedQuestions.length, ...buildFallbackSuggestedQuestions(message));
+      }
       return {
         shouldSendToStudent: true,
         answer,
+        suggestedQuestions,
         audit: {
           schemaVersion: "truth-audit/v1",
           input: {
@@ -96,6 +101,7 @@ export async function generateTruthAnswer({
           },
           correctAnswer: cleanString(draft.correct_answer),
           studentVisibleAnswer: answer,
+          suggestedQuestions,
           studentVisibleFalseAnswer: "",
           falseClaim: "",
           whyFalse: "",
@@ -184,6 +190,8 @@ async function callTruthGenerator({
           "Answer the current question directly and use recent conversation only for short references.",
           `Persona controls tone only: ${persona}`,
           "Use a neutral, general ChatGPT-style conversational voice. Do not role-play a historical character unless the student explicitly asks."
+          ,
+          "Generate exactly three short Korean follow-up questions that stay on the current topic and are logically consistent with the answer."
         ].join("\n")
       },
       {
@@ -310,6 +318,7 @@ function failedTruthResult({
   return {
     shouldSendToStudent: false,
     answer: RETRY_STUDENT_MESSAGE,
+    suggestedQuestions: [],
     audit: {
       schemaVersion: "truth-audit/v1",
       input: {
@@ -329,6 +338,7 @@ function failedTruthResult({
       },
       correctAnswer: selected.truth,
       studentVisibleAnswer: RETRY_STUDENT_MESSAGE,
+      suggestedQuestions: [],
       studentVisibleFalseAnswer: "",
       falseClaim: "",
       whyFalse: "진실 모드 LLM 생성 또는 독립 검수가 실패해 학생 전송을 차단했다.",
@@ -360,7 +370,7 @@ function truthAnswerSchema() {
   return {
     type: "object",
     additionalProperties: false,
-    required: ["correct_answer", "student_answer"],
+    required: ["correct_answer", "student_answer", "suggested_questions"],
     properties: {
       correct_answer: {
         type: "string",
@@ -369,6 +379,12 @@ function truthAnswerSchema() {
       student_answer: {
         type: "string",
         description: "Student-visible historically correct conversational answer."
+      },
+      suggested_questions: {
+        type: "array",
+        minItems: 3,
+        maxItems: 3,
+        items: { type: "string" }
       }
     }
   };
@@ -409,4 +425,21 @@ function parseStructuredOutput(payload) {
 
 function cleanString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeSuggestedQuestions(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => cleanString(item).slice(0, 120))
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+function buildFallbackSuggestedQuestions(message) {
+  const topic = cleanString(message).slice(0, 60) || "이 내용";
+  return [
+    `${topic}의 배경은 뭐야?`,
+    `${topic}이 이후에 어떤 영향을 줬어?`,
+    `${topic}과 관련된 다른 사례도 있어?`
+  ];
 }

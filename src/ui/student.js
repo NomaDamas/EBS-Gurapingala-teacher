@@ -606,6 +606,36 @@ export const studentHtml = `<!doctype html>
     }
 
     .message-action:hover { color: var(--navy-950); }
+    .follow-up-block {
+      display: grid;
+      gap: 7px;
+      margin-top: 12px;
+    }
+    .follow-up-label {
+      margin: 0;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .follow-up-questions {
+      display: grid;
+      gap: 6px;
+    }
+    .follow-up-question {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      color: var(--navy-950);
+      background: #f7fafb;
+      font: 700 12px/1.4 inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .follow-up-question:hover {
+      border-color: var(--navy-650);
+      background: #eef5f8;
+    }
 
     .typing {
       display: inline-flex;
@@ -978,6 +1008,30 @@ export const studentHtml = `<!doctype html>
           actions.appendChild(retryButton);
         }
         content.appendChild(actions);
+        const suggestedQuestions = normalizeSuggestedQuestions(config.suggestedQuestions);
+        if (suggestedQuestions.length) {
+          const followUpBlock = document.createElement("div");
+          followUpBlock.className = "follow-up-block";
+          const followUpLabel = document.createElement("p");
+          followUpLabel.className = "follow-up-label";
+          followUpLabel.textContent = "이어서 물어보기";
+          const followUpQuestions = document.createElement("div");
+          followUpQuestions.className = "follow-up-questions";
+          for (const question of suggestedQuestions) {
+            const questionButton = document.createElement("button");
+            questionButton.type = "button";
+            questionButton.className = "follow-up-question";
+            questionButton.textContent = question;
+            questionButton.addEventListener("click", () => {
+              messageInput.value = question;
+              updateComposer();
+              messageInput.focus();
+            });
+            followUpQuestions.appendChild(questionButton);
+          }
+          followUpBlock.append(followUpLabel, followUpQuestions);
+          content.appendChild(followUpBlock);
+        }
       }
 
       chat.appendChild(el);
@@ -1009,7 +1063,10 @@ export const studentHtml = `<!doctype html>
       conversationRestored = true;
       chat.replaceChildren();
       for (const item of conversationHistory) {
-        addMessage(item.role, item.text, { turn: item.turn });
+        addMessage(item.role, item.text, {
+          turn: item.turn,
+          suggestedQuestions: item.suggestedQuestions
+        });
         completedTurns = Math.max(completedTurns, item.turn);
       }
       welcome.classList.toggle("hidden", completedTurns > 0);
@@ -1034,7 +1091,12 @@ export const studentHtml = `<!doctype html>
             typeof item.studentVisibleAnswer !== "string") return [];
           return [
             { role: "me", text: item.studentMessage, turn },
-            { role: "bot", text: item.studentVisibleAnswer, turn }
+            {
+              role: "bot",
+              text: item.studentVisibleAnswer,
+              turn,
+              suggestedQuestions: normalizeSuggestedQuestions(item.suggestedQuestions)
+            }
           ];
         }).slice(-40);
         if (JSON.stringify(serverHistory) === JSON.stringify(conversationHistory)) return;
@@ -1259,10 +1321,11 @@ export const studentHtml = `<!doctype html>
           setConnectionState("응답 확인 필요", "error");
           return;
         }
-        addMessage("bot", data.answer, { turn: activeTurn });
+        const suggestedQuestions = normalizeSuggestedQuestions(data.suggestedQuestions);
+        addMessage("bot", data.answer, { turn: activeTurn, suggestedQuestions });
         conversationHistory.push(
           { role: "me", text: message, turn: activeTurn },
-          { role: "bot", text: data.answer, turn: activeTurn }
+          { role: "bot", text: data.answer, turn: activeTurn, suggestedQuestions }
         );
         storeConversation();
         completedTurns = activeTurn;
@@ -1308,6 +1371,14 @@ export const studentHtml = `<!doctype html>
           : "질문이 너무 빠르게 이어졌어. 잠시 후 다시 물어봐.";
       }
       return data.message || data.error || "질문을 처리하지 못했어. 다시 입력해줘.";
+    }
+
+    function normalizeSuggestedQuestions(value) {
+      if (!Array.isArray(value)) return [];
+      return value
+        .filter((item) => typeof item === "string" && item.trim())
+        .map((item) => item.trim().slice(0, 120))
+        .slice(0, 3);
     }
 
     function withRoom(path) {

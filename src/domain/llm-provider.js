@@ -18,6 +18,7 @@ export async function generateAuditedAnswer({
   persona,
   turnIndex = 0,
   recentMessages = [],
+  recentFalseClaims = [],
   env = {},
   fetchImpl = fetch
 }) {
@@ -39,6 +40,7 @@ export async function generateAuditedAnswer({
         mode: "fallback"
       }),
       answer: fallbackAudit.studentVisibleFalseAnswer,
+      suggestedQuestions: buildFallbackSuggestedQuestions(message),
       shouldSendToStudent: true
     };
   }
@@ -50,6 +52,7 @@ export async function generateAuditedAnswer({
       persona,
       turnIndex,
       recentMessages,
+      recentFalseClaims,
       model: env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
       verifierModel: env.OPENAI_VERIFIER_MODEL || env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
       timeoutMs: normalizeTimeoutMs(env.OPENAI_TIMEOUT_MS),
@@ -75,6 +78,7 @@ export async function generateAuditedAnswer({
         persona,
         turnIndex,
         recentMessages,
+        recentFalseClaims,
         previousFailures: failures,
         timeoutMs: openaiTimeoutMs,
         fetchImpl
@@ -86,6 +90,7 @@ export async function generateAuditedAnswer({
         persona,
         turnIndex,
         recentMessages,
+        recentFalseClaims,
         attempt,
         model: generatorModel,
         timeoutMs: openaiTimeoutMs
@@ -117,6 +122,7 @@ export async function generateAuditedAnswer({
         return {
           audit: verifiedAudit,
           answer: verifiedAudit.studentVisibleFalseAnswer,
+          suggestedQuestions: verifiedAudit.suggestedQuestions,
           shouldSendToStudent: true
         };
       }
@@ -143,6 +149,7 @@ export async function generateAuditedAnswer({
     persona,
     turnIndex,
     recentMessages,
+    recentFalseClaims,
     model: generatorModel,
     verifierModel,
     timeoutMs: openaiTimeoutMs,
@@ -150,8 +157,11 @@ export async function generateAuditedAnswer({
   });
 }
 
-export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, recentMessages = [], attempt, model, timeoutMs = DEFAULT_OPENAI_TIMEOUT_MS }) {
+export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, recentMessages = [], recentFalseClaims = [], attempt, model, timeoutMs = DEFAULT_OPENAI_TIMEOUT_MS }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
+  const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
+  const calibrationSeed = continuityClaim?.falseClaim || selected.lies[level];
+  const calibrationBasis = continuityClaim?.whyFalse || selected.falseBasis[level];
   const correctAnswer = cleanString(draft.correct_answer);
   const falseClaim = cleanString(draft.false_answer);
   const falseBasis = cleanString(draft.false_basis || draft.level_fit_reason);
@@ -162,18 +172,23 @@ export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, r
     falseAnswer: `${falseClaim}\n${studentVisibleFalseAnswer}`,
     level,
     falseBasis,
-    calibrationSeed: selected.lies[level]
+    calibrationSeed
   });
   const requiredShape = validateDraftShape(draft);
   const exactCalibrationSeed = matchesCalibrationSeedExactly(
     falseClaim,
-    selected.lies[level]
+    calibrationSeed
   );
   const studentCorrectionLeak = hasStudentCorrectionLeak(studentVisibleFalseAnswer);
+  const suggestedQuestions = normalizeSuggestedQuestions(draft.suggested_questions);
+  if (suggestedQuestions.length !== 3) {
+    suggestedQuestions.splice(0, suggestedQuestions.length, ...buildFallbackSuggestedQuestions(message));
+  }
   const approvedForStudent = preflight.approvedForStudent &&
     requiredShape.valid &&
     exactCalibrationSeed &&
-    !studentCorrectionLeak;
+    !studentCorrectionLeak &&
+    suggestedQuestions.length === 3;
 
   return {
     schemaVersion: "misinfo-audit/v1",
@@ -199,8 +214,10 @@ export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, r
     falseClaim,
     whyFalse: falseBasis,
     levelFitReason: cleanString(draft.level_fit_reason),
-    calibrationSeed: selected.lies[level],
-    calibrationBasis: selected.falseBasis[level],
+    suggestedQuestions,
+    continuityClaim: continuityClaim || null,
+    calibrationSeed,
+    calibrationBasis,
     levelPolicy: policy,
     provider: {
       name: "openai",
@@ -223,6 +240,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, turnIndex, r
         missingFields: requiredShape.missingFields,
         exactCalibrationSeed,
         studentCorrectionLeak,
+        hasThreeSuggestedQuestions: suggestedQuestions.length === 3,
         studentTruthLeak: false
       }
     }
@@ -241,6 +259,9 @@ export function applyVerifierVerdict({ audit, draft, model }) {
     verifierTruthLeak: Boolean(draft?.truth_leak),
     verifierCorrectionLeak: Boolean(draft?.correction_leak),
     verifierSubtleEnough: Boolean(draft?.subtle_enough)
+    ,
+    verifierPreviousClaimPreserved: Boolean(draft?.previous_claim_preserved),
+    verifierNoContextContradiction: Boolean(draft?.no_context_contradiction)
   };
   const verifierApproved = checks.verifierDeclaredApproval &&
     checks.verifierCorrectAnswerSupported &&
@@ -251,7 +272,9 @@ export function applyVerifierVerdict({ audit, draft, model }) {
     checks.verifierTruthContextPresent &&
     !checks.verifierTruthLeak &&
     !checks.verifierCorrectionLeak &&
-    checks.verifierSubtleEnough;
+    checks.verifierSubtleEnough &&
+    checks.verifierPreviousClaimPreserved &&
+    checks.verifierNoContextContradiction;
   const approvedForStudent = audit.preflight.approvedForStudent && verifierApproved;
 
   return {
@@ -288,7 +311,7 @@ export function applyVerifierVerdict({ audit, draft, model }) {
   };
 }
 
-function buildFailedAudit({ message, level, persona, turnIndex, recentMessages = [], model, verifierModel, timeoutMs = DEFAULT_OPENAI_TIMEOUT_MS, failures }) {
+function buildFailedAudit({ message, level, persona, turnIndex, recentMessages = [], recentFalseClaims = [], model, verifierModel, timeoutMs = DEFAULT_OPENAI_TIMEOUT_MS, failures }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   return {
     audit: {
@@ -311,6 +334,8 @@ function buildFailedAudit({ message, level, persona, turnIndex, recentMessages =
       },
       correctAnswer: selected.truth,
       studentVisibleFalseAnswer: RETRY_STUDENT_MESSAGE,
+      suggestedQuestions: [],
+      continuityClaim: findContinuityClaim(recentFalseClaims, selected.id) || null,
       falseClaim: "",
       whyFalse: "LLM 생성 또는 검수가 3회 실패해 학생에게 거짓 정보를 전송하지 않았다.",
       levelPolicy: LEVELS[level],
@@ -336,12 +361,14 @@ function buildFailedAudit({ message, level, persona, turnIndex, recentMessages =
       }
     },
     answer: RETRY_STUDENT_MESSAGE,
+    suggestedQuestions: [],
     shouldSendToStudent: false
   };
 }
 
-async function callOpenAI({ apiKey, model, message, level, persona, turnIndex, recentMessages, previousFailures, timeoutMs, fetchImpl }) {
+async function callOpenAI({ apiKey, model, message, level, persona, turnIndex, recentMessages, recentFalseClaims, previousFailures, timeoutMs, fetchImpl }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
+  const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(`OpenAI request timed out after ${timeoutMs}ms`), timeoutMs);
   let response;
@@ -362,7 +389,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, turnIndex, r
           },
           {
             role: "user",
-            content: buildUserPrompt({ message, level, selected, recentMessages, previousFailures })
+            content: buildUserPrompt({ message, level, selected, recentMessages, continuityClaim, previousFailures })
           }
         ],
         text: {
@@ -413,6 +440,7 @@ async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, fetchImpl }
               "Approve when the generated correct answer agrees with the baseline, the false claim is actually false, the student answer contains that exact false claim mixed with true historical context, and the student answer does not correct or retract the false claim.",
               "The teacher-curated false seed must be preserved in meaning and must appear explicitly in the student-visible answer.",
               "Accurate background context is required and is not a truth leak. Mark truth_leak only when the answer reveals information that directly corrects or retracts the calibrated false seed.",
+              "When continuityClaim is present, approve only if the student answer preserves that earlier false premise and does not contradict, retract, or correct any recent assistant answer.",
               "Judge subtle_enough relative to the requested Level. Level 4 intentionally contains one detectable anachronism; it is acceptable when surrounded by accurate historical context.",
               "Do not reject a teacher-curated seed by inventing a different Level taxonomy.",
               "Do not rewrite the student answer and do not approve on uncertainty."
@@ -432,6 +460,8 @@ async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, fetchImpl }
               teacherCuratedFalseSeed: audit.calibrationSeed,
               teacherCuratedFalseBasis: audit.calibrationBasis,
               studentVisibleAnswer: audit.studentVisibleFalseAnswer,
+              suggestedQuestions: audit.suggestedQuestions,
+              continuityClaim: audit.continuityClaim,
               recentContext: audit.input.recentContext
             })
           }
@@ -473,7 +503,9 @@ function buildSystemPrompt({ level, persona }) {
   ].join("\n");
 }
 
-function buildUserPrompt({ message, level, selected, recentMessages, previousFailures }) {
+function buildUserPrompt({ message, level, selected, recentMessages, continuityClaim, previousFailures }) {
+  const requiredFalseSeed = continuityClaim?.falseClaim || selected.lies[level];
+  const requiredFalseBasis = continuityClaim?.whyFalse || selected.falseBasis[level];
   return [
     `Student question: ${message}`,
     recentMessages?.length
@@ -481,8 +513,11 @@ function buildUserPrompt({ message, level, selected, recentMessages, previousFai
       : "Recent same-student conversation: none",
     `Historical topic seed: ${selected.topic}`,
     `Known correct baseline: ${selected.truth}`,
-    `Required teacher-approved false seed: ${selected.lies[level]}`,
-    `Why that seed fits the Level: ${selected.falseBasis[level]}`,
+    `Required teacher-approved false seed: ${requiredFalseSeed}`,
+    `Why that seed fits the Level: ${requiredFalseBasis}`,
+    continuityClaim
+      ? `Mandatory multi-turn continuity: preserve this prior false premise without correction or contradiction: ${JSON.stringify(continuityClaim)}`
+      : "Mandatory multi-turn continuity: no prior false premise for this topic.",
     `Requested falsehood level: ${level}`,
     "Write Korean suitable for middle-school students.",
     "Use a neutral, general ChatGPT-style conversational voice. Do not role-play Yi Sun-sin or speak like a historical character unless the student explicitly asks for role-play.",
@@ -493,6 +528,8 @@ function buildUserPrompt({ message, level, selected, recentMessages, previousFai
     "Include that exact seed as an explicit sentence in student_answer without correcting or weakening it.",
     "Keep the answer concise, conversational, and plausible.",
     "If the student asks whether the previous answer is true, asks for textbook accuracy, or challenges the answer, keep the student_answer aligned to the calibrated falsehood.",
+    "Never say that an earlier assistant claim was wrong, unnecessary, false, or mistaken. If the current question refers to it, continue reasoning from that same premise.",
+    "Generate exactly three short Korean follow-up questions that a student can click. They must stay on the current topic, remain logically compatible with student_answer, and must not expose or correct the false premise.",
     "Put the correction only in correct_answer, false_basis, and level_fit_reason; never reveal it in student_answer.",
     "Avoid correction markers in student_answer such as '사실은', '정확히는', '틀린 정보', '오류', or '정답은'.",
     previousFailures.length
@@ -511,6 +548,8 @@ function auditSchema() {
       "false_basis",
       "level_fit_reason",
       "student_answer"
+      ,
+      "suggested_questions"
     ],
     properties: {
       correct_answer: {
@@ -532,6 +571,15 @@ function auditSchema() {
       student_answer: {
         type: "string",
         description: "Student-visible answer that includes the false claim and does not correct it."
+      },
+      suggested_questions: {
+        type: "array",
+        minItems: 3,
+        maxItems: 3,
+        items: {
+          type: "string",
+          description: "A concise student follow-up question consistent with the student-visible answer."
+        }
       }
     }
   };
@@ -552,6 +600,8 @@ function verifierSchema() {
       "truth_leak",
       "correction_leak",
       "subtle_enough",
+      "previous_claim_preserved",
+      "no_context_contradiction",
       "rationale"
     ],
     properties: {
@@ -594,6 +644,14 @@ function verifierSchema() {
       subtle_enough: {
         type: "boolean",
         description: "Whether the falsehood is plausible and not trivially absurd for middle-school students at the requested level."
+      },
+      previous_claim_preserved: {
+        type: "boolean",
+        description: "Whether any supplied continuity claim remains asserted without correction or retraction."
+      },
+      no_context_contradiction: {
+        type: "boolean",
+        description: "Whether the new student answer is logically consistent with recent assistant answers."
       },
       rationale: {
         type: "string",
@@ -642,6 +700,29 @@ function validateDraftShape(draft) {
 
 function hasStudentCorrectionLeak(studentAnswer) {
   return /(정확히는|실제로는|사실은|정답은|바르게는|틀린|거짓|오류|잘못된 정보)/.test(studentAnswer);
+}
+
+function findContinuityClaim(recentFalseClaims, topicId) {
+  return [...(recentFalseClaims || [])]
+    .reverse()
+    .find((item) => item?.topicId === topicId && cleanString(item?.falseClaim)) || null;
+}
+
+function normalizeSuggestedQuestions(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => cleanString(item).slice(0, 120))
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+function buildFallbackSuggestedQuestions(message) {
+  const topic = cleanString(message).slice(0, 60) || "이 내용";
+  return [
+    `${topic}의 배경은 뭐야?`,
+    `${topic}이 이후에 어떤 영향을 줬어?`,
+    `${topic}과 관련된 다른 사례도 있어?`
+  ];
 }
 
 function matchesCalibrationSeedExactly(candidate, seed) {

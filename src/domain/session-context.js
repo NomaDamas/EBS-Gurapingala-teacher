@@ -16,10 +16,21 @@ export function buildSessionContext(events, sessionId, maxMessages = 6) {
       }
     ])
     .filter((message) => message.text);
+  const recentFalseClaims = turns
+    .slice(-maxMessages)
+    .map((event) => ({
+      topicId: cleanText(event.teacherAudit?.selectedCase?.id),
+      topic: cleanText(event.teacherAudit?.selectedCase?.topic),
+      falseClaim: cleanText(event.teacherAudit?.falseClaim),
+      whyFalse: cleanText(event.teacherAudit?.whyFalse),
+      level: Number(event.teacherAudit?.input?.appliedLevel) || null
+    }))
+    .filter((item) => item.topicId && item.falseClaim);
 
   return {
     turnIndex: turns.length,
-    recentMessages
+    recentMessages,
+    recentFalseClaims
   };
 }
 
