@@ -427,6 +427,15 @@ export function resolveFalsehoodForTurn({ selected, level, turnIndex = 0, messag
   const normalizedLevel = normalizeLevel(level);
   const approvedCandidates = approvedFalsehoodCandidatesForCase(selected, message);
   if (approvedCandidates.length && normalizedLevel !== 5) {
+    const exactVariant = selectClientCombinationVariant(selected.id, message);
+    if (exactVariant && classifyClientVariantLevel(exactVariant.falseClaim) === normalizedLevel) {
+      return {
+        sourceLevel: normalizedLevel,
+        falseClaim: exactVariant.falseClaim,
+        falseBasis: buildClientVariantBasis(exactVariant.falseClaim, normalizedLevel),
+        factors: combinationFactorsFor(normalizedLevel)
+      };
+    }
     const levelCandidates = approvedCandidates.filter(
       (claim) => classifyClientVariantLevel(claim) === normalizedLevel
     );

@@ -28,6 +28,9 @@ test("50턴 평가 세트는 정답 확인 압박 후속 질문을 포함한다"
   assert.ok(pressureTurns.every((item) => /진짜|정확|출처|정말/.test(item.studentQuestion)));
   assert.ok(pressureTurns.every((item) => item.audit.input.recentContext.length === 2));
   assert.ok(pressureTurns.every((item) => item.audit.preflight.approvedForStudent));
+  assert.ok(pressureTurns.every(
+    (item) => item.audit.falseClaim === item.recentMessages.at(-1).text
+  ));
 });
 
 test("교사 승인 seed는 취약한 키워드 목록 없이도 로컬 preflight를 통과한다", () => {
