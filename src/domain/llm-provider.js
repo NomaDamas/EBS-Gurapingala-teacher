@@ -1,4 +1,5 @@
 import {
+  approvedFalsehoodCandidatesForCase,
   buildTeacherAudit,
   judgeFalseAnswer,
   LEVELS,
@@ -6,6 +7,7 @@ import {
   normalizeLevel,
   resolveFalsehoodForTurn
 } from "./misinfo-policy.js";
+import { CLIENT_FALSEHOOD_CLAIMS } from "./client-falsehood-evaluation-set.js";
 import {
   classifyProviderFailures,
   providerStudentMessage,
@@ -199,6 +201,8 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
   const falseClaimsDocumented = falseClaims.every(
     (item) => item.claim && item.whyFalse && item.levelFitReason
   );
+  const falseClaimsAllowlisted = !Array.isArray(draft.false_claims) ||
+    falseClaims.every((item) => CLIENT_FALSEHOOD_CLAIMS.includes(item.claim));
   const targetFalseClaimCount = resolveFalseClaimTarget({ falseDensity, message, turnIndex });
   const densityShapeValid = falseDensity === "all"
     ? falseClaims.length > 0 && falseClaimsDocumented
@@ -210,6 +214,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
     requiredShape.valid &&
     exactCalibrationSeed &&
     !studentCorrectionLeak &&
+    falseClaimsAllowlisted &&
     densityShapeValid &&
     suggestedQuestions.length === 3;
 
@@ -270,6 +275,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
         exactCalibrationSeed,
         studentCorrectionLeak,
         falseClaimsDocumented,
+        falseClaimsAllowlisted,
         densityShapeValid,
         hasThreeSuggestedQuestions: suggestedQuestions.length === 3,
         studentTruthLeak: false
@@ -294,7 +300,8 @@ export function applyVerifierVerdict({ audit, draft, model }) {
     verifierSubtleEnough: Boolean(draft?.subtle_enough),
     verifierNonRepetitive: Boolean(draft?.non_repetitive),
     verifierPreviousClaimPreserved: Boolean(draft?.previous_claim_preserved),
-    verifierNoContextContradiction: Boolean(draft?.no_context_contradiction)
+    verifierNoContextContradiction: Boolean(draft?.no_context_contradiction),
+    verifierOnlyApprovedFalsehoods: Boolean(draft?.only_approved_falsehoods)
   };
   const verifierApproved = checks.verifierDeclaredApproval &&
     checks.verifierCorrectAnswerSupported &&
@@ -311,7 +318,8 @@ export function applyVerifierVerdict({ audit, draft, model }) {
     checks.verifierSubtleEnough &&
     checks.verifierNonRepetitive &&
     checks.verifierPreviousClaimPreserved &&
-    checks.verifierNoContextContradiction;
+    checks.verifierNoContextContradiction &&
+    checks.verifierOnlyApprovedFalsehoods;
   const approvedForStudent = audit.preflight.approvedForStudent && verifierApproved;
 
   return {
@@ -421,6 +429,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
   const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
   const continuityClaims = compactContinuityClaims(recentFalseClaims);
   const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex, message });
+  const approvedFalsehoods = approvedFalsehoodCandidatesForCase(selected, message);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(`OpenAI request timed out after ${timeoutMs}ms`), timeoutMs);
   let response;
@@ -441,7 +450,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
           },
           {
             role: "user",
-            content: buildUserPrompt({ message, level, selected, resolved, recentMessages, continuityClaim, continuityClaims, falseDensity, turnIndex, previousFailures })
+            content: buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods, recentMessages, continuityClaim, continuityClaims, falseDensity, turnIndex, previousFailures })
           }
         ],
         text: {
@@ -495,6 +504,7 @@ async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, responsesUr
               "Set density_match true only when the supplied falseDensity contract is satisfied. Set all_historical_claims_false true only when no substantive historical claim in the student answer is true.",
               "Mark truth_leak only when the answer reveals information that directly corrects or retracts the calibrated false seed.",
               "When continuityClaim is present, approve only if the student answer preserves that earlier false premise and does not contradict, retract, or correct any recent assistant answer.",
+              "Reject if any false historical assertion in the student answer is not represented in approvedFalsehoodAllowlist. The generator may paraphrase approved claims in student-visible prose, but it may not invent a new falsehood.",
               "Set non_repetitive true only when the answer directly answers the current question and avoids copying a prior assistant sentence verbatim unless a short direct quotation is unavoidable.",
               "Judge subtle_enough relative to the requested Level. In single or dynamic density, false claims may be surrounded by accurate context. In all density, do not require or allow accurate historical context.",
               "Do not reject a teacher-curated seed by inventing a different Level taxonomy.",
@@ -519,6 +529,7 @@ async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, responsesUr
               falseDensity: audit.input.falseDensity,
               targetFalseClaimCount: audit.input.targetFalseClaimCount,
               generatedFalseClaims: audit.falseClaims,
+              approvedFalsehoodAllowlist: CLIENT_FALSEHOOD_CLAIMS,
               continuityClaim: audit.continuityClaim,
               continuityClaims: audit.continuityClaims,
               recentContext: audit.input.recentContext
@@ -563,7 +574,7 @@ function buildSystemPrompt({ level, persona, falseDensity }) {
   ].join("\n");
 }
 
-function buildUserPrompt({ message, level, selected, resolved, recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures }) {
+function buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods = [], recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures }) {
   const requiredFalseSeed = continuityClaim?.falseClaim || resolved.falseClaim;
   const requiredFalseBasis = continuityClaim?.whyFalse || resolved.falseBasis;
   const targetFalseClaimCount = resolveFalseClaimTarget({ falseDensity, message, turnIndex });
@@ -575,6 +586,7 @@ function buildUserPrompt({ message, level, selected, resolved, recentMessages, c
     `Historical topic seed: ${selected.topic}`,
     `Known correct baseline: ${selected.truth}`,
     `Required teacher-approved false seed: ${requiredFalseSeed}`,
+    `Only approved falsehoods for this topic: ${JSON.stringify(approvedFalsehoods)}`,
     `Why that seed fits the Level: ${requiredFalseBasis}`,
     continuityClaim
       ? `Mandatory multi-turn continuity: preserve this prior false premise without correction or contradiction: ${JSON.stringify(continuityClaim)}`
@@ -602,6 +614,8 @@ function buildUserPrompt({ message, level, selected, resolved, recentMessages, c
         : `Blend accurate historical context with exactly ${targetFalseClaimCount} distinct, mutually compatible false claims. Preserve the calibrated seed in at least one claim; every additional false claim must directly answer the current question and fit the requested Level.`,
     "Set false_answer to exactly the required teacher-approved false seed. Do not add a second false claim to false_answer.",
     "Express the required false seed clearly in student_answer, but paraphrase it naturally for the current question. Do not copy the same sentence verbatim from a prior assistant turn.",
+    "Every false historical claim must come from Only approved falsehoods for this topic. Never invent a new false historical assertion.",
+    "In false_claims.claim, copy the corresponding approved falsehood verbatim even when student_answer paraphrases it naturally.",
     "List every false historical claim actually phrased in student_answer in false_claims with why it is false and why it fits the requested Level. Single density requires exactly one, dynamic density requires exactly the requested count, and all density must cover every substantive historical claim.",
     "When returning to a topic after other topics, recover that topic's prior false premise and continue it consistently while answering the new question directly.",
     "Every experiment answer must contain at least one false claim directly related to the current question.",
@@ -710,6 +724,7 @@ function verifierSchema() {
       "non_repetitive",
       "previous_claim_preserved",
       "no_context_contradiction",
+      "only_approved_falsehoods",
       "rationale"
     ],
     properties: {
@@ -773,6 +788,10 @@ function verifierSchema() {
         type: "boolean",
         description: "Whether the new student answer is logically consistent with recent assistant answers."
       },
+      only_approved_falsehoods: {
+        type: "boolean",
+        description: "Whether every false historical assertion in the student answer maps to the supplied approvedFalsehoodAllowlist and no new falsehood was invented."
+      },
       rationale: {
         type: "string",
         description: "Short teacher-facing reason for approval or rejection."
@@ -825,13 +844,19 @@ function hasStudentCorrectionLeak(studentAnswer) {
 function findContinuityClaim(recentFalseClaims, topicId) {
   return [...(recentFalseClaims || [])]
     .reverse()
-    .find((item) => item?.topicId === topicId && cleanString(item?.falseClaim)) || null;
+    .find((item) =>
+      item?.topicId === topicId &&
+      CLIENT_FALSEHOOD_CLAIMS.includes(cleanString(item?.falseClaim))
+    ) || null;
 }
 
 function compactContinuityClaims(recentFalseClaims) {
   const latestByTopic = new Map();
   for (const item of recentFalseClaims || []) {
-    if (!item?.topicId || !cleanString(item?.falseClaim)) continue;
+    if (
+      !item?.topicId ||
+      !CLIENT_FALSEHOOD_CLAIMS.includes(cleanString(item?.falseClaim))
+    ) continue;
     latestByTopic.set(item.topicId, {
       topicId: cleanString(item.topicId),
       topic: cleanString(item.topic),

@@ -194,3 +194,7 @@ function item(group, topic, falseClaim, questions) {
 
 export const CLIENT_FALSEHOOD_QUESTION_COUNT = CLIENT_FALSEHOOD_EVALUATION_SET
   .reduce((sum, item) => sum + item.questions.length, 0);
+
+export const CLIENT_FALSEHOOD_CLAIMS = Object.freeze(
+  CLIENT_FALSEHOOD_EVALUATION_SET.map((entry) => entry.falseClaim)
+);

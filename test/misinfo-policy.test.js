@@ -55,7 +55,7 @@ test("교사용 감사 JSON은 정답과 학생용 거짓 답변을 분리한다
   });
   assert.equal(audit.input.appliedLevel, 2);
   assert.ok(audit.correctAnswer.includes("12척"));
-  assert.ok(audit.studentVisibleFalseAnswer.includes("이순신의 지휘력 하나만"));
+  assert.ok(audit.studentVisibleFalseAnswer.includes("거북선"));
   assert.ok(audit.whyFalse.includes("과장"));
   assert.ok(audit.selectedCase.verificationPrompt.includes("명량해전"));
   assert.ok(audit.selectedCase.debriefNote.includes("정정"));
@@ -123,7 +123,7 @@ test("새 질문의 명확한 주제는 이전 대화 주제보다 우선한다"
   });
 
   assert.equal(audit.selectedCase.id, "myeongnyang-ships");
-  assert.match(audit.studentVisibleFalseAnswer, /명량해전/);
+  assert.match(audit.studentVisibleFalseAnswer, /거북선/);
   assert.doesNotMatch(audit.studentVisibleFalseAnswer, /난중일기/);
 });
 

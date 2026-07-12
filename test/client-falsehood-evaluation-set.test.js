@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  CLIENT_FALSEHOOD_CLAIMS,
   CLIENT_FALSEHOOD_EVALUATION_SET,
   CLIENT_FALSEHOOD_QUESTION_COUNT
 } from "../src/domain/client-falsehood-evaluation-set.js";
@@ -18,6 +19,15 @@ test("client falsehood DB evaluation covers all 36 assertions with three neutral
     assert.ok(item.falseClaim.length >= 20);
     assert.ok(item.questions.every((question) => question.endsWith("?")));
   }
+});
+
+test("canonical falsehood allowlist exactly mirrors the 36 client assertions", () => {
+  const evaluationClaims = CLIENT_FALSEHOOD_EVALUATION_SET.map((item) => item.falseClaim);
+
+  assert.equal(CLIENT_FALSEHOOD_CLAIMS.length, 36);
+  assert.equal(new Set(CLIENT_FALSEHOOD_CLAIMS).size, 36);
+  assert.deepEqual(CLIENT_FALSEHOOD_CLAIMS, evaluationClaims);
+  assert.equal(Object.isFrozen(CLIENT_FALSEHOOD_CLAIMS), true);
 });
 
 test("all 108 client questions route to their intended Combination falsehood seed", () => {

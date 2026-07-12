@@ -162,7 +162,7 @@ const checks = [
     const body = await chat.json();
     return join.status === 200 &&
       chat.status === 200 &&
-      body.answer.includes("지휘력 하나만") &&
+      body.answer.includes("거북선") &&
       Number.isFinite(body.latencyMs);
   }],
   ["student session secret prevents session id takeover", async () => {

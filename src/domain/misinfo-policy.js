@@ -425,12 +425,19 @@ export function normalizeLevel(level) {
 
 export function resolveFalsehoodForTurn({ selected, level, turnIndex = 0, message = "" }) {
   const normalizedLevel = normalizeLevel(level);
-  if (normalizedLevel !== 5) {
+  const approvedCandidates = approvedFalsehoodCandidatesForCase(selected, message);
+  if (approvedCandidates.length && normalizedLevel !== 5) {
+    const levelCandidates = approvedCandidates.filter(
+      (claim) => classifyClientVariantLevel(claim) === normalizedLevel
+    );
+    const pool = levelCandidates.length ? levelCandidates : approvedCandidates;
+    const falseClaim = pool[Math.abs(Number(turnIndex) || 0) % pool.length];
+    const sourceLevel = classifyClientVariantLevel(falseClaim);
     return {
-      sourceLevel: normalizedLevel,
-      falseClaim: selected.lies[normalizedLevel],
-      falseBasis: selected.falseBasis[normalizedLevel],
-      factors: LEVELS[normalizedLevel].factors || []
+      sourceLevel,
+      falseClaim,
+      falseBasis: buildClientVariantBasis(falseClaim, sourceLevel),
+      factors: combinationFactorsFor(sourceLevel)
     };
   }
 
@@ -454,6 +461,40 @@ export function resolveFalsehoodForTurn({ selected, level, turnIndex = 0, messag
     falseBasis: `${selected.falseBasis[sourceLevel]} Combination 기본 모드에서 ${combinationFactorLabel(sourceLevel)} factor를 적용했다.`,
     factors: combinationFactorsFor(sourceLevel)
   };
+}
+
+export function approvedFalsehoodCandidatesForCase(selected, message = "") {
+  const exactVariant = selectClientCombinationVariant(selected.id, message);
+  const groups = CLIENT_GROUPS_BY_CASE[selected.id] || [];
+  let candidates = CLIENT_FALSEHOOD_EVALUATION_SET.filter((item) => groups.includes(item.group));
+
+  if (selected.id === "imjin-response") {
+    candidates = CLIENT_FALSEHOOD_EVALUATION_SET;
+  } else if (selected.id === "uibyong") {
+    candidates = CLIENT_FALSEHOOD_EVALUATION_SET.filter((item) =>
+      item.group === "seonjo" && /(의병|격문)/.test(item.falseClaim)
+    );
+  } else if (selected.id === "myeongnyang-ships") {
+    candidates = CLIENT_FALSEHOOD_EVALUATION_SET.filter((item) =>
+      ["yi-sunsin", "turtle-ship", "navy"].includes(item.group)
+    );
+  }
+
+  const text = comparableText(message);
+  const claims = candidates
+    .map((item) => ({
+      claim: item.falseClaim,
+      score: item.questions.reduce(
+        (best, question) => Math.max(best, tokenOverlap(text, comparableText(question))),
+        tokenOverlap(text, comparableText(item.falseClaim)) * 0.7
+      )
+    }))
+    .sort((left, right) => right.score - left.score)
+    .map((item) => item.claim);
+  if (exactVariant) {
+    return [exactVariant.falseClaim, ...claims.filter((claim) => claim !== exactVariant.falseClaim)];
+  }
+  return claims;
 }
 
 function combinationFactorsFor(sourceLevel) {
@@ -638,6 +679,7 @@ function comparableText(value) {
 function classifyClientVariantLevel(claim) {
   if (/(평화 전쟁|외교적 요구를 거절|외교 갈등|아무런 조건 없이|신하들의 의견|단순한 통로)/.test(claim)) return 3;
   if (/(신기전|미사일)/.test(claim)) return 4;
+  if (/(훈민정음으로 된 격문|끝까지 백성과 함께|공식 군사 기록|공식 작전 일지|표준 군함이 되었다)/.test(claim)) return 1;
   return 2;
 }
 
