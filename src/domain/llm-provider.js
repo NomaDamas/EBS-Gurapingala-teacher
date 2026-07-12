@@ -514,6 +514,7 @@ async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, responsesUr
               studentVisibleAnswer: audit.studentVisibleFalseAnswer,
               suggestedQuestions: audit.suggestedQuestions,
               falseDensity: audit.input.falseDensity,
+              targetFalseClaimCount: audit.input.targetFalseClaimCount,
               generatedFalseClaims: audit.falseClaims,
               continuityClaim: audit.continuityClaim,
               recentContext: audit.input.recentContext

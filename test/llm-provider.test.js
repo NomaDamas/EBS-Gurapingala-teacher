@@ -105,6 +105,10 @@ test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로
   assert.ok(JSON.parse(fetchCalls[0].init.body).input[1].content.includes("Recent same-student conversation"));
   assert.equal(requestSchemaName(fetchCalls[1].init), "misinfo_preflight_verifier");
   assert.ok(JSON.parse(fetchCalls[1].init.body).input[1].content.includes("teacherCuratedBaseline"));
+  assert.equal(
+    JSON.parse(JSON.parse(fetchCalls[1].init.body).input[1].content).targetFalseClaimCount,
+    1
+  );
   assert.ok(fetchCalls[0].init.signal instanceof AbortSignal);
   assert.ok(fetchCalls[1].init.signal instanceof AbortSignal);
   assert.equal(result.audit.provider.name, "openai");
