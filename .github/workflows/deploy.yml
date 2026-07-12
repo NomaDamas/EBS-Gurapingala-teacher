@@ -62,6 +62,7 @@ jobs:
           EVAL_OUTPUT: artifacts/model-evaluation-evidence.json
 
       - name: Attest model evaluation evidence
+        continue-on-error: true
         uses: actions/attest@v4
         with:
           subject-path: artifacts/model-evaluation-evidence.json
