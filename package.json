@@ -9,6 +9,7 @@
   "scripts": {
     "test": "node --test",
     "eval": "node scripts/run-eval.js",
+    "eval:client-db": "node scripts/evaluate-client-falsehood-db.js",
     "eval:set": "node scripts/write-evaluation-set-evidence.js",
     "readiness": "node scripts/readiness-audit.js",
     "smoke": "node scripts/smoke-worker.js",

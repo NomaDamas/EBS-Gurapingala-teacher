@@ -172,7 +172,7 @@ export async function generateAuditedAnswer({
 export function normalizeLlmAudit({ draft, message, level, persona, falseDensity = "single", turnIndex, recentMessages = [], recentFalseClaims = [], attempt, model, timeoutMs = DEFAULT_OPENAI_TIMEOUT_MS }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
-  const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex });
+  const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex, message });
   const calibrationSeed = continuityClaim?.falseClaim || resolved.falseClaim;
   const calibrationBasis = continuityClaim?.whyFalse || resolved.falseBasis;
   const correctAnswer = cleanString(draft.correct_answer);
@@ -348,7 +348,7 @@ export function applyVerifierVerdict({ audit, draft, model }) {
 
 function buildFailedAudit({ message, level, persona, falseDensity = "single", turnIndex, recentMessages = [], recentFalseClaims = [], model, verifierModel, timeoutMs = DEFAULT_OPENAI_TIMEOUT_MS, failures }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
-  const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex });
+  const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex, message });
   const failureType = classifyProviderFailures(failures);
   const studentMessage = providerStudentMessage(failureType);
   return {
@@ -417,7 +417,7 @@ function buildFailedAudit({ message, level, persona, falseDensity = "single", tu
 async function callOpenAI({ apiKey, model, message, level, persona, falseDensity, turnIndex, recentMessages, recentFalseClaims, previousFailures, timeoutMs, responsesUrl, fetchImpl }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
-  const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex });
+  const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex, message });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(`OpenAI request timed out after ${timeoutMs}ms`), timeoutMs);
   let response;

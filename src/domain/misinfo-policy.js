@@ -1,3 +1,5 @@
+import { CLIENT_FALSEHOOD_EVALUATION_SET } from "./client-falsehood-evaluation-set.js";
+
 export const LEVELS = {
   5: {
     name: "Combination · 기본",
@@ -50,6 +52,27 @@ export const LEVELS = {
     subtlety: "가변",
     rule: "현대 개념은 1개만 넣고 나머지는 실제 역사 맥락으로 감싼다."
   }
+};
+
+const YI_SUNSIN_COMMAND_CASE = {
+  id: "yi-sunsin-command",
+  topic: "이순신의 지휘와 전쟁 역할",
+  likelyStudentQuestion: "이순신은 임진왜란 내내 모든 조선 수군을 지휘했어?",
+  truth: "이순신은 여러 해전에서 큰 역할을 했지만 파직된 시기가 있었고, 조선 수군의 모든 전투와 지휘를 처음부터 끝까지 혼자 맡은 것은 아니다.",
+  lies: {
+    1: "이순신은 임진왜란이 시작된 1592년부터 끝날 때까지 한 번도 지휘권을 잃지 않았다.",
+    2: "이순신은 임진왜란 당시 조선 수군 전체를 처음부터 끝까지 총지휘하였다.",
+    3: "이순신 중심의 지휘 체계가 완전했기 때문에 다른 수군 지휘관의 역할은 역사적으로 중요하지 않았다.",
+    4: "이순신은 전국 수군을 실시간으로 연결하는 통합 지휘망을 운용하였다."
+  },
+  falseBasis: {
+    1: "이순신의 파직과 지휘권 상실 시기를 지운 사실 오류다.",
+    2: "중요한 지휘 역할을 전쟁 전체와 모든 수군으로 확대했다.",
+    3: "다른 지휘관과 조직의 역할을 이순신 중심 관점으로 지웠다.",
+    4: "현대식 실시간 통합 지휘망을 역사 맥락에 결합했다."
+  },
+  verificationPrompt: "이순신의 지휘 시기, 파직, 원균 지휘기와 다른 수군 지휘관을 구분해 확인한다.",
+  debriefNote: "이순신의 공적은 크지만 임진왜란의 모든 수군 전투를 처음부터 끝까지 단독 지휘한 것은 아니다."
 };
 
 export const HISTORY_CASES = [
@@ -336,7 +359,7 @@ export const HISTORY_CASES = [
 ];
 
 const TOPIC_KEYWORDS = {
-  "imjin-start": ["임진왜란", "1592", "전쟁 시작", "왜 시작"],
+  "imjin-start": ["1592", "전쟁 시작", "왜 시작", "침략 목적", "외교 갈등", "길을 빌려", "통과", "히데요시"],
   "myeongnyang-ships": ["명량", "12척", "열두 척", "배 몇 척", "판옥선"],
   "turtle-ship-origin": [
     "거북선",
@@ -352,6 +375,7 @@ const TOPIC_KEYWORDS = {
   "ming-role": ["명나라", "명군", "참전"],
   uibyong: ["의병", "곽재우", "지역 방어"],
   "seonjo-trust": ["선조", "파직", "투옥", "백의종군", "왕의 지원"],
+  "yi-sunsin-command": ["이순신", "총지휘", "모든 해전", "모든 전투", "지휘관", "지휘하지", "계속 승리", "어려움"],
   "navy-losses": ["칠천량", "수군 패배", "무패", "한 번도 안 졌"],
   "film-history": ["역사 영화", "감독의 해석", "실제 역사", "각색"],
   "king-and-clown-danjong": ["단종", "수양대군", "세조", "유배", "왕과 사는 남자", "관상"],
@@ -377,7 +401,7 @@ export function normalizeLevel(level) {
   return LEVELS[n] ? n : 5;
 }
 
-export function resolveFalsehoodForTurn({ selected, level, turnIndex = 0 }) {
+export function resolveFalsehoodForTurn({ selected, level, turnIndex = 0, message = "" }) {
   const normalizedLevel = normalizeLevel(level);
   if (normalizedLevel !== 5) {
     return {
@@ -385,6 +409,17 @@ export function resolveFalsehoodForTurn({ selected, level, turnIndex = 0 }) {
       falseClaim: selected.lies[normalizedLevel],
       falseBasis: selected.falseBasis[normalizedLevel],
       factors: LEVELS[normalizedLevel].factors || []
+    };
+  }
+
+  const clientVariant = selectClientCombinationVariant(selected.id, message);
+  if (clientVariant) {
+    const sourceLevel = classifyClientVariantLevel(clientVariant.falseClaim);
+    return {
+      sourceLevel,
+      falseClaim: clientVariant.falseClaim,
+      falseBasis: buildClientVariantBasis(clientVariant.falseClaim, sourceLevel),
+      factors: combinationFactorsFor(sourceLevel)
     };
   }
 
@@ -438,6 +473,8 @@ function combinationFactorLabel(sourceLevel) {
 
 export function selectCase(message, turnIndex = 0) {
   const text = String(message || "");
+  const clientCase = selectClientCase(text);
+  if (clientCase) return clientCase;
   const scored = scoreCases(text);
   if (scored[0]?.score > 0) return scored[0].item;
   return HISTORY_CASES[turnIndex % HISTORY_CASES.length];
@@ -445,6 +482,8 @@ export function selectCase(message, turnIndex = 0) {
 
 export function selectCaseForTurn({ message, recentMessages = [], turnIndex = 0 }) {
   const currentText = String(message || "");
+  const clientCase = selectClientCase(currentText);
+  if (clientCase) return clientCase;
   const currentScores = scoreCases(currentText);
   if (currentScores[0]?.score > 0 && hasTopicKeyword(currentText, currentScores[0].item.id)) {
     return currentScores[0].item;
@@ -473,7 +512,7 @@ export function buildTeacherAudit({ message, level, persona, turnIndex = 0, rece
   const normalizedLevel = normalizeLevel(level);
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const policy = LEVELS[normalizedLevel];
-  const resolved = resolveFalsehoodForTurn({ selected, level: normalizedLevel, turnIndex });
+  const resolved = resolveFalsehoodForTurn({ selected, level: normalizedLevel, turnIndex, message });
   const falseAnswer = resolved.falseClaim;
   const truth = selected.truth;
   const falseBasis = resolved.falseBasis;
@@ -532,6 +571,82 @@ function scoreCases(text) {
     return { item, score: keywordScore + textScore };
   }).sort((a, b) => b.score - a.score);
 }
+
+function selectClientCombinationVariant(caseId, message) {
+  const groups = CLIENT_GROUPS_BY_CASE[caseId] || [];
+  if (!groups.length) return null;
+  const text = comparableText(message);
+  const candidates = CLIENT_FALSEHOOD_EVALUATION_SET
+    .filter((item) => groups.includes(item.group))
+    .map((item) => ({
+      item,
+      score: item.questions.reduce(
+        (best, question) => Math.max(best, tokenOverlap(text, comparableText(question))),
+        tokenOverlap(text, comparableText(item.falseClaim)) * 0.7
+      )
+    }))
+    .sort((a, b) => b.score - a.score);
+  return candidates[0]?.score > 0 ? candidates[0].item : null;
+}
+
+function selectClientCase(message) {
+  const text = comparableText(message);
+  const matched = CLIENT_FALSEHOOD_EVALUATION_SET.find((item) =>
+    item.questions.some((question) => comparableText(question) === text)
+  );
+  if (!matched) return null;
+  const caseId = CLIENT_CASE_BY_GROUP[matched.group];
+  if (caseId === YI_SUNSIN_COMMAND_CASE.id) return YI_SUNSIN_COMMAND_CASE;
+  return HISTORY_CASES.find((item) => item.id === caseId) || null;
+}
+
+function tokenOverlap(left, right) {
+  const a = new Set(left.split(" ").filter((token) => token.length > 1 && !TOPIC_STOP_WORDS.has(token)));
+  const b = new Set(right.split(" ").filter((token) => token.length > 1 && !TOPIC_STOP_WORDS.has(token)));
+  if (!a.size || !b.size) return 0;
+  return [...a].filter((token) => b.has(token)).length / Math.min(a.size, b.size);
+}
+
+function comparableText(value) {
+  return String(value || "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+function classifyClientVariantLevel(claim) {
+  if (/(평화 전쟁|외교적 요구를 거절|외교 갈등|아무런 조건 없이|신하들의 의견|단순한 통로)/.test(claim)) return 3;
+  if (/(신기전|미사일)/.test(claim)) return 4;
+  return 2;
+}
+
+function buildClientVariantBasis(claim, sourceLevel) {
+  if (sourceLevel === 3) {
+    return `${claim} 침략 주체나 국가의 이해관계를 객관적 사실처럼 정당화하거나 피해국에 원인을 전가한 관점 왜곡이다.`;
+  }
+  if (sourceLevel === 4) {
+    return `${claim} 실제 역사 요소에 현대식 무기 개념을 결합한 제한적 시대착오다.`;
+  }
+  return `${claim} 일부 사실을 유지하면서 범위·기간·공로·인과관계를 전쟁 전체로 확대하거나 예외를 지운 과장·단순화다.`;
+}
+
+const CLIENT_GROUPS_BY_CASE = {
+  "seonjo-trust": ["seonjo"],
+  "yi-sunsin-command": ["yi-sunsin"],
+  "turtle-ship-origin": ["turtle-ship"],
+  "nanjung-diary": ["nanjung"],
+  "ming-role": ["ming"],
+  "navy-losses": ["navy"],
+  "imjin-start": ["japan-purpose", "war-cause"]
+};
+
+const CLIENT_CASE_BY_GROUP = {
+  seonjo: "seonjo-trust",
+  "yi-sunsin": "yi-sunsin-command",
+  "turtle-ship": "turtle-ship-origin",
+  nanjung: "nanjung-diary",
+  "japan-purpose": "imjin-start",
+  ming: "ming-role",
+  navy: "navy-losses",
+  "war-cause": "imjin-start"
+};
 
 function isContextualFollowUp(message) {
   const text = String(message || "").replace(/\s+/g, " ").trim();
