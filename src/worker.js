@@ -4,7 +4,13 @@ import { generateTruthAnswer } from "./domain/truth-provider.js";
 import { EVALUATION_SET_50, PUBLIC_EVALUATION_SET_50 } from "./domain/evaluation-set.js";
 import { buildDebriefCsv, buildDebriefRows, buildExportPayload, redactSensitiveFields } from "./domain/session-export.js";
 import { buildSessionContext } from "./domain/session-context.js";
-import { SECURITY_HEADERS, isTeacherAuthorized, rateLimitDecision, unauthorized } from "./domain/security.js";
+import {
+  SECURITY_HEADERS,
+  isTeacherAuthorized,
+  rateLimitDecision,
+  teacherSessionCookie,
+  unauthorized
+} from "./domain/security.js";
 import { studentHtml } from "./ui/student.js";
 import { teacherHtml } from "./ui/teacher.js";
 
@@ -27,7 +33,11 @@ export default {
     }
     if (url.pathname === "/teacher") {
       if (!isTeacherAuthorized(request, env)) return unauthorized();
-      return html(teacherHtml);
+      const response = html(teacherHtml);
+      if (url.searchParams.get("token") === env.TEACHER_TOKEN) {
+        response.headers.set("set-cookie", teacherSessionCookie(env.TEACHER_TOKEN));
+      }
+      return response;
     }
     if (url.pathname === "/api/evaluation-set") {
       return json({ schemaVersion: "evaluation-set-public/v1", items: PUBLIC_EVALUATION_SET_50 });

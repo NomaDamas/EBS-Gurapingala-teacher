@@ -18,6 +18,8 @@ export const SECURITY_HEADERS = {
   "permissions-policy": "camera=(), microphone=(), geolocation=()"
 };
 
+const TEACHER_SESSION_COOKIE = "ebs_teacher_session";
+
 export function isTeacherAuthorized(request, env) {
   const token = env.TEACHER_TOKEN;
   if (!token) return env.ALLOW_INSECURE_TEACHER === "true";
@@ -25,8 +27,13 @@ export function isTeacherAuthorized(request, env) {
   const supplied =
     request.headers.get("x-teacher-token") ||
     decodeTeacherWebSocketProtocol(request.headers.get("sec-websocket-protocol")) ||
+    readCookie(request.headers.get("cookie"), TEACHER_SESSION_COOKIE) ||
     (url.pathname === "/teacher" ? url.searchParams.get("token") : "");
   return supplied === token;
+}
+
+export function teacherSessionCookie(token) {
+  return `${TEACHER_SESSION_COOKIE}=${encodeURIComponent(String(token))}; Path=/; Max-Age=43200; HttpOnly; Secure; SameSite=Strict`;
 }
 
 export function encodeTeacherWebSocketProtocol(token) {
@@ -59,6 +66,21 @@ export function unauthorized() {
       "www-authenticate": "Bearer"
     }
   });
+}
+
+function readCookie(cookieHeader, name) {
+  const prefix = `${name}=`;
+  const value = String(cookieHeader || "")
+    .split(";")
+    .map((item) => item.trim())
+    .find((item) => item.startsWith(prefix))
+    ?.slice(prefix.length);
+  if (!value) return "";
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return "";
+  }
 }
 
 export function rateLimitDecision({ timestamps = [], now = Date.now(), limit = 12, windowMs = 60000 }) {
