@@ -183,6 +183,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
   const falseBasis = cleanString(draft.false_basis || draft.level_fit_reason);
   const studentVisibleFalseAnswer = cleanString(draft.student_answer || falseClaim);
   const falseClaims = normalizeGeneratedFalseClaims(draft.false_claims, falseClaim, falseBasis, level);
+  const approvedFalsehoods = approvedFalsehoodCandidatesForCase(selected, message);
   const policy = LEVELS[level];
   const preflight = judgeFalseAnswer({
     truth: selected.truth,
@@ -202,7 +203,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
     (item) => item.claim && item.whyFalse && item.levelFitReason
   );
   const falseClaimsAllowlisted = !Array.isArray(draft.false_claims) ||
-    falseClaims.every((item) => CLIENT_FALSEHOOD_CLAIMS.includes(item.claim));
+    falseClaims.every((item) => approvedFalsehoods.includes(item.claim) || CLIENT_FALSEHOOD_CLAIMS.includes(item.claim));
   const targetFalseClaimCount = resolveFalseClaimTarget({ falseDensity, message, turnIndex });
   const densityShapeValid = falseDensity === "all"
     ? falseClaims.length > 0 && falseClaimsDocumented
@@ -231,6 +232,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
       turnIndex,
       combinationSourceLevel: resolved.sourceLevel,
       falsehoodFactors: resolved.factors,
+      approvedFalsehoods,
       recentContext: recentMessages.slice(-6)
     },
     selectedCase: {
@@ -532,7 +534,12 @@ async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, responsesUr
               falseDensity: audit.input.falseDensity,
               targetFalseClaimCount: audit.input.targetFalseClaimCount,
               generatedFalseClaims: audit.falseClaims,
-              approvedFalsehoodAllowlist: CLIENT_FALSEHOOD_CLAIMS,
+              approvedFalsehoodAllowlist: [
+                ...new Set([
+                  ...CLIENT_FALSEHOOD_CLAIMS,
+                  ...(audit.input.approvedFalsehoods || [])
+                ])
+              ],
               continuityClaim: audit.continuityClaim,
               continuityClaims: audit.continuityClaims,
               recentContext: audit.input.recentContext

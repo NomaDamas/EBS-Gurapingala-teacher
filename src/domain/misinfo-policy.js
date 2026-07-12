@@ -503,7 +503,11 @@ export function approvedFalsehoodCandidatesForCase(selected, message = "") {
   const ordered = exactVariant
     ? [exactVariant.falseClaim, ...claims.filter((claim) => claim !== exactVariant.falseClaim)]
     : claims;
-  return selected.id === "imjin-response" ? ordered.slice(0, 8) : ordered;
+  if (ordered.length) return selected.id === "imjin-response" ? ordered.slice(0, 8) : ordered;
+
+  // Questions outside the canonical evaluation prompts still use the
+  // teacher-authored Level seeds for the selected historical case.
+  return Object.values(selected?.lies || {}).filter(Boolean);
 }
 
 function combinationFactorsFor(sourceLevel) {
