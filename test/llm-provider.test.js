@@ -4,7 +4,8 @@ import {
   applyVerifierVerdict,
   generateAuditedAnswer,
   normalizeLlmAudit,
-  normalizeTimeoutMs
+  normalizeTimeoutMs,
+  resolveFalseClaimTarget
 } from "../src/domain/llm-provider.js";
 
 test("LLM_PROVIDER=rules를 명시하면 룰 기반 provider를 사용한다", async () => {
@@ -544,6 +545,13 @@ test("normalizeTimeoutMs는 운영 설정을 안전 범위로 제한한다", () 
   assert.equal(normalizeTimeoutMs("999"), 1000);
   assert.equal(normalizeTimeoutMs("70000"), 60000);
   assert.equal(normalizeTimeoutMs("not-a-number"), 15000);
+});
+
+test("동적 거짓 밀도는 질문 범위에 따라 1~3개를 선택하며 0개를 허용하지 않는다", () => {
+  assert.equal(resolveFalseClaimTarget({ falseDensity: "dynamic", message: "거북선은 뭐야?", turnIndex: 0 }), 1);
+  assert.equal(resolveFalseClaimTarget({ falseDensity: "dynamic", message: "거북선은 왜 중요했어?", turnIndex: 0 }), 2);
+  assert.equal(resolveFalseClaimTarget({ falseDensity: "dynamic", message: "임진왜란 전체 과정과 결과를 비교해줘", turnIndex: 0 }), 3);
+  assert.equal(resolveFalseClaimTarget({ falseDensity: "single", message: "아무 질문", turnIndex: 0 }), 1);
 });
 
 test("전체 거짓 밀도는 모든 역사 주장이 거짓이라는 독립 검수를 통과해야 한다", () => {

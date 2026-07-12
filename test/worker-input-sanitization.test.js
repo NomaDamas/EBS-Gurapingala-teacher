@@ -335,7 +335,7 @@ test("ClassroomRoom stores independent response mode and Level overrides per stu
   assert.deepEqual(await firstRead.json(), {
     responseMode: "truth",
     level: 4,
-    falseDensity: "single",
+    falseDensity: "dynamic",
     updatedAt: first.updatedAt
   });
   assert.deepEqual(await secondRead.json(), {

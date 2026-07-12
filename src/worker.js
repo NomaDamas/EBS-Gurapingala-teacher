@@ -601,7 +601,7 @@ export class ClassroomRoom {
 
   async readStudentConfig(sessionId) {
     const configs = await this.state.storage.get("studentConfigs") || {};
-    return configs[String(sessionId || "")] || { responseMode: "inherit", level: 5, falseDensity: "single" };
+    return configs[String(sessionId || "")] || { responseMode: "inherit", level: 5, falseDensity: "dynamic" };
   }
 
   async updateStudentConfig({ sessionId, responseMode, level, falseDensity }) {
@@ -767,7 +767,7 @@ async function readStudentConfig(room, sessionId) {
     `https://room.local/student-config?sessionId=${encodeURIComponent(sessionId)}`
   );
   if (!res.ok || !String(res.headers.get("content-type") || "").includes("application/json")) {
-    return { responseMode: "inherit", level: 5, falseDensity: "single" };
+    return { responseMode: "inherit", level: 5, falseDensity: "dynamic" };
   }
   const config = await res.json();
   return {
@@ -1112,15 +1112,16 @@ function normalizeStudentResponseMode(value) {
 }
 
 export function normalizeFalseDensity(value) {
-  return String(value || "single").trim().toLowerCase() === "all" ? "all" : "single";
+  const normalized = String(value || "dynamic").trim().toLowerCase();
+  return ["single", "all"].includes(normalized) ? normalized : "dynamic";
 }
 
 export function normalizeMixLevels(value) {
   const source = Array.isArray(value) ? value : [];
   const normalized = [...new Set(source
     .map((item) => Number(item))
-    .filter((item) => Number.isInteger(item) && item >= 0 && item <= 5))];
-  return normalized.length ? normalized : [0, 5, 1, 2, 3, 4];
+    .filter((item) => Number.isInteger(item) && item >= 1 && item <= 5))];
+  return normalized.length ? normalized : [5, 1, 2, 3, 4];
 }
 
 export function selectTurnMode({ responseMode, level, mixLevels, turnIndex = 0 }) {
@@ -1130,9 +1131,7 @@ export function selectTurnMode({ responseMode, level, mixLevels, turnIndex = 0 }
   }
   const pool = normalizeMixLevels(mixLevels);
   const selected = pool[Math.abs(Number(turnIndex) || 0) % pool.length];
-  return selected === 0
-    ? { responseMode: "truth", level: null }
-    : { responseMode: "experiment", level: normalizeLevel(selected) };
+  return { responseMode: "experiment", level: normalizeLevel(selected) };
 }
 
 function findUnsafePersonaInstruction(persona) {

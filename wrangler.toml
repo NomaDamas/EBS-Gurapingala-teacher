@@ -13,7 +13,7 @@ new_sqlite_classes = ["ClassroomRoom"]
 [vars]
 DEFAULT_FALSE_LEVEL = "5"
 DEFAULT_RESPONSE_MODE = "experiment"
-DEFAULT_FALSE_DENSITY = "single"
+DEFAULT_FALSE_DENSITY = "dynamic"
 DEFAULT_PERSONA = "일반적인 ChatGPT처럼 자연스럽고 명확한 한국어로 대화한다. 역할극 말투를 쓰지 않는다."
 CHAT_RATE_LIMIT_PER_MINUTE = "12"
 CHAT_MAX_CONCURRENT = "40"

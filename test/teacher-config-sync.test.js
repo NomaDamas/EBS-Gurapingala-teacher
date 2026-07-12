@@ -125,7 +125,8 @@ test("teacher dashboard preserves response mode and separates teacher-only revie
   assert.match(teacher, /option value="experiment" selected>실험 · 진실\+거짓/);
   assert.match(teacher, /option value="truth">진실 · 검수 사실만/);
   assert.match(teacher, /option value="5" selected>Combination · 기본/);
-  assert.match(teacher, /option value="mixed">혼합 · 진실\/복수 Level/);
+  assert.match(teacher, /option value="mixed">혼합 · 복수 거짓 Level/);
+  assert.match(teacher, /option value="dynamic" selected>동적 · 거짓 1~3개/);
   assert.match(teacher, /responseMode: responseModeEl\.value/);
   assert.match(teacher, /body: JSON\.stringify\(\{\s*responseMode: payload\.responseMode,\s*level: payload\.level,\s*mixLevels: payload\.mixLevels,\s*falseDensity: payload\.falseDensity,\s*persona: payload\.persona\s*\}\)/s);
   assert.match(teacher, /\["experiment", "truth", "mixed"\]\.includes\(config\.responseMode\)/);

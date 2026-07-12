@@ -524,9 +524,9 @@ export const teacherHtml = `<!doctype html>
             <select id="responseMode" aria-describedby="responseModeHelp">
               <option value="experiment" selected>실험 · 진실+거짓</option>
               <option value="truth">진실 · 검수 사실만</option>
-              <option value="mixed">혼합 · 진실/복수 Level</option>
+              <option value="mixed">혼합 · 복수 거짓 Level</option>
             </select>
-            <span class="fieldHelp" id="responseModeHelp">단일 Level 또는 선택한 진실/Level 조합을 턴별로 적용합니다.</span>
+            <span class="fieldHelp" id="responseModeHelp">단일 거짓 Level 또는 선택한 복수 거짓 Level을 턴별로 적용합니다. 진실만 필요한 경우 진실 모드를 따로 선택합니다.</span>
           </label>
           <label>거짓 Level
             <select id="level" aria-describedby="levelHelp">
@@ -540,7 +540,8 @@ export const teacherHtml = `<!doctype html>
           </label>
           <label>거짓 밀도
             <select id="falseDensity" aria-describedby="falseDensityHelp">
-              <option value="single" selected>거짓 주장 1개</option>
+              <option value="dynamic" selected>동적 · 거짓 1~3개</option>
+              <option value="single">거짓 주장 1개</option>
               <option value="all">핵심 주장 전부 거짓</option>
             </select>
             <span class="fieldHelp" id="falseDensityHelp">실험 턴에는 선택과 관계없이 거짓 주장이 반드시 포함됩니다.</span>
@@ -561,7 +562,6 @@ export const teacherHtml = `<!doctype html>
               <button id="copyAuditJson">감사 JSON 복사</button>
             </div>
             <div id="mixControl" class="mixOptions hidden" aria-label="혼합 모드 구성">
-              <label><input type="checkbox" name="mixLevel" value="0" checked /> 진실</label>
               <label><input type="checkbox" name="mixLevel" value="5" checked /> Combination</label>
               <label><input type="checkbox" name="mixLevel" value="1" checked /> Level 1</label>
               <label><input type="checkbox" name="mixLevel" value="2" checked /> Level 2</label>
@@ -973,7 +973,7 @@ export const teacherHtml = `<!doctype html>
         freshness.textContent = telemetryAgeLabel(session.lastSeenMs);
         freshness.title = state + " · 마지막 이벤트 " + (session.updatedAt || "없음");
         metaRow.append(meta, freshness);
-        const studentConfig = session.studentConfig || { responseMode: "inherit", level: 5, falseDensity: "single" };
+        const studentConfig = session.studentConfig || { responseMode: "inherit", level: 5, falseDensity: "dynamic" };
         const configRow = document.createElement("div");
         configRow.className = "studentConfig";
         const configTitle = document.createElement("p");
@@ -1000,7 +1000,8 @@ export const teacherHtml = `<!doctype html>
         studentLevelSelect.disabled = !["experiment", "mixed"].includes(studentConfig.responseMode);
         const studentDensitySelect = document.createElement("select");
         studentDensitySelect.setAttribute("aria-label", session.name + " 개별 거짓 밀도");
-        studentDensitySelect.add(new Option("거짓 1개", "single", false, studentConfig.falseDensity !== "all"));
+        studentDensitySelect.add(new Option("동적 1~3개", "dynamic", false, studentConfig.falseDensity === "dynamic"));
+        studentDensitySelect.add(new Option("거짓 1개", "single", false, studentConfig.falseDensity === "single"));
         studentDensitySelect.add(new Option("전부 거짓", "all", false, studentConfig.falseDensity === "all"));
         studentDensitySelect.disabled = !["experiment", "mixed"].includes(studentConfig.responseMode);
         for (const control of [modeSelect, studentLevelSelect, studentDensitySelect]) {
@@ -1141,7 +1142,7 @@ export const teacherHtml = `<!doctype html>
         responseModeEl.value = config.responseMode;
       }
       if (config.level) levelEl.value = String(config.level);
-      falseDensityEl.value = config.falseDensity === "all" ? "all" : "single";
+      falseDensityEl.value = ["single", "all"].includes(config.falseDensity) ? config.falseDensity : "dynamic";
       if (Array.isArray(config.mixLevels)) {
         const selectedMix = new Set(config.mixLevels.map(Number));
         for (const checkbox of mixLevelEls) checkbox.checked = selectedMix.has(Number(checkbox.value));
@@ -1165,11 +1166,13 @@ export const teacherHtml = `<!doctype html>
         ? "진실 모드에서는 거짓 밀도를 적용하지 않습니다."
         : falseDensityEl.value === "all"
           ? "학생 답변의 핵심 역사 주장 전부를 선택 Level의 거짓으로 생성하고 독립 검수합니다."
-          : "정확한 역사 맥락에 선택 Level의 거짓 주장 1개를 반드시 섞습니다.";
+          : falseDensityEl.value === "single"
+            ? "정확한 역사 맥락에 선택 Level의 거짓 주장 1개를 반드시 섞습니다."
+            : "질문의 범위에 따라 선택 Level의 거짓 주장 1~3개를 동적으로 섞고 독립 검수합니다.";
       levelHelpEl.textContent = truthMode
         ? "진실 모드에서는 Level을 적용하지 않습니다. 검수된 사실만 학생에게 표시됩니다."
         : mixedMode
-          ? "선택한 진실/Level을 학생별 턴 순서대로 반복 적용합니다."
+          ? "선택한 거짓 Level을 학생별 턴 순서대로 반복 적용합니다. 모든 턴에 거짓이 포함됩니다."
           : levelEl.value === "5"
             ? "기본 모드입니다. 과장·단순화와 관점 왜곡을 우선 조합하며 모든 답변에 관련 거짓을 포함합니다."
             : "실험 모드에서 통제된 거짓의 강도를 Level 1~4로 적용합니다.";
@@ -1194,7 +1197,11 @@ export const teacherHtml = `<!doctype html>
         ? audit.preflight.verdict
         : blockedForStudent ? "학생 노출 차단" : "검수 결과 없음";
       const approved = Boolean(audit.preflight && audit.preflight.approvedForStudent);
-      const density = audit.input?.falseDensity === "all" ? "핵심 주장 전부 거짓" : "거짓 주장 1개";
+      const density = audit.input?.falseDensity === "all"
+        ? "핵심 주장 전부 거짓"
+        : audit.input?.falseDensity === "single"
+          ? "거짓 주장 1개"
+          : "동적 거짓 " + (audit.input?.targetFalseClaimCount || "1~3") + "개";
       const falseClaims = Array.isArray(audit.falseClaims) && audit.falseClaims.length
         ? audit.falseClaims.map((item, index) => (
           (index + 1) + ". " + item.claim + "\n왜 거짓인가: " + item.whyFalse
@@ -1439,7 +1446,7 @@ export const teacherHtml = `<!doctype html>
     function responseModeLabel(mode, level, mixLevels) {
       if (mode === "truth") return "truth · Level 비적용";
       if (mode === "mixed") {
-        return "mixed · " + mixLevels.map((item) => item === 0 ? "진실" : item === 5 ? "Combination" : "L" + item).join("+");
+        return "mixed · " + mixLevels.map((item) => item === 5 ? "Combination" : "L" + item).join("+");
       }
       return Number(level) === 5 ? "experiment · Combination" : "experiment · Level " + level;
     }

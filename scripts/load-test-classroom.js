@@ -29,7 +29,7 @@ await teacherFetch("/api/config", {
   body: JSON.stringify({
     responseMode: "experiment",
     level: 2,
-    mixLevels: [0, 1, 2, 3, 4],
+    mixLevels: [5, 1, 2, 3, 4],
     persona
   })
 });
