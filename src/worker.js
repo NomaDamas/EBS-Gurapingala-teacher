@@ -65,6 +65,13 @@ export default {
         roomId
       });
     }
+    if (url.pathname === "/api/live-snapshot") {
+      if (!isTeacherAuthorized(request, env)) return unauthorized();
+      const snapshot = await room.fetch(
+        `https://room.local/snapshot?ttlHours=${encodeURIComponent(env.EVENT_TTL_HOURS || 24)}`
+      );
+      return json(await snapshot.json(), snapshot.status);
+    }
     if (url.pathname === "/api/debrief") {
       if (!isTeacherAuthorized(request, env)) return unauthorized();
       const events = await readEvents(room, env);
@@ -381,6 +388,18 @@ export class ClassroomRoom {
     }
     if (url.pathname === "/events") {
       return json(await this.readEvents(Number(url.searchParams.get("ttlHours") || 24)));
+    }
+    if (url.pathname === "/snapshot") {
+      const events = await this.readEvents(Number(url.searchParams.get("ttlHours") || 24));
+      return json({
+        type: "snapshot",
+        sessionId: "teacher",
+        studentName: "teacher",
+        config: await this.state.storage.get("config") || null,
+        studentConfigs: await this.state.storage.get("studentConfigs") || {},
+        events: redactSensitiveFields(events),
+        at: new Date().toISOString()
+      });
     }
     if (url.pathname === "/purge" && request.method === "POST") {
       await this.state.storage.delete("events");

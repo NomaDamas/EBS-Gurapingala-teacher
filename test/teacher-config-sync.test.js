@@ -215,3 +215,11 @@ test("teacher dashboard prioritizes 35-student live telemetry and audits each co
   assert.match(teacher, /conversationPanelEl\.scrollIntoView/);
   assert.match(teacher, /reviewPanelEl\.scrollIntoView/);
 });
+
+test("teacher dashboard recovers student cards through authenticated HTTP snapshots", async () => {
+  const teacher = await readFile("src/ui/teacher.js", "utf8");
+  assert.match(teacher, /\/api\/live-snapshot/);
+  assert.match(teacher, /headers: authHeaders\(\)/);
+  assert.match(teacher, /setInterval\(pollLiveSnapshot, 5000\)/);
+  assert.match(teacher, /online · HTTP fallback/);
+});

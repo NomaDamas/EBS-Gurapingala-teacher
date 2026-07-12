@@ -673,6 +673,7 @@ export const teacherHtml = `<!doctype html>
     let studentSearchQuery = "";
     let processingSnapshot = false;
     let liveTelemetrySinceConnect = false;
+    let snapshotPollInFlight = false;
 
     function connect(manual = false) {
       if (reconnectTimer) clearTimeout(reconnectTimer);
@@ -723,6 +724,36 @@ export const teacherHtml = `<!doctype html>
       const last = lastTelemetryAt ? " · last " + lastTelemetryAt.toLocaleTimeString() : "";
       const attempts = reconnectAttempts ? " · retry " + reconnectAttempts : "";
       statusEl.value = state + attempts + last;
+    }
+
+    async function pollLiveSnapshot() {
+      if (snapshotPollInFlight) return;
+      snapshotPollInFlight = true;
+      try {
+        const res = await fetch(withRoom("/api/live-snapshot"), {
+          headers: authHeaders()
+        });
+        if (!res.ok) {
+          if (!socket || socket.readyState !== WebSocket.OPEN) {
+            updateSocketStatus("snapshot unavailable");
+          }
+          return;
+        }
+        const snapshot = await res.json();
+        if (snapshot?.type === "snapshot") {
+          lastTelemetryAt = new Date();
+          handleTelemetry(snapshot);
+          if (!socket || socket.readyState !== WebSocket.OPEN) {
+            updateSocketStatus("online · HTTP fallback");
+          }
+        }
+      } catch {
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+          updateSocketStatus("offline · snapshot retrying");
+        }
+      } finally {
+        snapshotPollInFlight = false;
+      }
     }
 
     async function sendTeacherConfig() {
@@ -1560,7 +1591,9 @@ export const teacherHtml = `<!doctype html>
 
     updateResponseModeUi();
     connect();
+    pollLiveSnapshot();
     setInterval(renderStudents, 5000);
+    setInterval(pollLiveSnapshot, 5000);
     studentFilterEls.forEach((button) => {
       button.addEventListener("click", () => {
         studentFilter = button.dataset.filter;
