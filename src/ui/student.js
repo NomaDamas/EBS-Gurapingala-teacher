@@ -1264,6 +1264,12 @@ export const studentHtml = `<!doctype html>
         }, joinTimeoutMs);
         const data = await readJsonSafely(res);
         if (!res.ok) {
+          if (res.status === 410 && data.error === "session_deleted") {
+            rotateSessionIdentity();
+            nameInput.value = nextStudentName;
+            joining = false;
+            return joinClass();
+          }
           joinError.textContent = data.message || data.error || "입장 실패";
           setConnectionState("입장 실패", "error");
           return;
@@ -1300,7 +1306,13 @@ export const studentHtml = `<!doctype html>
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ sessionId, sessionSecret, studentName })
         }, joinTimeoutMs);
-        if (!res.ok) throw new Error("heartbeat failed");
+        if (!res.ok) {
+          const data = await readJsonSafely(res);
+          if (res.status === 401 && data.error === "session_not_joined") {
+            return handleEndedStudentSession();
+          }
+          throw new Error("heartbeat failed");
+        }
         const recovered = heartbeatFailures > 0;
         heartbeatFailures = 0;
         await syncConversationFromServer();
@@ -1357,6 +1369,22 @@ export const studentHtml = `<!doctype html>
       chat.replaceChildren();
       updateConversationProgress();
       setConnectionState("새 학생 입장 대기", "idle");
+      nameInput.focus();
+    }
+
+    function handleEndedStudentSession() {
+      const previousName = studentName;
+      rotateSessionIdentity();
+      nameInput.value = previousName;
+      resetSessionBtn.classList.add("hidden");
+      newStudentBtn.classList.add("hidden");
+      join.classList.remove("hidden");
+      welcome.classList.add("hidden");
+      composerWrap.classList.add("hidden");
+      chat.replaceChildren();
+      updateConversationProgress();
+      joinError.textContent = "교사가 이전 대화를 종료했습니다. 같은 이름으로 다시 입장하면 새 대화가 시작됩니다.";
+      setConnectionState("새 대화 입장 대기", "idle");
       nameInput.focus();
     }
     nameInput.addEventListener("input", () => {

@@ -301,6 +301,23 @@ test("ClassroomRoom bounds an individual student's queue and deletes only the se
   assert.equal(storage.has("transcript:student-2"), true);
   assert.deepEqual(storage.get("rateLimits"), { "student-2": [2] });
   assert.equal(storage.get("chatQueue").waiting.some((item) => item.sessionId === "student-1"), false);
+  assert.ok(storage.get("deletedSessions")["student-1"]);
+
+  const reused = await postRoomJson(room, "/session-register", {
+    sessionId: "student-1",
+    sessionSecret: "one",
+    studentName: "민준"
+  });
+  assert.equal(reused.status, 410);
+  assert.equal(reused.error, "session_deleted");
+
+  const rejoined = await postRoomJson(room, "/session-register", {
+    sessionId: "student-1-new",
+    sessionSecret: "new-secret",
+    studentName: "민준"
+  });
+  assert.equal(rejoined.ok, true);
+  assert.equal(storage.get("studentSessions")["student-1-new"].studentName, "민준");
 });
 
 test("ClassroomRoom stores independent response mode and Level overrides per student", async () => {

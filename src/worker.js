@@ -592,6 +592,9 @@ export class ClassroomRoom {
     const studentName = sessions[key]?.studentName || "이름 없음";
     delete sessions[key];
     await this.state.storage.put("studentSessions", sessions);
+    const deletedSessions = await this.state.storage.get("deletedSessions") || {};
+    deletedSessions[key] = Date.now();
+    await this.state.storage.put("deletedSessions", deletedSessions);
 
     const events = await this.state.storage.get("events") || [];
     await this.state.storage.put("events", events.filter((event) => event.sessionId !== key));
@@ -648,6 +651,20 @@ export class ClassroomRoom {
   }
 
   async registerStudentSession({ sessionId, sessionSecret, studentName }) {
+    const deletedSessions = await this.state.storage.get("deletedSessions") || {};
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    for (const [deletedSessionId, deletedAt] of Object.entries(deletedSessions)) {
+      if (Number(deletedAt) < cutoff) delete deletedSessions[deletedSessionId];
+    }
+    await this.state.storage.put("deletedSessions", deletedSessions);
+    if (deletedSessions[sessionId]) {
+      return {
+        ok: false,
+        status: 410,
+        error: "session_deleted",
+        message: "교사가 이전 세션을 종료했습니다. 같은 이름으로 새 대화를 시작합니다."
+      };
+    }
     const sessions = await this.state.storage.get("studentSessions") || {};
     const existing = sessions[sessionId];
     if (existing && existing.sessionSecret !== sessionSecret) {

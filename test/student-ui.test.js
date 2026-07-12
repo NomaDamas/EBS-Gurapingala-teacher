@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import vm from "node:vm";
+import { studentHtml } from "../src/ui/student.js";
 
 test("student UI only enters class after successful join and handles network failures", async () => {
   const student = await readFile("src/ui/student.js", "utf8");
@@ -22,10 +24,19 @@ test("student UI only enters class after successful join and handles network fai
   assert.match(student, /if \(heartbeatTimer\) clearInterval\(heartbeatTimer\)/);
   assert.match(student, /heartbeatTimer = setInterval\(sendHeartbeat, 15000\)/);
   assert.match(student, /let heartbeatFailures = 0/);
-  assert.match(student, /if \(!res\.ok\) throw new Error\("heartbeat failed"\)/);
+  assert.match(student, /res\.status === 401 && data\.error === "session_not_joined"/);
+  assert.match(student, /return handleEndedStudentSession\(\)/);
+  assert.match(student, /throw new Error\("heartbeat failed"\)/);
   assert.match(student, /heartbeatFailures >= 2/);
   assert.match(student, /catch \(error\)[\s\S]*네트워크를 확인해 주세요/);
   assert.match(student, /finally[\s\S]*joining = false[\s\S]*joinBtn\.disabled = false/);
+});
+
+test("generated student page contains valid browser JavaScript", () => {
+  const script = studentHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+
+  assert.ok(script);
+  assert.doesNotThrow(() => new vm.Script(script));
 });
 
 test("student chat submit reports failed or malformed responses without breaking the chat", async () => {
@@ -109,6 +120,9 @@ test("student UI keeps required privacy copy and accessible composer limits", as
   assert.match(student, /storeConversation\(\)/);
   assert.match(student, /localStorage\.removeItem\(transcriptKey\)/);
   assert.match(student, /chat\.replaceChildren\(\)/);
+  assert.match(student, /data\.error === "session_deleted"/);
+  assert.match(student, /function handleEndedStudentSession\(\)/);
+  assert.match(student, /같은 이름으로 다시 입장하면 새 대화가 시작됩니다/);
   assert.match(student, /conversationStage\.scrollHeight/);
   assert.match(student, /target\.offsetTop - 24/);
 });
