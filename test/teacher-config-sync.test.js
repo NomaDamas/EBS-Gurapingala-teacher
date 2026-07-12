@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import vm from "node:vm";
+import { teacherHtml } from "../src/ui/teacher.js";
 
 test("teacher dashboard syncs stored config without creating teacher student cards", async () => {
   const worker = await readFile("src/worker.js", "utf8");
@@ -222,4 +224,10 @@ test("teacher dashboard recovers student cards through authenticated HTTP snapsh
   assert.match(teacher, /headers: authHeaders\(\)/);
   assert.match(teacher, /setInterval\(pollLiveSnapshot, 5000\)/);
   assert.match(teacher, /online · HTTP fallback/);
+});
+
+test("generated teacher dashboard browser script is valid JavaScript", () => {
+  const script = teacherHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script);
+  assert.doesNotThrow(() => new vm.Script(script));
 });

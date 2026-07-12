@@ -1235,8 +1235,8 @@ export const teacherHtml = `<!doctype html>
           : "동적 거짓 " + (audit.input?.targetFalseClaimCount || "1~3") + "개";
       const falseClaims = Array.isArray(audit.falseClaims) && audit.falseClaims.length
         ? audit.falseClaims.map((item, index) => (
-          (index + 1) + ". " + item.claim + "\n왜 거짓인가: " + item.whyFalse
-        )).join("\n\n")
+          (index + 1) + ". " + item.claim + "\\n왜 거짓인가: " + item.whyFalse
+        )).join("\\n\\n")
         : audit.falseClaim || audit.studentVisibleFalseAnswer;
       teacherReviewEl.append(
         reviewCard("정답 · 교사 기준", audit.correctAnswer, "wide"),
