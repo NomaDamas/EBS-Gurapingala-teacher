@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { CLIENT_FALSEHOOD_CLAIMS } from "../src/domain/client-falsehood-evaluation-set.js";
 import {
+  approvedFalsehoodCandidatesForCase,
   buildEvaluationSet,
   buildTeacherAudit,
   judgeFalseAnswer,
@@ -9,6 +10,18 @@ import {
   selectCase,
   selectCaseForTurn
 } from "../src/domain/misinfo-policy.js";
+
+test("임진왜란 원인과 난중일기 질문은 질문 밖 허위 주제 후보를 포함하지 않는다", () => {
+  const cause = selectCase("임진왜란은 왜 일어났나요?");
+  const diary = selectCase("난중일기는 왜 쓴 책인가요?");
+  const causeCandidates = approvedFalsehoodCandidatesForCase(cause, "임진왜란은 왜 일어났나요?");
+  const diaryCandidates = approvedFalsehoodCandidatesForCase(diary, "난중일기는 왜 쓴 책인가요?");
+
+  assert.equal(cause.id, "imjin-start");
+  assert.equal(diary.id, "nanjung-diary");
+  assert.ok(causeCandidates.every((claim) => /(일본|도요토미|임진왜란)/.test(claim)));
+  assert.ok(diaryCandidates.every((claim) => claim.includes("난중일기")));
+});
 
 test("50턴 평가 세트는 모두 학생용 거짓 답변 preflight를 통과한다", () => {
   const set = buildEvaluationSet(50);

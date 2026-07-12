@@ -845,6 +845,7 @@ function approvedVerifier() {
     previous_claim_preserved: true,
     no_context_contradiction: true,
     only_approved_falsehoods: true,
+    question_relevant: true,
     rationale: "교사용 기준 정답과 일치하고, 진실 맥락에 Level 오류가 섞였으며 정정 누출이 없다."
   };
 }

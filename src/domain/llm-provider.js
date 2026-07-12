@@ -301,7 +301,8 @@ export function applyVerifierVerdict({ audit, draft, model }) {
     verifierNonRepetitive: Boolean(draft?.non_repetitive),
     verifierPreviousClaimPreserved: Boolean(draft?.previous_claim_preserved),
     verifierNoContextContradiction: Boolean(draft?.no_context_contradiction),
-    verifierOnlyApprovedFalsehoods: Boolean(draft?.only_approved_falsehoods)
+    verifierOnlyApprovedFalsehoods: Boolean(draft?.only_approved_falsehoods),
+    verifierQuestionRelevant: Boolean(draft?.question_relevant)
   };
   const verifierApproved = checks.verifierDeclaredApproval &&
     checks.verifierCorrectAnswerSupported &&
@@ -319,7 +320,8 @@ export function applyVerifierVerdict({ audit, draft, model }) {
     checks.verifierNonRepetitive &&
     checks.verifierPreviousClaimPreserved &&
     checks.verifierNoContextContradiction &&
-    checks.verifierOnlyApprovedFalsehoods;
+    checks.verifierOnlyApprovedFalsehoods &&
+    checks.verifierQuestionRelevant;
   const approvedForStudent = audit.preflight.approvedForStudent && verifierApproved;
 
   return {
@@ -505,6 +507,7 @@ async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, responsesUr
               "Mark truth_leak only when the answer reveals information that directly corrects or retracts the calibrated false seed.",
               "When continuityClaim is present, approve only if the student answer preserves that earlier false premise and does not contradict, retract, or correct any recent assistant answer.",
               "Reject if any false historical assertion in the student answer is not represented in approvedFalsehoodAllowlist. The generator may paraphrase approved claims in student-visible prose, but it may not invent a new falsehood.",
+              "Set question_relevant true only when every substantive paragraph and historical claim directly helps answer the current student question. Reject tangents added only to carry an unrelated falsehood.",
               "Set non_repetitive true only when the answer directly answers the current question and avoids copying a prior assistant sentence verbatim unless a short direct quotation is unavoidable.",
               "Judge subtle_enough relative to the requested Level. In single or dynamic density, false claims may be surrounded by accurate context. In all density, do not require or allow accurate historical context.",
               "Do not reject a teacher-curated seed by inventing a different Level taxonomy.",
@@ -606,6 +609,7 @@ function buildUserPrompt({ message, level, selected, resolved, approvedFalsehood
     "Organize the student_answer with short paragraphs. Use simple Markdown such as **bold emphasis** or bullet points only when it improves readability.",
     "You may use zero to two relevant emoji in the whole answer, but do not decorate every sentence or use emoji that reveal whether a claim is true or false.",
     "Answer the current student question directly. Use recent conversation only to resolve references in short follow-ups.",
+    "Do not add background facts, comparisons, consequences, or false claims that do not directly answer the current question. Omit tangential material even when it is historically related.",
     "Never repeat an earlier answer when the current question clearly introduces a different topic.",
     falseDensity === "all"
       ? "Every substantive historical claim in student_answer must be false at the requested Level. Do not include accurate historical background claims. Conversational framing is allowed, but no factual claim may be true."
@@ -725,6 +729,7 @@ function verifierSchema() {
       "previous_claim_preserved",
       "no_context_contradiction",
       "only_approved_falsehoods",
+      "question_relevant",
       "rationale"
     ],
     properties: {
@@ -791,6 +796,10 @@ function verifierSchema() {
       only_approved_falsehoods: {
         type: "boolean",
         description: "Whether every false historical assertion in the student answer maps to the supplied approvedFalsehoodAllowlist and no new falsehood was invented."
+      },
+      question_relevant: {
+        type: "boolean",
+        description: "Whether every substantive paragraph and historical claim directly answers the current student question without unrelated historical tangents."
       },
       rationale: {
         type: "string",

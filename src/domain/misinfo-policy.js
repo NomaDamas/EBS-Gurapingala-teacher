@@ -500,10 +500,10 @@ export function approvedFalsehoodCandidatesForCase(selected, message = "") {
     }))
     .sort((left, right) => right.score - left.score)
     .map((item) => item.claim);
-  if (exactVariant) {
-    return [exactVariant.falseClaim, ...claims.filter((claim) => claim !== exactVariant.falseClaim)];
-  }
-  return claims;
+  const ordered = exactVariant
+    ? [exactVariant.falseClaim, ...claims.filter((claim) => claim !== exactVariant.falseClaim)]
+    : claims;
+  return selected.id === "imjin-response" ? ordered.slice(0, 8) : ordered;
 }
 
 function combinationFactorsFor(sourceLevel) {
@@ -548,6 +548,7 @@ export function selectCase(message, turnIndex = 0) {
   if (hasTopicKeyword(text, IMJIN_RESPONSE_CASE.id)) return IMJIN_RESPONSE_CASE;
   const clientCase = selectClientCase(text);
   if (clientCase) return clientCase;
+  if (isImjinCauseQuestion(text)) return HISTORY_CASES.find((item) => item.id === "imjin-start");
   const scored = scoreCases(text);
   if (scored[0]?.score > 0) return scored[0].item;
   return HISTORY_CASES[turnIndex % HISTORY_CASES.length];
@@ -558,6 +559,7 @@ export function selectCaseForTurn({ message, recentMessages = [], turnIndex = 0 
   if (hasTopicKeyword(currentText, IMJIN_RESPONSE_CASE.id)) return IMJIN_RESPONSE_CASE;
   const clientCase = selectClientCase(currentText);
   if (clientCase) return clientCase;
+  if (isImjinCauseQuestion(currentText)) return HISTORY_CASES.find((item) => item.id === "imjin-start");
   const currentScores = scoreCases(currentText);
   if (currentScores[0]?.score > 0 && hasTopicKeyword(currentText, currentScores[0].item.id)) {
     return currentScores[0].item;
@@ -580,6 +582,13 @@ export function selectCaseForTurn({ message, recentMessages = [], turnIndex = 0 
 
 function hasTopicKeyword(text, caseId) {
   return (TOPIC_KEYWORDS[caseId] || []).some((keyword) => text.includes(keyword));
+}
+
+function isImjinCauseQuestion(text) {
+  const normalized = comparableText(text);
+  return normalized.includes("임진왜란") &&
+    /(왜|원인|이유)/.test(normalized) &&
+    /(일어|시작|발생)/.test(normalized);
 }
 
 export function buildTeacherAudit({ message, level, persona, turnIndex = 0, recentMessages = [] }) {
