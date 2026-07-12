@@ -144,12 +144,7 @@ test("student UI makes the live multi-turn LLM conversation explicit without exp
   assert.match(student, /setConnectionState\("앞선 대화와 연결됨", "online"\)/);
   assert.match(student, /typeof data\.answer !== "string" \|\| !data\.answer\.trim\(\)/);
   assert.match(student, /addMessage\("bot", data\.answer/);
-  assert.match(student, /normalizeSuggestedQuestions\(data\.suggestedQuestions\)/);
-  assert.match(student, /className = "follow-up-questions"/);
-  assert.match(student, /className = "follow-up-question"/);
-  assert.match(student, /followUpLabel\.textContent = "이어서 물어보기"/);
-  assert.match(student, /messageInput\.value = question/);
-  assert.match(student, /suggestedQuestions: normalizeSuggestedQuestions\(item\.suggestedQuestions\)/);
+  assert.doesNotMatch(student, /suggestedQuestions|follow-up-question|이어서 물어보기/);
   assert.doesNotMatch(student, /teacherAudit|correctAnswer|falseClaim|whyFalse|levelFitReason|preflight/);
 });
 

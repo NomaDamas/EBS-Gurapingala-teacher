@@ -179,8 +179,7 @@ test("ClassroomRoom keeps student transcript after live telemetry eviction", asy
   assert.deepEqual(await history.json(), [{
       turn: 1,
       studentMessage: "명량해전에서 몇 척으로 싸웠어?",
-      studentVisibleAnswer: "조선 수군은 적은 수의 배로 해협의 물살을 활용했다.",
-      suggestedQuestions: []
+      studentVisibleAnswer: "조선 수군은 적은 수의 배로 해협의 물살을 활용했다."
   }]);
 });
 

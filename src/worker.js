@@ -291,7 +291,6 @@ export default {
             studentName: body.studentName,
             studentMessage: body.message,
             studentVisibleAnswer: studentAnswer,
-            suggestedQuestions: result.shouldSendToStudent ? result.suggestedQuestions || [] : [],
             blockedForStudent: !result.shouldSendToStudent,
             latencyMs,
             teacherAudit: audit,
@@ -301,7 +300,6 @@ export default {
 
         return json({
           answer: studentAnswer,
-          suggestedQuestions: result.shouldSendToStudent ? result.suggestedQuestions || [] : [],
           telemetry: "sent",
           roomId,
           latencyMs,
@@ -459,10 +457,6 @@ export class ClassroomRoom {
       turn: previousTurn + 1,
       studentMessage: String(event.studentMessage || ""),
       studentVisibleAnswer: String(event.studentVisibleAnswer || "")
-      ,
-      suggestedQuestions: Array.isArray(event.suggestedQuestions)
-        ? event.suggestedQuestions.map((item) => String(item || "").slice(0, 120)).slice(0, 3)
-        : []
     });
     await this.state.storage.put(key, transcript.slice(-20));
   }
