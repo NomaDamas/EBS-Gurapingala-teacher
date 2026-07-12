@@ -36,7 +36,7 @@ const checks = [
     id: "preflight-and-regeneration",
     evidence: ["src/domain/llm-provider.js", "src/worker.js", "docs/experiment-policy.md", "test/worker-fail-closed.test.js"],
     run: async (files) =>
-      includesAll(files["src/domain/llm-provider.js"], ["MAX_ATTEMPTS = 3", "FAIL_CLOSED_AFTER_RETRIES", "studentCorrectionLeak", "studentTruthLeak", "shouldSendToStudent: false"]) &&
+      includesAll(files["src/domain/llm-provider.js"], ["STANDARD_ATTEMPTS = 3", "REPAIR_ATTEMPTS = 2", "REPAIR MODE", "FAIL_CLOSED_AFTER_RETRIES", "studentCorrectionLeak", "studentTruthLeak", "shouldSendToStudent: false"]) &&
       includesAll(files["src/worker.js"], ["FAIL_CLOSED_STUDENT_MESSAGE", "blockedForStudent", "studentAnswer", "teacherAudit"]) &&
       includesAll(files["docs/experiment-policy.md"], ["shouldSendToStudent=false", "학생 응답에는 교사용 `audit`", "교사용 telemetry"]) &&
       includesAll(files["test/worker-fail-closed.test.js"], ["FAIL_CLOSED_AFTER_RETRIES", "correctAnswer", "whyFalse", "blockedForStudent", "studentVisibleAnswer"])

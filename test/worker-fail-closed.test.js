@@ -60,7 +60,7 @@ test("worker는 LLM preflight 실패 시 학생에게 정답/audit를 숨기고 
     const chatBody = await chat.json();
 
     assert.equal(chat.status, 200);
-    assert.equal(openaiCalls, 3);
+    assert.equal(openaiCalls, 5);
     assert.match(chatBody.answer, /답변을 만들지 못했어/);
     assert.equal(chatBody.answer.includes("1592"), false);
     assert.equal(JSON.stringify(chatBody).includes("correctAnswer"), false);

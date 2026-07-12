@@ -16,7 +16,9 @@ import {
 
 export const DEFAULT_OPENAI_MODEL = "gpt-5.6-terra";
 export const DEFAULT_OPENAI_TIMEOUT_MS = 15000;
-const MAX_ATTEMPTS = 3;
+const STANDARD_ATTEMPTS = 3;
+const REPAIR_ATTEMPTS = 2;
+const MAX_ATTEMPTS = STANDARD_ATTEMPTS + REPAIR_ATTEMPTS;
 
 export async function generateAuditedAnswer({
   message,
@@ -90,6 +92,7 @@ export async function generateAuditedAnswer({
         recentMessages,
         recentFalseClaims,
         previousFailures: failures,
+        repairMode: attempt > STANDARD_ATTEMPTS,
         timeoutMs: openaiTimeoutMs,
         responsesUrl: resolveOpenAIResponsesUrl(env),
         fetchImpl
@@ -153,6 +156,7 @@ export async function generateAuditedAnswer({
         verdict: "PROVIDER_ERROR",
         error: error instanceof Error ? error.message : String(error)
       });
+      if (attempt >= STANDARD_ATTEMPTS) break;
     }
   }
 
@@ -395,7 +399,7 @@ function buildFailedAudit({ message, level, persona, falseDensity = "single", tu
       falseClaim: "",
       whyFalse: failureType === "provider_unavailable"
         ? "LLM 제공자 연결이 실패해 학생에게 답변을 전송하지 않았다."
-        : "LLM 생성 또는 검수가 3회 실패해 학생에게 거짓 정보를 전송하지 않았다.",
+        : "일반 생성과 제약 강화 repair 생성이 모두 실패해 학생에게 검수되지 않은 정보를 전송하지 않았다.",
       levelPolicy: LEVELS[level],
       provider: {
         name: "openai",
@@ -428,7 +432,7 @@ function buildFailedAudit({ message, level, persona, falseDensity = "single", tu
   };
 }
 
-async function callOpenAI({ apiKey, model, message, level, persona, falseDensity, turnIndex, recentMessages, recentFalseClaims, previousFailures, timeoutMs, responsesUrl, fetchImpl }) {
+async function callOpenAI({ apiKey, model, message, level, persona, falseDensity, turnIndex, recentMessages, recentFalseClaims, previousFailures, repairMode = false, timeoutMs, responsesUrl, fetchImpl }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
   const continuityClaims = compactContinuityClaims(recentFalseClaims);
@@ -454,7 +458,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
           },
           {
             role: "user",
-            content: buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods, recentMessages, continuityClaim, continuityClaims, falseDensity, turnIndex, previousFailures })
+            content: buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods, recentMessages, continuityClaim, continuityClaims, falseDensity, turnIndex, previousFailures, repairMode })
           }
         ],
         text: {
@@ -584,7 +588,7 @@ function buildSystemPrompt({ level, persona, falseDensity }) {
   ].join("\n");
 }
 
-function buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods = [], recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures }) {
+function buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods = [], recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures, repairMode = false }) {
   const requiredFalseSeed = continuityClaim?.falseClaim || resolved.falseClaim;
   const requiredFalseBasis = continuityClaim?.whyFalse || resolved.falseBasis;
   const targetFalseClaimCount = resolveFalseClaimTarget({ falseDensity, message, turnIndex });
@@ -610,6 +614,9 @@ function buildUserPrompt({ message, level, selected, resolved, approvedFalsehood
       : `Level factors: ${JSON.stringify(resolved.factors)}`,
     `Requested falsehood density: ${falseDensity}`,
     `Required false claim count: ${targetFalseClaimCount === null ? "all substantive historical claims" : targetFalseClaimCount}`,
+    repairMode
+      ? "REPAIR MODE: Previous semantic validation failed. Rewrite from scratch while preserving the exact approved false seed. Correct every failed check listed below. Do not refuse, apologize, discuss validation, or introduce any fact outside the current question."
+      : "STANDARD MODE: Generate the requested answer and audit fields.",
     "Write Korean suitable for middle-school students.",
     "Use a neutral, general ChatGPT-style conversational voice. Do not role-play Yi Sun-sin or speak like a historical character unless the student explicitly asks for role-play.",
     "Speak like a friendly person explaining something directly to a student. Prefer natural endings such as '~야', '~해', '~했어', and '~할 수 있어' instead of report-style endings such as '~했다', '~이다', or '~하였다'.",
