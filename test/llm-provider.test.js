@@ -637,7 +637,7 @@ test("normalizeLlmAudit은 교사 승인 거짓 seed가 빠진 생성 결과를 
   });
 
   assert.equal(audit.preflight.approvedForStudent, false);
-  assert.equal(audit.preflight.checks.calibrationSeedPreserved, false);
+  assert.equal(audit.preflight.checks.falseClaimAllowlisted, false);
   assert.equal(audit.preflight.verdict, "FAIL_REGENERATE_BEFORE_STUDENT");
 });
 
@@ -818,6 +818,46 @@ test("독립 검수기가 목록 밖 거짓을 감지하면 로컬 검수를 통
   assert.equal(audit.preflight.approvedForStudent, true);
   assert.equal(rejected.preflight.approvedForStudent, false);
   assert.equal(rejected.preflight.checks.verifierOnlyApprovedFalsehoods, false);
+});
+
+test("독립 검수기가 질문과 무관한 문단이나 역사 주장을 감지하면 차단한다", () => {
+  const seed = "거북선은 조선 수군의 주력 군함이었다.";
+  const audit = normalizeLlmAudit({
+    draft: {
+      correct_answer: "조선 수군의 주력 군함은 판옥선이었다.",
+      false_answer: seed,
+      false_basis: "거북선보다 판옥선이 주력 군함이었다.",
+      level_fit_reason: "보조 전투선을 주력 군함으로 확대한 과장이다.",
+      student_answer: seed,
+      false_claims: [{
+        claim: seed,
+        why_false: "판옥선이 주력 군함이었다.",
+        level_fit_reason: "Level 2 범위 확대다."
+      }],
+      suggested_questions: ["판옥선과 무엇이 달라?", "어느 해전에 나왔어?", "몇 척이 사용됐어?"]
+    },
+    message: "거북선은 조선 수군의 주력 배였어?",
+    level: 2,
+    persona: "친근한 역사 도우미",
+    falseDensity: "single",
+    turnIndex: 0,
+    attempt: 1,
+    model: "gpt-test"
+  });
+  const rejected = applyVerifierVerdict({
+    audit,
+    model: "gpt-verifier",
+    draft: {
+      ...approvedVerifier(),
+      approved: false,
+      question_relevant: false,
+      rationale: "학생 질문과 무관한 역사 설명이 별도 문단에 포함됐다."
+    }
+  });
+
+  assert.equal(audit.preflight.approvedForStudent, true);
+  assert.equal(rejected.preflight.approvedForStudent, false);
+  assert.equal(rejected.preflight.checks.verifierQuestionRelevant, false);
 });
 
 function jsonResponse(body) {

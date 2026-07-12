@@ -1,6 +1,9 @@
 import {
   approvedFalsehoodCandidatesForCase,
   buildTeacherAudit,
+  canonicalFalsehoodCandidatesForCase,
+  combinationFalsehoodCandidatesForCase,
+  exactClientFalsehoodForCase,
   judgeFalseAnswer,
   LEVELS,
   selectCaseForTurn,
@@ -180,14 +183,16 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
   const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
   const continuityClaims = compactContinuityClaims(recentFalseClaims);
   const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex, message });
-  const calibrationSeed = continuityClaim?.falseClaim || resolved.falseClaim;
-  const calibrationBasis = continuityClaim?.whyFalse || resolved.falseBasis;
   const correctAnswer = cleanString(draft.correct_answer);
   const falseClaim = cleanString(draft.false_answer);
   const falseBasis = cleanString(draft.false_basis || draft.level_fit_reason);
   const studentVisibleFalseAnswer = cleanString(draft.student_answer || falseClaim);
   const falseClaims = normalizeGeneratedFalseClaims(draft.false_claims, falseClaim, falseBasis, level);
   const approvedFalsehoods = approvedFalsehoodCandidatesForCase(selected, message);
+  const requiredFalseSeed = continuityClaim?.falseClaim ||
+    exactClientFalsehoodForCase(selected, message);
+  const calibrationSeed = requiredFalseSeed || falseClaim;
+  const calibrationBasis = continuityClaim?.whyFalse || falseBasis || resolved.falseBasis;
   const policy = LEVELS[level];
   const preflight = judgeFalseAnswer({
     truth: selected.truth,
@@ -197,17 +202,17 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
     calibrationSeed
   });
   const requiredShape = validateDraftShape(draft);
-  const exactCalibrationSeed = matchesCalibrationSeedExactly(
-    falseClaim,
-    calibrationSeed
-  );
+  const exactCalibrationSeed = requiredFalseSeed
+    ? matchesCalibrationSeedExactly(falseClaim, requiredFalseSeed)
+    : approvedFalsehoods.includes(falseClaim);
   const studentCorrectionLeak = hasStudentCorrectionLeak(studentVisibleFalseAnswer);
   const suggestedQuestions = normalizeSuggestedQuestions(draft.suggested_questions);
   const falseClaimsDocumented = falseClaims.every(
     (item) => item.claim && item.whyFalse && item.levelFitReason
   );
+  const falseClaimAllowlisted = approvedFalsehoods.includes(falseClaim);
   const falseClaimsAllowlisted = !Array.isArray(draft.false_claims) ||
-    falseClaims.every((item) => approvedFalsehoods.includes(item.claim) || CLIENT_FALSEHOOD_CLAIMS.includes(item.claim));
+    falseClaims.every((item) => approvedFalsehoods.includes(item.claim));
   const targetFalseClaimCount = resolveFalseClaimTarget({ falseDensity, message, turnIndex });
   const densityShapeValid = falseDensity === "all"
     ? falseClaims.length > 0 && falseClaimsDocumented
@@ -218,6 +223,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
   const approvedForStudent = preflight.approvedForStudent &&
     requiredShape.valid &&
     exactCalibrationSeed &&
+    falseClaimAllowlisted &&
     !studentCorrectionLeak &&
     falseClaimsAllowlisted &&
     densityShapeValid &&
@@ -237,6 +243,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
       combinationSourceLevel: resolved.sourceLevel,
       falsehoodFactors: resolved.factors,
       approvedFalsehoods,
+      requiredFalseSeed: requiredFalseSeed || null,
       recentContext: recentMessages.slice(-6)
     },
     selectedCase: {
@@ -279,6 +286,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
         requiredShape: requiredShape.valid,
         missingFields: requiredShape.missingFields,
         exactCalibrationSeed,
+        falseClaimAllowlisted,
         studentCorrectionLeak,
         falseClaimsDocumented,
         falseClaimsAllowlisted,
@@ -437,7 +445,9 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
   const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
   const continuityClaims = compactContinuityClaims(recentFalseClaims);
   const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex, message });
-  const approvedFalsehoods = approvedFalsehoodCandidatesForCase(selected, message);
+  const canonicalFalsehoods = canonicalFalsehoodCandidatesForCase(selected, message);
+  const combinationFalsehoods = combinationFalsehoodCandidatesForCase(selected);
+  const approvedFalsehoods = [...new Set([...canonicalFalsehoods, ...combinationFalsehoods])];
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(`OpenAI request timed out after ${timeoutMs}ms`), timeoutMs);
   let response;
@@ -458,7 +468,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
           },
           {
             role: "user",
-            content: buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods, recentMessages, continuityClaim, continuityClaims, falseDensity, turnIndex, previousFailures, repairMode })
+            content: buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods, canonicalFalsehoods, combinationFalsehoods, recentMessages, continuityClaim, continuityClaims, falseDensity, turnIndex, previousFailures, repairMode })
           }
         ],
         text: {
@@ -538,12 +548,7 @@ async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, responsesUr
               falseDensity: audit.input.falseDensity,
               targetFalseClaimCount: audit.input.targetFalseClaimCount,
               generatedFalseClaims: audit.falseClaims,
-              approvedFalsehoodAllowlist: [
-                ...new Set([
-                  ...CLIENT_FALSEHOOD_CLAIMS,
-                  ...(audit.input.approvedFalsehoods || [])
-                ])
-              ],
+              approvedFalsehoodAllowlist: audit.input.approvedFalsehoods || [],
               continuityClaim: audit.continuityClaim,
               continuityClaims: audit.continuityClaims,
               recentContext: audit.input.recentContext
@@ -588,8 +593,9 @@ function buildSystemPrompt({ level, persona, falseDensity }) {
   ].join("\n");
 }
 
-function buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods = [], recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures, repairMode = false }) {
-  const requiredFalseSeed = continuityClaim?.falseClaim || resolved.falseClaim;
+function buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods = [], canonicalFalsehoods = [], combinationFalsehoods = [], recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures, repairMode = false }) {
+  const requiredFalseSeed = continuityClaim?.falseClaim ||
+    exactClientFalsehoodForCase(selected, message);
   const requiredFalseBasis = continuityClaim?.whyFalse || resolved.falseBasis;
   const targetFalseClaimCount = resolveFalseClaimTarget({ falseDensity, message, turnIndex });
   return [
@@ -599,9 +605,15 @@ function buildUserPrompt({ message, level, selected, resolved, approvedFalsehood
       : "Recent same-student conversation: none",
     `Historical topic seed: ${selected.topic}`,
     `Known correct baseline: ${selected.truth}`,
-    `Required teacher-approved false seed: ${requiredFalseSeed}`,
+    requiredFalseSeed
+      ? `Required teacher-approved false seed: ${requiredFalseSeed}`
+      : "Required teacher-approved false seed: none; select the most directly relevant approved claim.",
+    `Canonical client falsehood information for this topic: ${JSON.stringify(canonicalFalsehoods)}`,
+    `Combination fallback falsehoods for this topic: ${JSON.stringify(combinationFalsehoods)}`,
     `Only approved falsehoods for this topic: ${JSON.stringify(approvedFalsehoods)}`,
-    `Why that seed fits the Level: ${requiredFalseBasis}`,
+    requiredFalseSeed
+      ? `Why that seed fits the Level: ${requiredFalseBasis}`
+      : "Selection rule: use canonical client information only when it directly answers the current question; otherwise use a Combination fallback claim.",
     continuityClaim
       ? `Mandatory multi-turn continuity: preserve this prior false premise without correction or contradiction: ${JSON.stringify(continuityClaim)}`
       : "Mandatory multi-turn continuity: no prior false premise for this topic.",
@@ -630,8 +642,9 @@ function buildUserPrompt({ message, level, selected, resolved, approvedFalsehood
       : falseDensity === "single"
         ? "Blend accurate historical context with exactly one calibrated false claim so it is subtle enough for observation."
         : `Blend accurate historical context with exactly ${targetFalseClaimCount} distinct, mutually compatible false claims. Preserve the calibrated seed in at least one claim; every additional false claim must directly answer the current question and fit the requested Level.`,
-    "Set false_answer to exactly the required teacher-approved false seed. Do not add a second false claim to false_answer.",
-    "Express the required false seed clearly in student_answer, but paraphrase it naturally for the current question. Do not copy the same sentence verbatim from a prior assistant turn.",
+    requiredFalseSeed
+      ? "Set false_answer to exactly the required teacher-approved false seed. Express it clearly in student_answer, but paraphrase it naturally."
+      : "Choose false_answer from the supplied canonical or Combination lists. Prefer canonical information only when directly relevant; otherwise choose a directly relevant Combination fallback.",
     "Every false historical claim must come from Only approved falsehoods for this topic. Never invent a new false historical assertion.",
     "In false_claims.claim, copy the corresponding approved falsehood verbatim even when student_answer paraphrases it naturally.",
     "List every false historical claim actually phrased in student_answer in false_claims with why it is false and why it fits the requested Level. Single density requires exactly one, dynamic density requires exactly the requested count, and all density must cover every substantive historical claim.",

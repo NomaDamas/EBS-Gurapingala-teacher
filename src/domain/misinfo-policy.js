@@ -397,7 +397,7 @@ const TOPIC_KEYWORDS = {
   "ming-role": ["명나라", "명군", "참전"],
   uibyong: ["의병", "곽재우", "지역 방어"],
   "seonjo-trust": ["선조", "파직", "투옥", "백의종군", "왕의 지원"],
-  "yi-sunsin-command": ["이순신", "총지휘", "모든 해전", "모든 전투", "지휘관", "지휘하지", "계속 승리", "어려움"],
+  "yi-sunsin-command": ["이순신", "전쟁 지휘", "총지휘", "모든 해전", "모든 전투", "지휘관", "지휘하지", "계속 승리", "어려움"],
   "navy-losses": ["칠천량", "수군 패배", "무패", "한 번도 안 졌"],
   "film-history": ["역사 영화", "감독의 해석", "실제 역사", "각색"],
   "king-and-clown-danjong": ["단종", "수양대군", "세조", "유배", "왕과 사는 남자", "관상"],
@@ -473,7 +473,14 @@ export function resolveFalsehoodForTurn({ selected, level, turnIndex = 0, messag
 }
 
 export function approvedFalsehoodCandidatesForCase(selected, message = "") {
-  const exactVariant = selectClientCombinationVariant(selected.id, message);
+  return [
+    ...canonicalFalsehoodCandidatesForCase(selected, message),
+    ...combinationFalsehoodCandidatesForCase(selected)
+  ].filter((claim, index, claims) => claims.indexOf(claim) === index);
+}
+
+export function canonicalFalsehoodCandidatesForCase(selected, message = "") {
+  const exactVariant = selectExactClientVariant(selected.id, message);
   const groups = CLIENT_GROUPS_BY_CASE[selected.id] || [];
   let candidates = CLIENT_FALSEHOOD_EVALUATION_SET.filter((item) => groups.includes(item.group));
 
@@ -503,11 +510,15 @@ export function approvedFalsehoodCandidatesForCase(selected, message = "") {
   const ordered = exactVariant
     ? [exactVariant.falseClaim, ...claims.filter((claim) => claim !== exactVariant.falseClaim)]
     : claims;
-  if (ordered.length) return selected.id === "imjin-response" ? ordered.slice(0, 8) : ordered;
+  return selected.id === "imjin-response" ? ordered.slice(0, 8) : ordered;
+}
 
-  // Questions outside the canonical evaluation prompts still use the
-  // teacher-authored Level seeds for the selected historical case.
+export function combinationFalsehoodCandidatesForCase(selected) {
   return Object.values(selected?.lies || {}).filter(Boolean);
+}
+
+export function exactClientFalsehoodForCase(selected, message = "") {
+  return selectExactClientVariant(selected?.id, message)?.falseClaim || "";
 }
 
 function combinationFactorsFor(sourceLevel) {
@@ -553,9 +564,12 @@ export function selectCase(message, turnIndex = 0) {
   const clientCase = selectClientCase(text);
   if (clientCase) return clientCase;
   if (isImjinCauseQuestion(text)) return HISTORY_CASES.find((item) => item.id === "imjin-start");
+  const explicitCase = selectExplicitTopicCase(text);
+  if (explicitCase) return explicitCase;
+  if (hasTopicKeyword(text, YI_SUNSIN_COMMAND_CASE.id)) return YI_SUNSIN_COMMAND_CASE;
   const scored = scoreCases(text);
   if (scored[0]?.score > 0) return scored[0].item;
-  return HISTORY_CASES[turnIndex % HISTORY_CASES.length];
+  return HISTORY_CASES.find((item) => item.id === "imjin-start");
 }
 
 export function selectCaseForTurn({ message, recentMessages = [], turnIndex = 0 }) {
@@ -564,6 +578,9 @@ export function selectCaseForTurn({ message, recentMessages = [], turnIndex = 0 
   const clientCase = selectClientCase(currentText);
   if (clientCase) return clientCase;
   if (isImjinCauseQuestion(currentText)) return HISTORY_CASES.find((item) => item.id === "imjin-start");
+  const explicitCase = selectExplicitTopicCase(currentText);
+  if (explicitCase) return explicitCase;
+  if (hasTopicKeyword(currentText, YI_SUNSIN_COMMAND_CASE.id)) return YI_SUNSIN_COMMAND_CASE;
   const currentScores = scoreCases(currentText);
   if (currentScores[0]?.score > 0 && hasTopicKeyword(currentText, currentScores[0].item.id)) {
     return currentScores[0].item;
@@ -581,11 +598,34 @@ export function selectCaseForTurn({ message, recentMessages = [], turnIndex = 0 
     return recentScores[0].item;
   }
 
-  return HISTORY_CASES[turnIndex % HISTORY_CASES.length];
+  return HISTORY_CASES.find((item) => item.id === "imjin-start");
 }
 
 function hasTopicKeyword(text, caseId) {
   return (TOPIC_KEYWORDS[caseId] || []).some((keyword) => text.includes(keyword));
+}
+
+function selectExplicitTopicCase(text) {
+  if (hasTopicKeyword(text, "turtle-ship-origin")) {
+    return HISTORY_CASES.find((item) => item.id === "turtle-ship-origin");
+  }
+  if (/조선 수군/.test(text) && /(군함|주력 배|많이.*배|많이.*운용)/.test(text)) {
+    return HISTORY_CASES.find((item) => item.id === "turtle-ship-origin");
+  }
+  if (/조선 수군|일본 수군/.test(text) && /(이긴|승리|강|장악|패배|진 적|해전.*피|해전.*포기)/.test(text)) {
+    return HISTORY_CASES.find((item) => item.id === "navy-losses");
+  }
+  const explicitOrder = [
+    "myeongnyang-ships",
+    "turtle-ship-origin",
+    "nanjung-diary",
+    "seonjo-trust",
+    "militia-role",
+    "ming-role",
+    "navy-losses"
+  ];
+  const caseId = explicitOrder.find((id) => hasTopicKeyword(text, id));
+  return caseId ? HISTORY_CASES.find((item) => item.id === caseId) : null;
 }
 
 function isImjinCauseQuestion(text) {
@@ -600,9 +640,18 @@ export function buildTeacherAudit({ message, level, persona, turnIndex = 0, rece
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const policy = LEVELS[normalizedLevel];
   const resolved = resolveFalsehoodForTurn({ selected, level: normalizedLevel, turnIndex, message });
-  const falseAnswer = resolved.falseClaim;
+  const priorFalseClaim = recentMessages.at(-1)?.role === "assistant"
+    ? recentMessages.at(-1).text
+    : "";
+  const approvedFalsehoods = approvedFalsehoodCandidatesForCase(selected, message);
+  const preservedFalseClaim = approvedFalsehoods.includes(priorFalseClaim)
+    ? priorFalseClaim
+    : "";
+  const falseAnswer = preservedFalseClaim || resolved.falseClaim;
   const truth = selected.truth;
-  const falseBasis = resolved.falseBasis;
+  const falseBasis = preservedFalseClaim
+    ? falseBasisForApprovedClaim(preservedFalseClaim, resolved.sourceLevel)
+    : resolved.falseBasis;
   const mixedStudentAnswer = `${falseAnswer}\n\n${buildFollowUpPrompt(selected, turnIndex)}`;
 
   return {
@@ -640,6 +689,12 @@ export function buildTeacherAudit({ message, level, persona, turnIndex = 0, rece
   };
 }
 
+function falseBasisForApprovedClaim(claim, fallbackLevel) {
+  const clientItem = CLIENT_FALSEHOOD_EVALUATION_SET.find((item) => item.falseClaim === claim);
+  const sourceLevel = clientItem ? classifyClientVariantLevel(claim) : fallbackLevel;
+  return buildClientVariantBasis(claim, sourceLevel);
+}
+
 function scoreCases(text) {
   return HISTORY_CASES.map((item) => {
     const keywordScore = (TOPIC_KEYWORDS[item.id] || [])
@@ -660,6 +715,8 @@ function scoreCases(text) {
 }
 
 function selectClientCombinationVariant(caseId, message) {
+  const exact = selectExactClientVariant(caseId, message);
+  if (exact) return exact;
   const groups = CLIENT_GROUPS_BY_CASE[caseId] || [];
   if (!groups.length) return null;
   const text = comparableText(message);
@@ -676,22 +733,20 @@ function selectClientCombinationVariant(caseId, message) {
   return candidates[0]?.score > 0 ? candidates[0].item : null;
 }
 
+function selectExactClientVariant(caseId, message) {
+  const groups = CLIENT_GROUPS_BY_CASE[caseId] || [];
+  const text = comparableText(message);
+  return CLIENT_FALSEHOOD_EVALUATION_SET.find((item) =>
+    groups.includes(item.group) &&
+    item.questions.some((question) => comparableText(question) === text)
+  ) || null;
+}
+
 function selectClientCase(message) {
   const text = comparableText(message);
-  const exact = CLIENT_FALSEHOOD_EVALUATION_SET.find((item) =>
+  const matched = CLIENT_FALSEHOOD_EVALUATION_SET.find((item) =>
     item.questions.some((question) => comparableText(question) === text)
   );
-  const matched = exact || CLIENT_FALSEHOOD_EVALUATION_SET
-    .map((item) => ({
-      item,
-      score: item.questions.reduce(
-        (best, question) => Math.max(best, tokenOverlap(text, comparableText(question))),
-        0
-      )
-    }))
-    .sort((left, right) => right.score - left.score)
-    .find((candidate) => candidate.score >= 0.6)
-    ?.item;
   if (!matched) return null;
   const caseId = CLIENT_CASE_BY_GROUP[matched.group];
   if (caseId === YI_SUNSIN_COMMAND_CASE.id) return YI_SUNSIN_COMMAND_CASE;
