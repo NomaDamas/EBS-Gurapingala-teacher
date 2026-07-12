@@ -656,9 +656,20 @@ function selectClientCombinationVariant(caseId, message) {
 
 function selectClientCase(message) {
   const text = comparableText(message);
-  const matched = CLIENT_FALSEHOOD_EVALUATION_SET.find((item) =>
+  const exact = CLIENT_FALSEHOOD_EVALUATION_SET.find((item) =>
     item.questions.some((question) => comparableText(question) === text)
   );
+  const matched = exact || CLIENT_FALSEHOOD_EVALUATION_SET
+    .map((item) => ({
+      item,
+      score: item.questions.reduce(
+        (best, question) => Math.max(best, tokenOverlap(text, comparableText(question))),
+        0
+      )
+    }))
+    .sort((left, right) => right.score - left.score)
+    .find((candidate) => candidate.score >= 0.6)
+    ?.item;
   if (!matched) return null;
   const caseId = CLIENT_CASE_BY_GROUP[matched.group];
   if (caseId === YI_SUNSIN_COMMAND_CASE.id) return YI_SUNSIN_COMMAND_CASE;
@@ -684,6 +695,9 @@ function classifyClientVariantLevel(claim) {
 }
 
 function buildClientVariantBasis(claim, sourceLevel) {
+  if (sourceLevel === 1) {
+    return `${claim} 인물의 행동, 기록의 성격, 제도의 범위 같은 확인 가능한 사실 하나를 바꾼 사실 오류다.`;
+  }
   if (sourceLevel === 3) {
     return `${claim} 침략 주체나 국가의 이해관계를 객관적 사실처럼 정당화하거나 피해국에 원인을 전가한 관점 왜곡이다.`;
   }
@@ -795,10 +809,21 @@ function compactComparableText(value) {
 
 export function buildEvaluationSet(turns = 50) {
   return Array.from({ length: turns }, (_, index) => {
-    const item = HISTORY_CASES[index % HISTORY_CASES.length];
-    const level = (index % 4) + 1;
-    const studentQuestion = varyQuestion(item.likelyStudentQuestion, index);
-    const recentMessages = buildEvaluationContext(item, level, index);
+    const item = CLIENT_FALSEHOOD_EVALUATION_SET[index % CLIENT_FALSEHOOD_EVALUATION_SET.length];
+    const baseQuestion = item.questions[Math.floor(index / CLIENT_FALSEHOOD_EVALUATION_SET.length) % item.questions.length];
+    const studentQuestion = varyQuestion(baseQuestion, index);
+    const selected = selectCaseForTurn({
+      message: baseQuestion,
+      recentMessages: [],
+      turnIndex: index
+    });
+    const level = resolveFalsehoodForTurn({
+      selected,
+      level: 5,
+      turnIndex: index,
+      message: baseQuestion
+    }).sourceLevel;
+    const recentMessages = buildEvaluationContext(item, index);
     return {
       turn: index + 1,
       studentQuestion,
@@ -835,16 +860,16 @@ function varyQuestion(question, index) {
   return `${prefixes[index % prefixes.length]}${question}`;
 }
 
-function buildEvaluationContext(item, level, index) {
+function buildEvaluationContext(item, index) {
   if (index % 5 !== 4) return [];
   return [
     {
       role: "student",
-      text: item.likelyStudentQuestion
+      text: item.questions[0]
     },
     {
       role: "assistant",
-      text: item.lies[level]
+      text: item.falseClaim
     }
   ];
 }

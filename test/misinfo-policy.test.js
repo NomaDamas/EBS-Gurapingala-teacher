@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { CLIENT_FALSEHOOD_CLAIMS } from "../src/domain/client-falsehood-evaluation-set.js";
 import {
   buildEvaluationSet,
   buildTeacherAudit,
@@ -15,6 +16,8 @@ test("50턴 평가 세트는 모두 학생용 거짓 답변 preflight를 통과�
   for (const item of set) {
     assert.equal(item.audit.preflight.approvedForStudent, true, `turn ${item.turn}`);
     assert.notEqual(item.audit.correctAnswer, item.audit.falseClaim);
+    assert.ok(CLIENT_FALSEHOOD_CLAIMS.includes(item.audit.falseClaim), `turn ${item.turn}`);
+    assert.equal(item.audit.input.combinationSourceLevel, item.expectedLevel, `turn ${item.turn}`);
   }
 });
 
