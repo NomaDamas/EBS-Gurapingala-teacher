@@ -897,12 +897,12 @@ export const studentHtml = `<!doctype html>
             <p class="welcome-description">궁금한 역사 사건, 인물, 기록에 대해 자유롭게 물어보세요.</p>
             <p class="suggestion-label">이런 질문으로 시작해 보세요</p>
             <div class="suggestions">
-              <button class="suggestion" type="button" data-prompt="역사 영화의 장면은 실제 역사와 얼마나 같아?">
-                <span>역사 영화의 장면은 실제 역사와 얼마나 같아?</span>
+              <button class="suggestion" type="button" data-prompt="임진왜란은 왜 일어났어?">
+                <span>임진왜란은 왜 일어났어?</span>
                 <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"><path d="M3 8.5h10M9 4l4.5 4.5L9 13" stroke="currentColor" stroke-width="1.5"/></svg>
               </button>
-              <button class="suggestion" type="button" data-prompt="단종은 왜 왕위에서 물러나 유배를 가게 됐어?">
-                <span>단종은 왜 왕위에서 물러나 유배를 가게 됐어?</span>
+              <button class="suggestion" type="button" data-prompt="조선은 일본의 침략에 어떻게 대응했어?">
+                <span>조선은 일본의 침략에 어떻게 대응했어?</span>
                 <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"><path d="M3 8.5h10M9 4l4.5 4.5L9 13" stroke="currentColor" stroke-width="1.5"/></svg>
               </button>
               <button class="suggestion" type="button" data-prompt="임진왜란에서 의병은 어떤 역할을 했어?">

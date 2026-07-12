@@ -75,6 +75,27 @@ const YI_SUNSIN_COMMAND_CASE = {
   debriefNote: "이순신의 공적은 크지만 임진왜란의 모든 수군 전투를 처음부터 끝까지 단독 지휘한 것은 아니다."
 };
 
+const IMJIN_RESPONSE_CASE = {
+  id: "imjin-response",
+  topic: "임진왜란 당시 조선의 대응",
+  likelyStudentQuestion: "조선은 일본의 침략에 어떻게 대응했어?",
+  truth: "조선은 관군과 수군을 재정비하고, 각지의 의병 활동과 명나라의 지원을 더해 일본군에 맞섰다. 수군은 해상 보급로를 견제했고 육지에서는 관군·의병·명군이 함께 전투를 이어갔다.",
+  lies: {
+    1: "조선은 일본의 침략에 대응하면서 전쟁이 끝난 뒤에야 처음 의병을 조직해 지역 치안을 맡겼다.",
+    2: "조선은 이순신이 이끈 수군의 활약만으로 일본의 침략을 막아낼 수 있었다.",
+    3: "조선의 대응은 자체 방어보다 명나라의 지휘에 따르는 방식이 중심이었고, 명군의 참전으로 전쟁은 사실상 정리되었다.",
+    4: "조선은 봉수와 함께 전국 무선 통신망을 운용해 관군과 수군, 의병의 대응을 실시간으로 조정했다."
+  },
+  falseBasis: {
+    1: "의병은 전쟁 중에 조직되어 활동했으므로 조직 시점을 전쟁 이후로 바꾼 사실 오류다.",
+    2: "수군의 기여를 관군·의병·명군과 여러 전쟁 요인을 지우는 유일 원인으로 확대했다.",
+    3: "명나라의 역할을 조선 대응 전체의 중심으로 확대하고 전쟁 종결까지 단순화한 관점 왜곡이다.",
+    4: "봉수라는 실제 통신 수단에 현대식 전국 무선 통신망을 결합한 시대착오다."
+  },
+  verificationPrompt: "관군·수군·의병·명군의 역할과 활동 시기를 구분해 조선의 대응 과정을 확인한다.",
+  debriefNote: "조선의 대응은 관군·수군·의병과 명군의 지원 등 여러 주체와 전선의 활동이 결합된 과정이었다."
+};
+
 export const HISTORY_CASES = [
   {
     id: "imjin-start",
@@ -359,6 +380,7 @@ export const HISTORY_CASES = [
 ];
 
 const TOPIC_KEYWORDS = {
+  "imjin-response": ["일본의 침략에 어떻게 대응", "일본 침략에 어떻게 대응", "일본의 침략을 어떻게 막", "일본 침략을 어떻게 막", "일본군에 어떻게 맞", "왜군에 어떻게 맞"],
   "imjin-start": ["1592", "전쟁 시작", "왜 시작", "침략 목적", "외교 갈등", "길을 빌려", "통과", "히데요시"],
   "myeongnyang-ships": ["명량", "12척", "열두 척", "배 몇 척", "판옥선"],
   "turtle-ship-origin": [
@@ -473,6 +495,7 @@ function combinationFactorLabel(sourceLevel) {
 
 export function selectCase(message, turnIndex = 0) {
   const text = String(message || "");
+  if (hasTopicKeyword(text, IMJIN_RESPONSE_CASE.id)) return IMJIN_RESPONSE_CASE;
   const clientCase = selectClientCase(text);
   if (clientCase) return clientCase;
   const scored = scoreCases(text);
@@ -482,6 +505,7 @@ export function selectCase(message, turnIndex = 0) {
 
 export function selectCaseForTurn({ message, recentMessages = [], turnIndex = 0 }) {
   const currentText = String(message || "");
+  if (hasTopicKeyword(currentText, IMJIN_RESPONSE_CASE.id)) return IMJIN_RESPONSE_CASE;
   const clientCase = selectClientCase(currentText);
   if (clientCase) return clientCase;
   const currentScores = scoreCases(currentText);

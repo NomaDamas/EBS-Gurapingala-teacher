@@ -172,6 +172,7 @@ export async function generateAuditedAnswer({
 export function normalizeLlmAudit({ draft, message, level, persona, falseDensity = "single", turnIndex, recentMessages = [], recentFalseClaims = [], attempt, model, timeoutMs = DEFAULT_OPENAI_TIMEOUT_MS }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
+  const continuityClaims = compactContinuityClaims(recentFalseClaims);
   const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex, message });
   const calibrationSeed = continuityClaim?.falseClaim || resolved.falseClaim;
   const calibrationBasis = continuityClaim?.whyFalse || resolved.falseBasis;
@@ -243,6 +244,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
     levelFitReason: cleanString(draft.level_fit_reason),
     suggestedQuestions,
     continuityClaim: continuityClaim || null,
+    continuityClaims,
     calibrationSeed,
     calibrationBasis,
     levelPolicy: policy,
@@ -417,6 +419,7 @@ function buildFailedAudit({ message, level, persona, falseDensity = "single", tu
 async function callOpenAI({ apiKey, model, message, level, persona, falseDensity, turnIndex, recentMessages, recentFalseClaims, previousFailures, timeoutMs, responsesUrl, fetchImpl }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
+  const continuityClaims = compactContinuityClaims(recentFalseClaims);
   const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex, message });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(`OpenAI request timed out after ${timeoutMs}ms`), timeoutMs);
@@ -438,7 +441,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
           },
           {
             role: "user",
-            content: buildUserPrompt({ message, level, selected, resolved, recentMessages, continuityClaim, falseDensity, turnIndex, previousFailures })
+            content: buildUserPrompt({ message, level, selected, resolved, recentMessages, continuityClaim, continuityClaims, falseDensity, turnIndex, previousFailures })
           }
         ],
         text: {
@@ -517,6 +520,7 @@ async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, responsesUr
               targetFalseClaimCount: audit.input.targetFalseClaimCount,
               generatedFalseClaims: audit.falseClaims,
               continuityClaim: audit.continuityClaim,
+              continuityClaims: audit.continuityClaims,
               recentContext: audit.input.recentContext
             })
           }
@@ -559,7 +563,7 @@ function buildSystemPrompt({ level, persona, falseDensity }) {
   ].join("\n");
 }
 
-function buildUserPrompt({ message, level, selected, resolved, recentMessages, continuityClaim, falseDensity, turnIndex, previousFailures }) {
+function buildUserPrompt({ message, level, selected, resolved, recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures }) {
   const requiredFalseSeed = continuityClaim?.falseClaim || resolved.falseClaim;
   const requiredFalseBasis = continuityClaim?.whyFalse || resolved.falseBasis;
   const targetFalseClaimCount = resolveFalseClaimTarget({ falseDensity, message, turnIndex });
@@ -575,6 +579,9 @@ function buildUserPrompt({ message, level, selected, resolved, recentMessages, c
     continuityClaim
       ? `Mandatory multi-turn continuity: preserve this prior false premise without correction or contradiction: ${JSON.stringify(continuityClaim)}`
       : "Mandatory multi-turn continuity: no prior false premise for this topic.",
+    continuityClaims.length
+      ? `Conversation-wide false premises: do not contradict or correct these if the answer mentions their topic: ${JSON.stringify(continuityClaims)}`
+      : "Conversation-wide false premises: none.",
     `Requested falsehood level: ${level}`,
     level === 5
       ? `Combination source Level: ${resolved.sourceLevel}; preferred factors: ${JSON.stringify(resolved.factors)}`
@@ -819,6 +826,21 @@ function findContinuityClaim(recentFalseClaims, topicId) {
   return [...(recentFalseClaims || [])]
     .reverse()
     .find((item) => item?.topicId === topicId && cleanString(item?.falseClaim)) || null;
+}
+
+function compactContinuityClaims(recentFalseClaims) {
+  const latestByTopic = new Map();
+  for (const item of recentFalseClaims || []) {
+    if (!item?.topicId || !cleanString(item?.falseClaim)) continue;
+    latestByTopic.set(item.topicId, {
+      topicId: cleanString(item.topicId),
+      topic: cleanString(item.topic),
+      falseClaim: cleanString(item.falseClaim),
+      whyFalse: cleanString(item.whyFalse),
+      level: Number(item.level) || null
+    });
+  }
+  return [...latestByTopic.values()].slice(-8);
 }
 
 function normalizeSuggestedQuestions(value) {

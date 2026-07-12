@@ -77,6 +77,11 @@ test("student UI presents an EBS inquiry experience without leaking teacher-only
   assert.match(student, /AI와 대화를/);
   assert.match(student, /궁금한 역사 사건, 인물, 기록에 대해 자유롭게/);
   assert.match(student, /Powered by NomaDamas/);
+  assert.match(student, /data-prompt="임진왜란은 왜 일어났어\?"/);
+  assert.match(student, /data-prompt="조선은 일본의 침략에 어떻게 대응했어\?"/);
+  assert.match(student, /data-prompt="임진왜란에서 의병은 어떤 역할을 했어\?"/);
+  assert.doesNotMatch(student, /data-prompt="역사 영화의 장면은 실제 역사와 얼마나 같아\?"/);
+  assert.doesNotMatch(student, /data-prompt="단종은 왜 왕위에서 물러나 유배를 가게 됐어\?"/);
   assert.doesNotMatch(student, /임진왜란과 이순신 장군에 대해 궁금한 내용/);
   assert.doesNotMatch(student, /질문의 온도/);
   assert.doesNotMatch(student, /교과서, 검색, 친구 토론/);
