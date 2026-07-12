@@ -68,8 +68,29 @@ test("truth mode fails closed without OpenAI instead of using rules", async () =
   });
 
   assert.equal(result.shouldSendToStudent, false);
-  assert.equal(result.audit.preflight.verdict, "FAIL_CLOSED_TRUTH_VERIFICATION");
+  assert.equal(result.audit.preflight.verdict, "PROVIDER_UNAVAILABLE");
+  assert.equal(result.failureType, "provider_unavailable");
   assert.equal(result.audit.preflight.failures[0].verdict, "OPENAI_REQUIRED");
+});
+
+test("truth mode provider 403 uses neutral service message without audit leakage", async () => {
+  const gatewayUrl = "https://gateway.ai.cloudflare.com/v1/account/gateway/openai/responses";
+  const result = await generateTruthAnswer({
+    message: "거북선은 뭐야?",
+    persona: "역사 도우미",
+    env: {
+      OPENAI_API_KEY: "test-key",
+      OPENAI_RESPONSES_URL: gatewayUrl
+    },
+    fetchImpl: async (url) => {
+      assert.equal(url, gatewayUrl);
+      return new Response("region unavailable", { status: 403 });
+    }
+  });
+
+  assert.equal(result.audit.preflight.verdict, "PROVIDER_UNAVAILABLE");
+  assert.match(result.answer, /연결이 잠시 불안정/);
+  assert.doesNotMatch(result.answer, /검수|잘못|다르게 물어/);
 });
 
 test("truth verifier rejection retries three times and blocks student delivery", async () => {

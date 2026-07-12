@@ -1,4 +1,4 @@
-const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+import { resolveOpenAIResponsesUrl } from "./openai-endpoint.js";
 
 export function judgeEvaluationTurn({ audit, expectedLevel }) {
   const correctAnswer = clean(audit.correctAnswer);
@@ -57,6 +57,7 @@ export async function judgeEvaluationTurnWithProvider({
       apiKey: env.OPENAI_API_KEY,
       model: env.EVAL_JUDGE_MODEL || env.OPENAI_MODEL || "gpt-5.6-terra",
       timeoutMs: normalizeTimeoutMs(env.OPENAI_TIMEOUT_MS),
+      responsesUrl: resolveOpenAIResponsesUrl(env),
       fetchImpl
     });
     return normalizeOpenAIJudgment(
@@ -90,12 +91,12 @@ export function summarizeJudgments(judgments) {
   };
 }
 
-async function callOpenAIJudge({ audit, expectedLevel, apiKey, model, timeoutMs, fetchImpl }) {
+async function callOpenAIJudge({ audit, expectedLevel, apiKey, model, timeoutMs, responsesUrl, fetchImpl }) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(`OpenAI judge timed out after ${timeoutMs}ms`), timeoutMs);
   let response;
   try {
-    response = await fetchImpl(OPENAI_RESPONSES_URL, {
+    response = await fetchImpl(responsesUrl, {
       method: "POST",
       headers: {
         authorization: `Bearer ${apiKey}`,

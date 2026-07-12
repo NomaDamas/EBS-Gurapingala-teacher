@@ -97,6 +97,13 @@ jobs:
           EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
           EXPECTED_OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
 
+      - name: Ensure Cloudflare AI Gateway
+        run: npm run gateway:ensure
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_AI_GATEWAY_ID: ebs-gurapingala
+
       - name: Deploy Worker
         run: >-
           npx wrangler deploy
@@ -104,6 +111,7 @@ jobs:
           --var "OPENAI_MODEL:$OPENAI_MODEL"
           --var "OPENAI_VERIFIER_MODEL:$OPENAI_VERIFIER_MODEL"
           --var "OPENAI_TIMEOUT_MS:$OPENAI_TIMEOUT_MS"
+          --var "OPENAI_RESPONSES_URL:$OPENAI_RESPONSES_URL"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -111,6 +119,7 @@ jobs:
           OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
           OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
           OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
+          OPENAI_RESPONSES_URL: https://gateway.ai.cloudflare.com/v1/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/ebs-gurapingala/openai/responses
 
       - name: Sync OpenAI Worker secret
         run: printf '%s' "$OPENAI_API_KEY" | npx wrangler secret put OPENAI_API_KEY

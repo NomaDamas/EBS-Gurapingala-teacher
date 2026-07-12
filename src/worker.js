@@ -12,7 +12,7 @@ const JSON_HEADERS = {
   ...SECURITY_HEADERS,
   "content-type": "application/json; charset=utf-8"
 };
-const FAIL_CLOSED_STUDENT_MESSAGE = "답변을 다시 점검해야 해. 질문을 한 번만 더 다르게 물어봐 줄래?";
+const FAIL_CLOSED_STUDENT_MESSAGE = "지금 답변을 만들지 못했어. 잠시 후 다시 시도해 줘.";
 const MAX_JSON_BODY_BYTES = 8 * 1024;
 const CHAT_QUEUE_POLL_MS = 250;
 
@@ -264,7 +264,9 @@ export default {
         result.audit.input.continuityOverride = Boolean(applied.continuityOverride);
         const { audit, answer } = result;
         const latencyMs = Date.now() - startedAtMs;
-        const studentAnswer = result.shouldSendToStudent ? answer : FAIL_CLOSED_STUDENT_MESSAGE;
+        const studentAnswer = result.shouldSendToStudent
+          ? answer
+          : answer || FAIL_CLOSED_STUDENT_MESSAGE;
         const stillRegistered = await validateStudentSession(room, body);
         if (!stillRegistered.ok) {
           return json({

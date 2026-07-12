@@ -31,9 +31,42 @@ test("OPENAI_API_KEY가 없으면 룰 기반으로 대체하지 않고 fail-clos
   });
 
   assert.equal(result.shouldSendToStudent, false);
-  assert.equal(result.audit.preflight.verdict, "FAIL_CLOSED_AFTER_RETRIES");
+  assert.equal(result.audit.preflight.verdict, "PROVIDER_UNAVAILABLE");
+  assert.equal(result.failureType, "provider_unavailable");
+  assert.match(result.answer, /연결이 잠시 불안정/);
   assert.equal(result.audit.preflight.failures[0].verdict, "OPENAI_REQUIRED");
   assert.equal(result.audit.provider.name, "openai");
+});
+
+test("provider 403은 검수 실패가 아니라 연결 장애로 분류하고 설정된 Gateway를 사용한다", async () => {
+  const urls = [];
+  const gatewayUrl = "https://gateway.ai.cloudflare.com/v1/account/gateway/openai/responses";
+  const result = await generateAuditedAnswer({
+    message: "선조는 이순신을 계속 신뢰했어?",
+    level: 5,
+    persona: "학습 도우미",
+    env: {
+      OPENAI_API_KEY: "test-key",
+      OPENAI_RESPONSES_URL: gatewayUrl
+    },
+    fetchImpl: async (url) => {
+      urls.push(url);
+      return new Response(JSON.stringify({
+        error: {
+          code: "unsupported_country_region_territory",
+          message: "Country, region, or territory not supported"
+        }
+      }), { status: 403 });
+    }
+  });
+
+  assert.deepEqual(urls, [gatewayUrl, gatewayUrl, gatewayUrl]);
+  assert.equal(result.shouldSendToStudent, false);
+  assert.equal(result.failureType, "provider_unavailable");
+  assert.equal(result.audit.preflight.verdict, "PROVIDER_UNAVAILABLE");
+  assert.match(result.answer, /잠시 후 다시 시도/);
+  assert.doesNotMatch(result.answer, /점검|다르게 물어/);
+  assert.match(result.audit.preflight.failures[0].error, /unsupported_country/);
 });
 
 test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로 반환한다", async () => {

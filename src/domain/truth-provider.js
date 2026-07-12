@@ -1,9 +1,12 @@
 import { DEFAULT_OPENAI_MODEL, normalizeTimeoutMs } from "./llm-provider.js";
 import { selectCaseForTurn } from "./misinfo-policy.js";
+import {
+  classifyProviderFailures,
+  providerStudentMessage,
+  resolveOpenAIResponsesUrl
+} from "./openai-endpoint.js";
 
-const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const MAX_ATTEMPTS = 3;
-const RETRY_STUDENT_MESSAGE = "답변을 다시 점검해야 해. 질문을 한 번만 더 다르게 물어봐 줄래?";
 
 export async function generateTruthAnswer({
   message,
@@ -48,6 +51,7 @@ export async function generateTruthAnswer({
         recentMessages,
         failures,
         timeoutMs,
+        responsesUrl: resolveOpenAIResponsesUrl(env),
         fetchImpl
       });
       if (!cleanString(draft.correct_answer) || !cleanString(draft.student_answer)) {
@@ -61,6 +65,7 @@ export async function generateTruthAnswer({
         selected,
         draft,
         timeoutMs,
+        responsesUrl: resolveOpenAIResponsesUrl(env),
         fetchImpl
       });
       if (!truthVerifierApproved(verifier)) {
@@ -171,12 +176,14 @@ async function callTruthGenerator({
   recentMessages,
   failures,
   timeoutMs,
+  responsesUrl,
   fetchImpl
 }) {
   return callStructuredResponse({
     apiKey,
     model,
     timeoutMs,
+    responsesUrl,
     fetchImpl,
     schemaName: "verified_truth_answer",
     schema: truthAnswerSchema(),
@@ -217,12 +224,14 @@ async function callTruthVerifier({
   selected,
   draft,
   timeoutMs,
+  responsesUrl,
   fetchImpl
 }) {
   return callStructuredResponse({
     apiKey,
     model,
     timeoutMs,
+    responsesUrl,
     fetchImpl,
     schemaName: "truth_preflight_verifier",
     schema: truthVerifierSchema(),
@@ -253,6 +262,7 @@ async function callStructuredResponse({
   apiKey,
   model,
   timeoutMs,
+  responsesUrl,
   fetchImpl,
   schemaName,
   schema,
@@ -262,7 +272,7 @@ async function callStructuredResponse({
   const timeout = setTimeout(() => controller.abort(`OpenAI request timed out after ${timeoutMs}ms`), timeoutMs);
   let response;
   try {
-    response = await fetchImpl(OPENAI_RESPONSES_URL, {
+    response = await fetchImpl(responsesUrl, {
       method: "POST",
       headers: {
         authorization: `Bearer ${apiKey}`,
@@ -317,10 +327,13 @@ function failedTruthResult({
   timeoutMs,
   failures
 }) {
+  const failureType = classifyProviderFailures(failures);
+  const studentMessage = providerStudentMessage(failureType);
   return {
     shouldSendToStudent: false,
-    answer: RETRY_STUDENT_MESSAGE,
+    answer: studentMessage,
     suggestedQuestions: [],
+    failureType,
     audit: {
       schemaVersion: "truth-audit/v1",
       input: {
@@ -339,11 +352,13 @@ function failedTruthResult({
         debriefNote: ""
       },
       correctAnswer: selected.truth,
-      studentVisibleAnswer: RETRY_STUDENT_MESSAGE,
+      studentVisibleAnswer: studentMessage,
       suggestedQuestions: [],
       studentVisibleFalseAnswer: "",
       falseClaim: "",
-      whyFalse: "진실 모드 LLM 생성 또는 독립 검수가 실패해 학생 전송을 차단했다.",
+      whyFalse: failureType === "provider_unavailable"
+        ? "진실 모드 LLM 제공자 연결이 실패해 학생 전송을 차단했다."
+        : "진실 모드 LLM 생성 또는 독립 검수가 실패해 학생 전송을 차단했다.",
       provider: {
         name: "openai",
         model,
@@ -358,9 +373,12 @@ function failedTruthResult({
       },
       preflight: {
         approvedForStudent: false,
-        verdict: "FAIL_CLOSED_TRUTH_VERIFICATION",
+        verdict: failureType === "provider_unavailable"
+          ? "PROVIDER_UNAVAILABLE"
+          : "FAIL_CLOSED_TRUTH_VERIFICATION",
         checks: {
-          retryCount: failures.length
+          retryCount: failures.length,
+          failureType
         },
         failures
       }

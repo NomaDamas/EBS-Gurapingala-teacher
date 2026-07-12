@@ -6,12 +6,15 @@ import {
   normalizeLevel,
   resolveFalsehoodForTurn
 } from "./misinfo-policy.js";
+import {
+  classifyProviderFailures,
+  providerStudentMessage,
+  resolveOpenAIResponsesUrl
+} from "./openai-endpoint.js";
 
-const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 export const DEFAULT_OPENAI_MODEL = "gpt-5.6-terra";
 export const DEFAULT_OPENAI_TIMEOUT_MS = 15000;
 const MAX_ATTEMPTS = 3;
-const RETRY_STUDENT_MESSAGE = "답변을 다시 점검해야 해. 질문을 한 번만 더 다르게 물어봐 줄래?";
 
 export async function generateAuditedAnswer({
   message,
@@ -86,6 +89,7 @@ export async function generateAuditedAnswer({
         recentFalseClaims,
         previousFailures: failures,
         timeoutMs: openaiTimeoutMs,
+        responsesUrl: resolveOpenAIResponsesUrl(env),
         fetchImpl
       });
       const audit = normalizeLlmAudit({
@@ -117,6 +121,7 @@ export async function generateAuditedAnswer({
         model: verifierModel,
         audit,
         timeoutMs: openaiTimeoutMs,
+        responsesUrl: resolveOpenAIResponsesUrl(env),
         fetchImpl
       });
       const verifiedAudit = applyVerifierVerdict({
@@ -344,6 +349,8 @@ export function applyVerifierVerdict({ audit, draft, model }) {
 function buildFailedAudit({ message, level, persona, falseDensity = "single", turnIndex, recentMessages = [], recentFalseClaims = [], model, verifierModel, timeoutMs = DEFAULT_OPENAI_TIMEOUT_MS, failures }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex });
+  const failureType = classifyProviderFailures(failures);
+  const studentMessage = providerStudentMessage(failureType);
   return {
     audit: {
       schemaVersion: "misinfo-audit/v1",
@@ -368,11 +375,13 @@ function buildFailedAudit({ message, level, persona, falseDensity = "single", tu
         debriefNote: selected.debriefNote
       },
       correctAnswer: selected.truth,
-      studentVisibleFalseAnswer: RETRY_STUDENT_MESSAGE,
+      studentVisibleFalseAnswer: studentMessage,
       suggestedQuestions: [],
       continuityClaim: findContinuityClaim(recentFalseClaims, selected.id) || null,
       falseClaim: "",
-      whyFalse: "LLM 생성 또는 검수가 3회 실패해 학생에게 거짓 정보를 전송하지 않았다.",
+      whyFalse: failureType === "provider_unavailable"
+        ? "LLM 제공자 연결이 실패해 학생에게 답변을 전송하지 않았다."
+        : "LLM 생성 또는 검수가 3회 실패해 학생에게 거짓 정보를 전송하지 않았다.",
       levelPolicy: LEVELS[level],
       provider: {
         name: "openai",
@@ -388,20 +397,24 @@ function buildFailedAudit({ message, level, persona, falseDensity = "single", tu
       },
       preflight: {
         approvedForStudent: false,
-        verdict: "FAIL_CLOSED_AFTER_RETRIES",
+        verdict: failureType === "provider_unavailable"
+          ? "PROVIDER_UNAVAILABLE"
+          : "FAIL_CLOSED_AFTER_RETRIES",
         checks: {
-          retryCount: MAX_ATTEMPTS
+          retryCount: MAX_ATTEMPTS,
+          failureType
         },
         failures
       }
     },
-    answer: RETRY_STUDENT_MESSAGE,
+    answer: studentMessage,
     suggestedQuestions: [],
-    shouldSendToStudent: false
+    shouldSendToStudent: false,
+    failureType
   };
 }
 
-async function callOpenAI({ apiKey, model, message, level, persona, falseDensity, turnIndex, recentMessages, recentFalseClaims, previousFailures, timeoutMs, fetchImpl }) {
+async function callOpenAI({ apiKey, model, message, level, persona, falseDensity, turnIndex, recentMessages, recentFalseClaims, previousFailures, timeoutMs, responsesUrl, fetchImpl }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
   const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex });
@@ -409,7 +422,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
   const timeout = setTimeout(() => controller.abort(`OpenAI request timed out after ${timeoutMs}ms`), timeoutMs);
   let response;
   try {
-    response = await fetchImpl(OPENAI_RESPONSES_URL, {
+    response = await fetchImpl(responsesUrl, {
       method: "POST",
       headers: {
         authorization: `Bearer ${apiKey}`,
@@ -450,12 +463,12 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
   return withResponseMetadata(parseStructuredOutput(payload), payload);
 }
 
-async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, fetchImpl }) {
+async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, responsesUrl, fetchImpl }) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(`OpenAI verifier timed out after ${timeoutMs}ms`), timeoutMs);
   let response;
   try {
-    response = await fetchImpl(OPENAI_RESPONSES_URL, {
+    response = await fetchImpl(responsesUrl, {
       method: "POST",
       headers: {
         authorization: `Bearer ${apiKey}`,
