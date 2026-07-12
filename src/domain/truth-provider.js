@@ -281,6 +281,9 @@ async function callStructuredResponse({
       signal: controller.signal,
       body: JSON.stringify({
         model,
+        reasoning: {
+          effort: "low"
+        },
         input,
         text: {
           format: {

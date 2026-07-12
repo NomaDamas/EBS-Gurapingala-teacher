@@ -461,6 +461,9 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
       signal: controller.signal,
       body: JSON.stringify({
         model,
+        reasoning: {
+          effort: "low"
+        },
         input: [
           {
             role: "system",
@@ -507,6 +510,9 @@ async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, responsesUr
       signal: controller.signal,
       body: JSON.stringify({
         model,
+        reasoning: {
+          effort: "low"
+        },
         input: [
           {
             role: "system",
