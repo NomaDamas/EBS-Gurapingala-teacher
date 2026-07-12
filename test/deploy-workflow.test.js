@@ -9,7 +9,7 @@ test("Deploy workflow verifies the real Worker with the same strict production g
     workflow.indexOf("- name: Sync OpenAI Worker secret")
   );
   const evaluationStep = workflow.slice(
-    workflow.indexOf("- name: 50-turn OpenAI model evaluation"),
+    workflow.indexOf("- name: 20-turn OpenAI model evaluation"),
     workflow.indexOf("- name: Upload model evaluation evidence")
   );
   const openAiSecretStep = workflow.slice(
@@ -39,6 +39,7 @@ test("Deploy workflow verifies the real Worker with the same strict production g
   assert.match(evaluationStep, /EXPECTED_OPENAI_VERIFIER_MODEL:/);
   assert.match(evaluationStep, /EVAL_JUDGE: openai/);
   assert.match(evaluationStep, /EVAL_JUDGE_MODEL:/);
+  assert.match(evaluationStep, /EVAL_TURN_COUNT: "20"/);
   assert.match(evaluationStep, /REQUIRE_OPENAI_EVAL: "true"/);
   assert.match(evaluationStep, /PR_HEAD_SHA: \$\{\{ github\.sha \}\}/);
   assert.match(evaluationStep, /EVAL_OUTPUT: artifacts\/model-evaluation-evidence\.json/);

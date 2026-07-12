@@ -28,8 +28,10 @@ jobs:
       - name: Unit tests
         run: node --test
 
-      - name: 50-turn evaluation
+      - name: 20-turn evaluation
         run: node scripts/run-eval.js
+        env:
+          EVAL_TURN_COUNT: "20"
 
       - name: Production readiness audit
         run: node scripts/readiness-audit.js

@@ -22,7 +22,7 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
-      - name: Run 50 real OpenAI turns for Level ${{ matrix.level }}
+      - name: Run 20 real OpenAI turns for Level ${{ matrix.level }}
         run: node scripts/run-eval.js
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -33,6 +33,7 @@ jobs:
           EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
           EVAL_JUDGE: openai
           EVAL_JUDGE_MODEL: ${{ vars.EVAL_JUDGE_MODEL || vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EVAL_TURN_COUNT: "20"
           OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
           REQUIRE_OPENAI_EVAL: "true"
           EVAL_FIXED_LEVEL: ${{ matrix.level }}

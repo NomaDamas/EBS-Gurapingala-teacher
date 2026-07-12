@@ -77,3 +77,21 @@ test("run-eval creates a missing nested output directory", () => {
   assert.equal(payload.schemaVersion, "model-evaluation-evidence/v1");
   assert.equal(payload.status, "pass");
 });
+
+test("run-eval can limit a time-sensitive evaluation to 20 turns", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ebs-eval-20-"));
+  const outputPath = join(dir, "eval-results.json");
+  const result = spawnSync(process.execPath, ["scripts/run-eval.js"], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      EVAL_OUTPUT: outputPath,
+      EVAL_TURN_COUNT: "20"
+    }
+  });
+
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const payload = JSON.parse(readFileSync(outputPath, "utf8"));
+  assert.equal(payload.totalTurnsPerModel, 20);
+  assert.equal(payload.models[0].turns.length, 20);
+});
