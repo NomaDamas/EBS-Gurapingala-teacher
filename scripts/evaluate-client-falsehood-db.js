@@ -51,7 +51,9 @@ const summary = {
   approved: turns.filter((turn) => turn.approved).length,
   relatedToQuestion: turns.filter((turn) => turn.relatedToQuestion).length,
   intendedClaimMatch: turns.filter((turn) => turn.intendedClaimMatch).length,
-  exactRepeatedClaims: rows.filter((row) => row.exactRepeatedClaim).length,
+  repeatedAuditSeeds: rows.filter((row) => row.repeatedAuditSeed).length,
+  repeatedVerbatimStudentSeeds: rows.filter((row) => row.repeatedVerbatimStudentSeed).length,
+  repeatedStudentAnswers: rows.filter((row) => row.repeatedStudentAnswer).length,
   absurdityRisks: rows.filter((row) => row.absurdityRisk !== "low").length,
   byGroup: summarizeGroups(rows)
 };
@@ -100,13 +102,18 @@ function evaluateSession(session, events) {
     };
   });
   const normalizedClaims = turns.map((turn) => normalize(turn.generatedFalseClaim)).filter(Boolean);
+  const normalizedAnswers = turns.map((turn) => normalize(turn.studentVisibleAnswer)).filter(Boolean);
+  const normalizedSeed = normalize(session.falseClaim);
+  const verbatimSeedUses = normalizedAnswers.filter((answer) => answer.includes(normalizedSeed)).length;
   return {
     id: session.id,
     group: session.group,
     topic: session.topic,
     intendedFalseClaim: session.falseClaim,
     absurdityRisk: classifyAbsurdityRisk(session.falseClaim),
-    exactRepeatedClaim: new Set(normalizedClaims).size < normalizedClaims.length,
+    repeatedAuditSeed: new Set(normalizedClaims).size < normalizedClaims.length,
+    repeatedVerbatimStudentSeed: verbatimSeedUses >= 2,
+    repeatedStudentAnswer: new Set(normalizedAnswers).size < normalizedAnswers.length,
     turns
   };
 }
