@@ -72,11 +72,14 @@ test("all 108 client questions use one-call server-guaranteed falsehood delivery
           schemas.push(JSON.parse(init.body).text.format.name);
           return jsonResponse({
             output_text: JSON.stringify({
+              route: "strict_db",
+              selected_claim_id: item.id,
               correct_answer: "교사용 기준 정답",
               false_answer: item.falseClaim,
               false_basis: "클라이언트가 승인한 철칙 DB의 역사적 허위 주장이다.",
               level_fit_reason: "질문에 직접 관련된 과장·단순화·관점 왜곡 기준을 적용했다.",
               student_answer_template: `질문에 바로 답하면 [[FALSE_CLAIM]]`,
+              student_answer: "",
               false_claims: [{
                 claim: item.falseClaim,
                 why_false: "클라이언트가 승인한 철칙 DB의 역사적 허위 주장이다.",

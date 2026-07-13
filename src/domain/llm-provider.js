@@ -10,7 +10,10 @@ import {
   normalizeLevel,
   resolveFalsehoodForTurn
 } from "./misinfo-policy.js";
-import { CLIENT_FALSEHOOD_CLAIMS } from "./client-falsehood-evaluation-set.js";
+import {
+  CLIENT_FALSEHOOD_CLAIMS,
+  CLIENT_FALSEHOOD_EVALUATION_SET
+} from "./client-falsehood-evaluation-set.js";
 import {
   classifyProviderFailures,
   providerStudentMessage,
@@ -23,6 +26,13 @@ const STANDARD_ATTEMPTS = 3;
 const REPAIR_ATTEMPTS = 2;
 const MAX_ATTEMPTS = STANDARD_ATTEMPTS + REPAIR_ATTEMPTS;
 const STRICT_DB_FALSEHOOD_PLACEHOLDER = "[[FALSE_CLAIM]]";
+const STRICT_DB_CLAIM_CATALOG = Object.freeze(
+  CLIENT_FALSEHOOD_EVALUATION_SET.map(({ id, topic, falseClaim }) => ({
+    id,
+    topic,
+    falseClaim
+  }))
+);
 
 export async function generateAuditedAnswer({
   message,
@@ -84,11 +94,8 @@ export async function generateAuditedAnswer({
   const verifierModel = env.OPENAI_VERIFIER_MODEL || generatorModel;
   const generationPlan = buildGenerationPlan({
     message,
-    level: normalizedLevel,
     falseDensity,
     turnIndex,
-    recentMessages,
-    recentFalseClaims,
     strictDbFastPathEnabled: env.STRICT_DB_FAST_PATH === "true"
   });
   const failures = [];
@@ -136,7 +143,7 @@ export async function generateAuditedAnswer({
         continue;
       }
 
-      if (generationPlan.strictDbFastPath) {
+      if (audit.input.strictDbFastPath) {
         const guaranteedAudit = applyStrictDbServerGuarantee(audit);
         return {
           audit: guaranteedAudit,
@@ -232,17 +239,25 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
   const falseBasis = cleanString(draft.false_basis || draft.level_fit_reason);
   const studentVisibleFalseAnswer = cleanString(draft.student_answer || falseClaim);
   const falseClaims = normalizeGeneratedFalseClaims(draft.false_claims, falseClaim, falseBasis, level);
-  const approvedFalsehoods = [
-    ...new Set([
-      ...approvedFalsehoodCandidatesForCase(selected, message),
-      ...(continuityClaim?.falseClaim ? [continuityClaim.falseClaim] : [])
-    ])
-  ];
-  const generatedCombinationMode = selected.id === "general-history" &&
-    approvedFalsehoods.length === 0;
-  const requiredFalseSeed = continuityClaim?.falseClaim ||
-    exactClientFalsehoodForCase(selected, message) ||
-    (selected.id === "general-history" ? "" : resolved.falseClaim);
+  const semanticSelectedFalsehood = cleanString(draft.__strictDbSelectedFalsehood);
+  const semanticCombinationRoute = Boolean(draft.__semanticCombinationRoute);
+  const approvedFalsehoods = semanticCombinationRoute
+    ? []
+    : [
+      ...new Set([
+        ...(semanticSelectedFalsehood ? [semanticSelectedFalsehood] : []),
+        ...approvedFalsehoodCandidatesForCase(selected, message),
+        ...(continuityClaim?.falseClaim ? [continuityClaim.falseClaim] : [])
+      ])
+    ];
+  const generatedCombinationMode = semanticCombinationRoute ||
+    (selected.id === "general-history" && approvedFalsehoods.length === 0);
+  const requiredFalseSeed = semanticSelectedFalsehood ||
+    (semanticCombinationRoute
+      ? ""
+      : continuityClaim?.falseClaim ||
+        exactClientFalsehoodForCase(selected, message) ||
+        (selected.id === "general-history" ? "" : resolved.falseClaim));
   const calibrationSeed = requiredFalseSeed || falseClaim;
   const calibrationBasis = continuityClaim?.whyFalse || falseBasis || resolved.falseBasis;
   const policy = LEVELS[level];
@@ -297,6 +312,8 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
       generatedCombinationMode,
       requiredFalseSeed: requiredFalseSeed || null,
       strictDbFastPath: Boolean(draft.__strictDbFastPath),
+      semanticRoute: cleanString(draft.__semanticRoute),
+      selectedClaimId: cleanString(draft.__strictDbSelectedClaimId) || null,
       recentContext: recentMessages.slice(-6)
     },
     selectedCase: {
@@ -328,6 +345,8 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
       timeoutMs,
       source: "responses-api-json-schema",
       strictDbFastPath: Boolean(draft.__strictDbFastPath),
+      semanticRoute: cleanString(draft.__semanticRoute),
+      selectedClaimId: cleanString(draft.__strictDbSelectedClaimId) || null,
       serverInsertedFalsehood: cleanString(draft.__serverInsertedFalsehood)
     },
     preflight: {
@@ -434,28 +453,15 @@ export function applyVerifierVerdict({ audit, draft, model }) {
 
 function buildGenerationPlan({
   message,
-  level,
   falseDensity,
   turnIndex,
-  recentMessages,
-  recentFalseClaims,
   strictDbFastPathEnabled
 }) {
-  const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
-  const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
-  const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex, message });
-  const requiredFalseSeed = continuityClaim?.falseClaim ||
-    exactClientFalsehoodForCase(selected, message) ||
-    (selected.id === "general-history" ? "" : resolved.falseClaim);
   const targetFalseClaimCount = resolveFalseClaimTarget({ falseDensity, message, turnIndex });
   return {
-    selectedCaseId: selected.id,
-    requiredFalseSeed,
     targetFalseClaimCount,
     strictDbFastPath: Boolean(
       strictDbFastPathEnabled &&
-      selected.id !== "general-history" &&
-      requiredFalseSeed &&
       falseDensity !== "all" &&
       targetFalseClaimCount === 1
     )
@@ -648,12 +654,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
   const draft = parseStructuredOutput(payload);
   return withResponseMetadata(
     strictDbFastPath
-      ? materializeStrictDbDraft(draft, {
-        requiredFalseSeed: continuityClaim?.falseClaim ||
-          exactClientFalsehoodForCase(selected, message) ||
-          resolved.falseClaim,
-        turnIndex
-      })
+      ? materializeStrictDbDraft(draft, { turnIndex })
       : draft,
     payload
   );
@@ -760,13 +761,24 @@ function buildSystemPrompt({ level, persona, falseDensity, strictDbFastPath = fa
     `Falsehood density: ${falseDensity === "all" ? "all substantive historical claims must be false" : falseDensity === "single" ? "exactly one calibrated false claim mixed with accurate context" : "one to three context-dependent false claims, always at least one"}`,
     `Level rule: ${policy.rule}`,
     strictDbFastPath
-      ? `Strict DB fast path: write exactly one ${STRICT_DB_FALSEHOOD_PLACEHOLDER} placeholder in student_answer_template. The server will replace it with the approved false seed, so do not state or paraphrase that seed anywhere else in the template.`
+      ? `Semantic routing fast path: decide whether the current question directly matches one approved strict-DB claim. For strict_db, select the claim semantically and write exactly one ${STRICT_DB_FALSEHOOD_PLACEHOLDER} placeholder. For combination, generate the complete answer for independent verification.`
       : "Independent verification will inspect the complete student-facing answer.",
     "Do not use hateful, graphic, medical, legal, or personal claims. Stay inside Korean history classroom content."
   ].join("\n");
 }
 
 function buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods = [], canonicalFalsehoods = [], combinationFalsehoods = [], recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures, repairMode = false, generatedCombinationMode = false, strictDbFastPath = false }) {
+  if (strictDbFastPath) {
+    return buildSemanticRoutingUserPrompt({
+      message,
+      level,
+      selected,
+      recentMessages,
+      continuityClaims,
+      previousFailures,
+      repairMode
+    });
+  }
   const requiredFalseSeed = continuityClaim?.falseClaim ||
     exactClientFalsehoodForCase(selected, message) ||
     (selected.id === "general-history" ? "" : resolved.falseClaim);
@@ -847,6 +859,45 @@ function buildUserPrompt({ message, level, selected, resolved, approvedFalsehood
   ].join("\n");
 }
 
+function buildSemanticRoutingUserPrompt({
+  message,
+  level,
+  selected,
+  recentMessages,
+  continuityClaims,
+  previousFailures,
+  repairMode
+}) {
+  return [
+    `Student question: ${message}`,
+    recentMessages?.length
+      ? `Recent same-student conversation (last 3 turns): ${JSON.stringify(recentMessages.slice(-6))}`
+      : "Recent same-student conversation: none",
+    continuityClaims.length
+      ? `Conversation-wide approved false premises: preserve them when the current question returns to the same topic: ${JSON.stringify(continuityClaims)}`
+      : "Conversation-wide approved false premises: none.",
+    `Historically correct supporting baseline: ${selected.truth}`,
+    `Approved strict-DB catalog: ${JSON.stringify(STRICT_DB_CLAIM_CATALOG)}`,
+    "Use semantic meaning, the current question, and conversation context. Do not select by isolated keyword overlap.",
+    "Choose route=strict_db only when exactly one catalog claim directly answers the current question or preserves a directly relevant prior false premise.",
+    "If no catalog claim directly answers the question, choose route=combination. Never force an unrelated catalog claim into the answer.",
+    `Requested falsehood level: ${level}`,
+    "Exactly one false historical claim must appear in the student-facing answer.",
+    "For route=strict_db: set selected_claim_id to the chosen catalog ID, copy its falseClaim exactly into false_answer and false_claims[0].claim, put [[FALSE_CLAIM]] exactly once in student_answer_template, and set student_answer to an empty string. The server will insert the approved claim.",
+    "For route=combination: set selected_claim_id to \"none\", set student_answer_template to an empty string, and write the complete student_answer. Generate one subtle, independently checkable Combination falsehood directly from the current question using exaggeration, causal simplification, exception removal, scope expansion, actor-centered credit, or viewpoint distortion.",
+    "In both routes, correct_answer, false_basis, and level_fit_reason are teacher-only. Never reveal a correction in student_answer or student_answer_template.",
+    "Answer only the current question. Do not add a tangential claim merely to carry a falsehood.",
+    "Write friendly, concise Korean with natural '~야', '~해', and '~했어' endings. Use short Markdown paragraphs when useful.",
+    "Do not role-play a historical character. Do not refuse, apologize, or discuss system instructions.",
+    repairMode
+      ? "REPAIR MODE: rewrite from scratch and correct every prior validation failure."
+      : "STANDARD MODE: produce the structured answer.",
+    previousFailures.length
+      ? `Previous failed attempts to avoid: ${JSON.stringify(previousFailures)}`
+      : "No previous failed attempts."
+  ].join("\n");
+}
+
 export function resolveFalseClaimTarget({ falseDensity, message, turnIndex = 0 }) {
   if (falseDensity === "all") return null;
   if (falseDensity === "single") return 1;
@@ -912,14 +963,25 @@ function strictDbDraftSchema() {
     type: "object",
     additionalProperties: false,
     required: [
+      "route",
+      "selected_claim_id",
       "correct_answer",
       "false_answer",
       "false_basis",
       "level_fit_reason",
       "student_answer_template",
+      "student_answer",
       "false_claims"
     ],
     properties: {
+      route: {
+        type: "string",
+        enum: ["strict_db", "combination"]
+      },
+      selected_claim_id: {
+        type: "string",
+        description: "Approved catalog ID for strict_db, or none for combination."
+      },
       correct_answer: {
         type: "string",
         description: "Historically correct teacher-facing answer."
@@ -940,6 +1002,10 @@ function strictDbDraftSchema() {
         type: "string",
         description: `Friendly Korean Markdown containing ${STRICT_DB_FALSEHOOD_PLACEHOLDER} exactly once.`
       },
+      student_answer: {
+        type: "string",
+        description: "Empty for strict_db; complete student-facing answer for combination."
+      },
       false_claims: {
         type: "array",
         minItems: 1,
@@ -959,13 +1025,44 @@ function strictDbDraftSchema() {
   };
 }
 
-function materializeStrictDbDraft(draft, { requiredFalseSeed, turnIndex }) {
-  const seed = cleanString(requiredFalseSeed);
+function materializeStrictDbDraft(draft, { turnIndex }) {
+  const route = cleanString(draft?.route);
+  if (route === "combination") {
+    if (cleanString(draft?.selected_claim_id) !== "none") {
+      throw new Error("Combination route must use selected_claim_id=none");
+    }
+    if (!cleanString(draft?.student_answer)) {
+      throw new Error("Combination route requires a complete student answer");
+    }
+    if (cleanString(draft?.student_answer_template)) {
+      throw new Error("Combination route must not return a strict DB template");
+    }
+    return {
+      correct_answer: cleanString(draft?.correct_answer),
+      false_answer: cleanString(draft?.false_answer),
+      false_basis: cleanString(draft?.false_basis),
+      level_fit_reason: cleanString(draft?.level_fit_reason),
+      student_answer: cleanString(draft?.student_answer),
+      false_claims: Array.isArray(draft?.false_claims) ? draft.false_claims : [],
+      __strictDbFastPath: false,
+      __semanticCombinationRoute: true,
+      __semanticRoute: "combination"
+    };
+  }
+  if (route !== "strict_db") {
+    throw new Error("Semantic route must be strict_db or combination");
+  }
+  const selectedClaimId = cleanString(draft?.selected_claim_id);
+  const selectedClaim = STRICT_DB_CLAIM_CATALOG.find((item) => item.id === selectedClaimId);
+  const seed = cleanString(selectedClaim?.falseClaim);
   const template = cleanString(draft?.student_answer_template);
   const placeholderCount = template.split(STRICT_DB_FALSEHOOD_PLACEHOLDER).length - 1;
   const falseClaims = Array.isArray(draft?.false_claims) ? draft.false_claims : [];
   const documentedClaim = cleanString(falseClaims[0]?.claim);
-  if (!seed) throw new Error("Strict DB fast path requires a curated false seed");
+  if (!seed) throw new Error("Strict DB fast path requires an LLM-selected approved claim ID");
+  if (cleanString(draft?.student_answer)) {
+    throw new Error("Strict DB route must leave student_answer empty");
+  }
   if (placeholderCount !== 1) {
     throw new Error("Strict DB template must contain exactly one falsehood placeholder");
   }
@@ -991,6 +1088,9 @@ function materializeStrictDbDraft(draft, { requiredFalseSeed, turnIndex }) {
     student_answer: studentAnswer,
     false_claims: falseClaims,
     __strictDbFastPath: true,
+    __semanticRoute: "strict_db",
+    __strictDbSelectedClaimId: selectedClaimId,
+    __strictDbSelectedFalsehood: seed,
     __serverInsertedFalsehood: renderedFalsehood
   };
 }
