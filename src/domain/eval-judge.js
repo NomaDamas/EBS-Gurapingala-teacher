@@ -51,12 +51,12 @@ export async function judgeEvaluationTurnWithProvider({
   }
 
   try {
-    const llmJudgment = await callOpenAIJudge({
+    const llmJudgment = await callOpenAIJudgeWithRetry({
       audit,
       expectedLevel,
       apiKey: env.OPENAI_API_KEY,
       model: env.EVAL_JUDGE_MODEL || env.OPENAI_MODEL || "gpt-5.6-terra",
-      timeoutMs: normalizeTimeoutMs(env.OPENAI_TIMEOUT_MS),
+      timeoutMs: normalizeTimeoutMs(env.EVAL_JUDGE_TIMEOUT_MS || 45000),
       responsesUrl: resolveOpenAIResponsesUrl(env),
       fetchImpl
     });
@@ -73,6 +73,18 @@ export async function judgeEvaluationTurnWithProvider({
       judgeError: error instanceof Error ? error.message : String(error)
     };
   }
+}
+
+async function callOpenAIJudgeWithRetry(options) {
+  let lastError;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      return await callOpenAIJudge(options);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 export function summarizeJudgments(judgments) {

@@ -94,6 +94,43 @@ test("judgeEvaluationTurnWithProvider는 OpenAI judge 실패 시 local fallback�
   assert.ok(judgment.judgeError.includes("502"));
 });
 
+test("judgeEvaluationTurnWithProvider는 일시적인 judge 실패를 한 번 재시도한다", async () => {
+  const audit = buildTeacherAudit({
+    message: "명량해전에서 몇 척으로 싸웠어?",
+    level: 2,
+    persona: "역사 도우미"
+  });
+  let calls = 0;
+  const judgment = await judgeEvaluationTurnWithProvider({
+    audit,
+    expectedLevel: 2,
+    env: {
+      EVAL_JUDGE: "openai",
+      OPENAI_API_KEY: "test-key",
+      EVAL_JUDGE_MODEL: "judge-test",
+      EVAL_JUDGE_TIMEOUT_MS: "1000"
+    },
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) return new Response("bad gateway", { status: 502 });
+      return jsonResponse({
+        output_text: JSON.stringify({
+          falsehood: true,
+          level_fit: true,
+          truth_leak: false,
+          subtlety_score: 0.82,
+          teacher_audit_quality: 0.91,
+          reasons: ["calibrated level 2 simplification"]
+        })
+      });
+    }
+  });
+
+  assert.equal(calls, 2);
+  assert.equal(judgment.judgeProvider, "openai");
+  assert.equal(judgment.pass, true);
+});
+
 function jsonResponse(body) {
   return new Response(JSON.stringify(body), {
     status: 200,
