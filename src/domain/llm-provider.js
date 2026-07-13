@@ -142,29 +142,26 @@ export async function generateAuditedAnswer({
         continue;
       }
 
-      if (audit.input.strictDbFastPath) {
-        const guaranteedAudit = applyStrictDbLlmGuarantee(audit);
-        return {
-          audit: guaranteedAudit,
-          answer: guaranteedAudit.studentVisibleFalseAnswer,
-          suggestedQuestions: [],
-          shouldSendToStudent: true
-        };
-      }
+      const auditForVerification = audit.input.strictDbFastPath
+        ? applyStrictDbIntegrityGuard(audit)
+        : audit;
 
       const verifierDraft = await callOpenAIVerifier({
         apiKey: env.OPENAI_API_KEY,
         model: verifierModel,
-        audit,
+        audit: auditForVerification,
         timeoutMs: openaiTimeoutMs,
         responsesUrl: resolveOpenAIResponsesUrl(env),
         fetchImpl
       });
-      const verifiedAudit = applyVerifierVerdict({
-        audit,
+      let verifiedAudit = applyVerifierVerdict({
+        audit: auditForVerification,
         draft: verifierDraft,
         model: verifierModel
       });
+      if (verifiedAudit.preflight.approvedForStudent && audit.input.strictDbFastPath) {
+        verifiedAudit = markStrictDbVerifierApproval(verifiedAudit);
+      }
       if (verifiedAudit.preflight.approvedForStudent) {
         return {
           audit: verifiedAudit,
@@ -467,40 +464,34 @@ function buildGenerationPlan({
   };
 }
 
-function applyStrictDbLlmGuarantee(audit) {
+function applyStrictDbIntegrityGuard(audit) {
   const requiredFalseSeed = cleanString(audit.input?.requiredFalseSeed);
   const falseClaims = Array.isArray(audit.falseClaims) ? audit.falseClaims : [];
-  const guaranteedFalseClaimPresent = Boolean(
-    requiredFalseSeed &&
-    preservesCuratedSeed(audit.studentVisibleFalseAnswer, requiredFalseSeed)
-  );
   const requiredSeedLocked = Boolean(
     requiredFalseSeed &&
     matchesCalibrationSeedExactly(audit.falseClaim, requiredFalseSeed)
   );
   const approvedClaimLocked = falseClaims.length === 1 &&
     matchesCalibrationSeedExactly(falseClaims[0]?.claim, requiredFalseSeed);
-  const deterministicApproved = Boolean(
+  const integrityApproved = Boolean(
     audit.preflight.approvedForStudent &&
     audit.input.strictDbFastPath &&
     audit.provider?.answerGeneration === "llm-complete-answer" &&
-    guaranteedFalseClaimPresent &&
     requiredSeedLocked &&
     approvedClaimLocked &&
     !audit.preflight.checks.studentCorrectionLeak
   );
-  if (!deterministicApproved) {
-    throw new Error("Strict DB LLM output guarantee failed");
+  if (!integrityApproved) {
+    throw new Error("Strict DB integrity guard failed");
   }
 
   return {
     ...audit,
     provider: {
       ...audit.provider,
-      verifier: {
-        name: "deterministic-llm-output-guard",
-        model: "server-policy",
-        source: "llm-complete-answer-validation"
+      integrityGuard: {
+        name: "strict-db-structure",
+        source: "approved-claim-id-and-audit-lock"
       }
     },
     preflight: {
@@ -508,21 +499,27 @@ function applyStrictDbLlmGuarantee(audit) {
       approvedForStudent: true,
       hardApproved: true,
       acceptedByHardGatePolicy: true,
-      verdict: "PASS_STRICT_DB_LLM_GUARANTEE",
+      verdict: "PASS_STRICT_DB_INTEGRITY_GUARD",
       checks: {
         ...audit.preflight.checks,
-        guaranteedFalseClaimPresent,
+        strictDbIntegrityApproved: true,
         requiredSeedLocked,
         approvedClaimLocked,
         hardApproved: true,
         acceptedByHardGatePolicy: true,
         verifierApproved: false
       },
-      verifier: {
-        approved: true,
-        model: "server-policy",
-        rationale: "LLM이 생성한 완성 답변에 선택된 교사 승인 거짓 seed가 의미적으로 유지됐는지 서버가 검증했다."
-      }
+      verifier: null
+    }
+  };
+}
+
+function markStrictDbVerifierApproval(audit) {
+  return {
+    ...audit,
+    preflight: {
+      ...audit.preflight,
+      verdict: "PASS_STRICT_DB_LLM_VERIFIED"
     }
   };
 }
@@ -1071,9 +1068,6 @@ function materializeStrictDbDraft(draft) {
   if (falseClaims.length !== 1 || !matchesCalibrationSeedExactly(documentedClaim, seed)) {
     throw new Error("Strict DB draft must document exactly the curated false seed");
   }
-  if (!preservesCuratedSeed(studentAnswer, seed)) {
-    throw new Error("Strict DB LLM answer omitted or changed the selected curated false seed");
-  }
   return {
     correct_answer: cleanString(draft?.correct_answer),
     false_answer: seed,
@@ -1087,23 +1081,6 @@ function materializeStrictDbDraft(draft) {
     __strictDbSelectedFalsehood: seed,
     __answerGeneration: "llm-complete-answer"
   };
-}
-
-function preservesCuratedSeed(candidate, seed) {
-  const normalizedCandidate = comparableSeedText(candidate);
-  const normalizedSeed = comparableSeedText(seed);
-  if (normalizedCandidate.includes(normalizedSeed)) return true;
-  const seedTokens = normalizedSeed.split(" ").filter((token) => token.length > 1);
-  if (!seedTokens.length) return false;
-  const matched = seedTokens.filter((token) => normalizedCandidate.includes(token)).length;
-  return matched / seedTokens.length >= 0.8;
-}
-
-function comparableSeedText(value) {
-  return cleanString(value)
-    .replace(/[.,!?'"“”‘’()[\]]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function verifierSchema() {

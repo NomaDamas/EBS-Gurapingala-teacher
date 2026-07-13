@@ -1353,6 +1353,7 @@ function buildHealthPayload(env) {
     openaiTimeoutMs: normalizeTimeoutMs(env.OPENAI_TIMEOUT_MS),
     strictDbFastPath: env.STRICT_DB_FAST_PATH === "true",
     strictDbAnswerGeneration: "llm-complete-answer",
+    strictDbVerification: "independent-openai-verifier",
     defaultRoomId: normalizeRoomId(env.DEFAULT_ROOM_ID),
     endpoints: {
       student: "/",

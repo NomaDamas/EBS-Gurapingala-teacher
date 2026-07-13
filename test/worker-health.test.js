@@ -59,6 +59,7 @@ test("/api/health reports the strict DB LLM-complete-answer fast path when enabl
   assert.equal(res.status, 200);
   assert.equal(body.strictDbFastPath, true);
   assert.equal(body.strictDbAnswerGeneration, "llm-complete-answer");
+  assert.equal(body.strictDbVerification, "independent-openai-verifier");
 });
 
 test("not found responses include common security headers", async () => {

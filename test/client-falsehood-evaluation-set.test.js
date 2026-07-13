@@ -54,7 +54,7 @@ test("all 108 client questions route to their intended Combination falsehood see
   }
 });
 
-test("all 108 client questions use one-call LLM-generated falsehood delivery", async () => {
+test("all 108 client questions use LLM generation plus independent semantic verification", async () => {
   for (const item of CLIENT_FALSEHOOD_EVALUATION_SET) {
     for (const question of item.questions) {
       const schemas = [];
@@ -66,10 +66,17 @@ test("all 108 client questions use one-call LLM-generated falsehood delivery", a
         env: {
           OPENAI_API_KEY: "test-key",
           OPENAI_MODEL: "gpt-generator",
+          OPENAI_VERIFIER_MODEL: "gpt-verifier",
           STRICT_DB_FAST_PATH: "true"
         },
         fetchImpl: async (url, init) => {
-          schemas.push(JSON.parse(init.body).text.format.name);
+          const schema = JSON.parse(init.body).text.format.name;
+          schemas.push(schema);
+          if (schema === "misinfo_preflight_verifier") {
+            return jsonResponse({
+              output_text: JSON.stringify(approvedVerifier())
+            });
+          }
           return jsonResponse({
             output_text: JSON.stringify({
               route: "strict_db",
@@ -90,11 +97,12 @@ test("all 108 client questions use one-call LLM-generated falsehood delivery", a
         }
       });
 
-      assert.deepEqual(schemas, ["misinfo_strict_db_draft"], question);
+      assert.deepEqual(schemas, ["misinfo_strict_db_draft", "misinfo_preflight_verifier"], question);
       assert.equal(result.shouldSendToStudent, true, question);
       assert.equal(result.audit.provider.answerGeneration, "llm-complete-answer", question);
-      assert.equal(result.audit.preflight.verdict, "PASS_STRICT_DB_LLM_GUARANTEE", question);
-      assert.equal(result.audit.preflight.checks.guaranteedFalseClaimPresent, true, question);
+      assert.equal(result.audit.provider.verifier.model, "gpt-verifier", question);
+      assert.equal(result.audit.preflight.verdict, "PASS_STRICT_DB_LLM_VERIFIED", question);
+      assert.equal(result.audit.preflight.checks.verifierFalseClaimPresent, true, question);
       assert.ok(result.answer.length > 20, question);
     }
   }
@@ -105,4 +113,27 @@ function jsonResponse(body) {
     status: 200,
     headers: { "content-type": "application/json" }
   });
+}
+
+function approvedVerifier() {
+  return {
+    approved: true,
+    correct_answer_supported: true,
+    false_claim_is_false: true,
+    false_claim_present: true,
+    calibration_seed_preserved: true,
+    level_fit: true,
+    truth_context_present: true,
+    all_historical_claims_false: false,
+    density_match: true,
+    truth_leak: false,
+    correction_leak: false,
+    subtle_enough: true,
+    non_repetitive: true,
+    previous_claim_preserved: true,
+    no_context_contradiction: true,
+    only_approved_falsehoods: true,
+    question_relevant: true,
+    rationale: "승인된 철칙 거짓 주장이 학생 답변에서 의미적으로 유지됐다."
+  };
 }
