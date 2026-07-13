@@ -346,7 +346,17 @@ export const teacherHtml = `<!doctype html>
     .conversationPanel, .reviewPanel { min-height: 0; overflow: hidden; }
     .conversationPanel { display: grid; grid-template-rows: auto 1fr; }
     .panelHeading, .reviewHeading { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+    .panelHeading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .panelHeading h2, .reviewHeading h2 { margin: 0; font: 700 15px "IBM Plex Sans KR", sans-serif; }
+    .panelHeadingActions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .panelHeadingActions button {
+      padding: 6px 8px;
+      color: var(--ebs-blue);
+      border: 1px solid var(--line);
+      background: #fff;
+      font-size: 10px;
+    }
+    .panelHeadingActions button:disabled { cursor: not-allowed; opacity: .42; }
     .reviewHeading > div { min-width: 0; }
     .reviewContext {
       max-width: 100%;
@@ -576,6 +586,8 @@ export const teacherHtml = `<!doctype html>
             <div class="actions">
               <button class="secondary" id="savePersona" type="button">페르소나 저장</button>
               <button id="downloadExport">전체 로그 JSON</button>
+              <button id="downloadAllTranscriptsJson">전체 문답 JSON</button>
+              <button class="secondary" id="downloadAllTranscriptsCsv">전체 문답 CSV</button>
               <button class="secondary" id="downloadDebrief">정정 수업 오류표</button>
               <button class="secondary" id="downloadDebriefCsv">오류표 CSV</button>
               <button class="danger" id="purgeEvents">촬영 로그 삭제</button>
@@ -587,7 +599,11 @@ export const teacherHtml = `<!doctype html>
         <section class="conversationPanel" id="conversationPanel">
           <div class="panelHeading">
             <h2>학생에게 보인 대화</h2>
-            <span class="modePill">학생 노출</span>
+            <div class="panelHeadingActions">
+              <button id="downloadStudentTranscriptJson" type="button" disabled>선택 학생 JSON</button>
+              <button id="downloadStudentTranscriptCsv" type="button" disabled>선택 학생 CSV</button>
+              <span class="modePill">학생 노출</span>
+            </div>
           </div>
           <div id="chat"><div class="empty">학생 카드를 클릭하면 대화가 표시됩니다.</div></div>
         </section>
@@ -637,6 +653,10 @@ export const teacherHtml = `<!doctype html>
     const teacherReviewContextEl = document.querySelector("#teacherReviewContext");
     const latestTurnButtonEl = document.querySelector("#latestTurnButton");
     const downloadExportEl = document.querySelector("#downloadExport");
+    const downloadAllTranscriptsJsonEl = document.querySelector("#downloadAllTranscriptsJson");
+    const downloadAllTranscriptsCsvEl = document.querySelector("#downloadAllTranscriptsCsv");
+    const downloadStudentTranscriptJsonEl = document.querySelector("#downloadStudentTranscriptJson");
+    const downloadStudentTranscriptCsvEl = document.querySelector("#downloadStudentTranscriptCsv");
     const downloadDebriefEl = document.querySelector("#downloadDebrief");
     const downloadDebriefCsvEl = document.querySelector("#downloadDebriefCsv");
     const purgeEventsEl = document.querySelector("#purgeEvents");
@@ -1119,6 +1139,7 @@ export const teacherHtml = `<!doctype html>
     function renderSelected() {
       const session = sessions.get(selected);
       if (!session) return;
+      updateStudentDownloadButtons();
       chatEl.replaceChildren();
       const selectedBotMessage = findReviewMessage(session);
       for (const turn of groupMessagesByTurn(session.messages)) {
@@ -1467,7 +1488,7 @@ export const teacherHtml = `<!doctype html>
     }
 
     function withRoom(path) {
-      return path + "?room=" + encodeURIComponent(roomId);
+      return path + (path.includes("?") ? "&" : "?") + "room=" + encodeURIComponent(roomId);
     }
 
     function selectedMixLevels() {
@@ -1494,6 +1515,27 @@ export const teacherHtml = `<!doctype html>
       return roomId + "-" + kind + "-" + stamp + "." + extension;
     }
 
+    function selectedStudentFilename(extension) {
+      const session = sessions.get(selected);
+      const name = sanitizeFilenamePart(session?.name || "student");
+      const sessionSuffix = sanitizeFilenamePart(String(selected || "").slice(-12));
+      return exportFilename(name + "-" + sessionSuffix + "-transcript", extension);
+    }
+
+    function sanitizeFilenamePart(value) {
+      return String(value || "")
+        .trim()
+        .replace(/[^0-9A-Za-z가-힣._-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 40) || "student";
+    }
+
+    function updateStudentDownloadButtons() {
+      const disabled = !selected || !sessions.has(selected);
+      downloadStudentTranscriptJsonEl.disabled = disabled;
+      downloadStudentTranscriptCsvEl.disabled = disabled;
+    }
+
     async function copyText(value, label) {
       try {
         await navigator.clipboard.writeText(value);
@@ -1516,6 +1558,7 @@ export const teacherHtml = `<!doctype html>
       empty.className = "empty";
       empty.textContent = message;
       chatEl.replaceChildren(empty);
+      updateStudentDownloadButtons();
       teacherReviewContextEl.textContent = "학생과 대화 턴을 선택하세요.";
       reviewPinned = false;
       latestTurnButtonEl.classList.add("hidden");
@@ -1638,6 +1681,16 @@ export const teacherHtml = `<!doctype html>
     copyTeacherUrlEl.addEventListener("click", () => copyText(buildRoomUrl("/teacher", true), "teacher url"));
     copyAuditJsonEl.addEventListener("click", () => copyText(auditEl.textContent, "audit json"));
     downloadExportEl.addEventListener("click", () => downloadJson("/api/export", exportFilename("classroom-export", "json")));
+    downloadAllTranscriptsJsonEl.addEventListener("click", () => downloadJson("/api/transcripts", exportFilename("all-student-transcripts", "json")));
+    downloadAllTranscriptsCsvEl.addEventListener("click", () => downloadText("/api/transcripts.csv", exportFilename("all-student-transcripts", "csv"), "text/csv"));
+    downloadStudentTranscriptJsonEl.addEventListener("click", () => {
+      if (!selected || !sessions.has(selected)) return;
+      downloadJson("/api/transcripts?sessionId=" + encodeURIComponent(selected), selectedStudentFilename("json"));
+    });
+    downloadStudentTranscriptCsvEl.addEventListener("click", () => {
+      if (!selected || !sessions.has(selected)) return;
+      downloadText("/api/transcripts.csv?sessionId=" + encodeURIComponent(selected), selectedStudentFilename("csv"), "text/csv");
+    });
     downloadDebriefEl.addEventListener("click", () => downloadJson("/api/debrief", exportFilename("debrief-table", "json")));
     downloadDebriefCsvEl.addEventListener("click", () => downloadText("/api/debrief.csv", exportFilename("debrief-table", "csv"), "text/csv"));
     purgeEventsEl.addEventListener("click", purgeEvents);

@@ -6,7 +6,14 @@ import {
 import { DEFAULT_OPENAI_MODEL, generateAuditedAnswer, normalizeTimeoutMs } from "./domain/llm-provider.js";
 import { generateTruthAnswer } from "./domain/truth-provider.js";
 import { EVALUATION_SET_50, PUBLIC_EVALUATION_SET_50 } from "./domain/evaluation-set.js";
-import { buildDebriefCsv, buildDebriefRows, buildExportPayload, redactSensitiveFields } from "./domain/session-export.js";
+import {
+  buildDebriefCsv,
+  buildDebriefRows,
+  buildExportPayload,
+  buildStudentTranscriptCsv,
+  buildStudentTranscriptExport,
+  redactSensitiveFields
+} from "./domain/session-export.js";
 import { buildSessionContext } from "./domain/session-context.js";
 import {
   SECURITY_HEADERS,
@@ -101,6 +108,22 @@ export default {
       if (!isTeacherAuthorized(request, env)) return unauthorized();
       const events = await readEvents(room, env);
       return csv(buildDebriefCsv(events), `${roomId}-debrief-table.csv`);
+    }
+    if (url.pathname === "/api/transcripts") {
+      if (!isTeacherAuthorized(request, env)) return unauthorized();
+      const sessionId = sanitizeText(url.searchParams.get("sessionId"), 120);
+      const events = await readEvents(room, env);
+      return json(buildStudentTranscriptExport(events, { roomId, sessionId }));
+    }
+    if (url.pathname === "/api/transcripts.csv") {
+      if (!isTeacherAuthorized(request, env)) return unauthorized();
+      const sessionId = sanitizeText(url.searchParams.get("sessionId"), 120);
+      const events = await readEvents(room, env);
+      const scope = sessionId ? `student-${safeFilenamePart(sessionId)}` : "all-students";
+      return csv(
+        buildStudentTranscriptCsv(events, sessionId),
+        `${roomId}-${scope}-transcripts.csv`
+      );
     }
     if (url.pathname === "/api/purge" && request.method === "POST") {
       if (!isTeacherAuthorized(request, env)) return unauthorized();
@@ -1323,6 +1346,8 @@ function buildHealthPayload(env) {
       exportJson: "/api/export",
       debriefJson: "/api/debrief",
       debriefCsv: "/api/debrief.csv",
+      transcriptsJson: "/api/transcripts",
+      transcriptsCsv: "/api/transcripts.csv",
       purge: "/api/purge",
       deleteStudent: "/api/student"
     }
@@ -1445,6 +1470,13 @@ function csv(body, filename) {
       "content-disposition": `attachment; filename="${filename}"`
     }
   });
+}
+
+function safeFilenamePart(value) {
+  return String(value || "unknown")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "unknown";
 }
 
 function text(body, status = 200) {

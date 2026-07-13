@@ -1,6 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildDebriefCsv, buildDebriefRows, buildExportPayload, pruneEventsByTtl, summarizeSessions } from "../src/domain/session-export.js";
+import {
+  buildDebriefCsv,
+  buildDebriefRows,
+  buildExportPayload,
+  buildStudentTranscriptCsv,
+  buildStudentTranscriptExport,
+  buildStudentTranscriptRows,
+  pruneEventsByTtl,
+  summarizeSessions
+} from "../src/domain/session-export.js";
 
 const EVENTS = [
   {
@@ -211,6 +220,70 @@ test("buildDebriefCsv는 formula injection 시작 문자를 무력화한다", ()
   assert.ok(csv.includes('"\'+cmd"'));
   assert.ok(csv.includes('"\'-SUM(1,1)"'));
   assert.ok(csv.includes('"\' @hidden"'));
+});
+
+test("학생 문답 export는 학생에게 실제 보인 질문과 답변만 턴별로 구성한다", () => {
+  const secondTurn = {
+    ...EVENTS[2],
+    studentMessage: "왜 그렇게 이겼어?",
+    studentVisibleAnswer: "울돌목의 물살 하나만으로 이겼어.",
+    at: "2026-07-10T01:00:30.000Z",
+    teacherAudit: {
+      ...EVENTS[2].teacherAudit,
+      input: {
+        responseMode: "experiment",
+        appliedLevel: 3,
+        falseDensity: "dynamic"
+      }
+    }
+  };
+  const rows = buildStudentTranscriptRows([...EVENTS, secondTurn]);
+  const payload = buildStudentTranscriptExport([...EVENTS, secondTurn], {
+    roomId: "2026-07-13-3-5",
+    now: new Date("2026-07-10T01:02:00.000Z")
+  });
+
+  assert.equal(rows.length, 2);
+  assert.deepEqual(rows.map((row) => row.turn), [1, 2]);
+  assert.equal(rows[1].question, "왜 그렇게 이겼어?");
+  assert.equal(rows[1].studentVisibleAnswer, "울돌목의 물살 하나만으로 이겼어.");
+  assert.equal(rows[1].level, 3);
+  assert.equal(rows[1].falseDensity, "dynamic");
+  assert.equal("correctAnswer" in rows[1], false);
+  assert.equal("teacherAudit" in rows[1], false);
+  assert.equal(payload.schemaVersion, "student-transcript-export/v1");
+  assert.equal(payload.scope, "classroom");
+  assert.equal(payload.studentCount, 1);
+  assert.equal(payload.turnCount, 2);
+  assert.equal(payload.students[0].turns.length, 2);
+});
+
+test("학생별 문답 JSON과 CSV는 sessionId로 정확히 분리되고 Excel 수식 주입을 막는다", () => {
+  const otherStudent = {
+    ...EVENTS[2],
+    sessionId: "s2",
+    studentName: "=다른학생",
+    studentMessage: "+질문",
+    studentVisibleAnswer: "-답변"
+  };
+  const events = [...EVENTS, otherStudent];
+  const payload = buildStudentTranscriptExport(events, {
+    roomId: "2026-07-13-3-5",
+    sessionId: "s2"
+  });
+  const csv = buildStudentTranscriptCsv(events, "s2");
+
+  assert.equal(payload.scope, "student");
+  assert.equal(payload.sessionId, "s2");
+  assert.equal(payload.studentCount, 1);
+  assert.equal(payload.turnCount, 1);
+  assert.equal(payload.students[0].studentName, "=다른학생");
+  assert.ok(csv.startsWith("\uFEFF수업방,학생이름,세션ID,대화턴,질문시각,학생질문,학생에게보인답변"));
+  assert.ok(csv.includes('"\'=다른학생"'));
+  assert.ok(csv.includes('"\'+질문"'));
+  assert.ok(csv.includes('"\'-답변"'));
+  assert.equal(csv.includes('"민준"'), false);
+  assert.equal(csv.includes("correctAnswer"), false);
 });
 
 test("pruneEventsByTtl은 TTL이 지난 이벤트를 제거한다", () => {

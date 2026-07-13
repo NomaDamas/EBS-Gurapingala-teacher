@@ -62,6 +62,17 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /function buildRoomUrl\(path, includeToken = false\)/);
   assert.match(teacher, /function exportFilename\(kind, extension\)/);
   assert.match(teacher, /roomId \+ "-" \+ kind/);
+  assert.match(teacher, /id="downloadAllTranscriptsJson"/);
+  assert.match(teacher, /id="downloadAllTranscriptsCsv"/);
+  assert.match(teacher, /id="downloadStudentTranscriptJson"[^>]+disabled/);
+  assert.match(teacher, /id="downloadStudentTranscriptCsv"[^>]+disabled/);
+  assert.match(teacher, /downloadJson\("\/api\/transcripts"/);
+  assert.match(teacher, /downloadText\("\/api\/transcripts\.csv"/);
+  assert.match(teacher, /sessionId=" \+ encodeURIComponent\(selected\)/);
+  assert.match(teacher, /function updateStudentDownloadButtons\(\)/);
+  assert.match(teacher, /downloadStudentTranscriptJsonEl\.disabled = disabled/);
+  assert.match(teacher, /downloadStudentTranscriptCsvEl\.disabled = disabled/);
+  assert.match(teacher, /path\.includes\("\?"\) \? "&" : "\?"/);
   assert.match(teacher, /current\.latencyMs = event\.latencyMs/);
   assert.match(teacher, /current\.lastQuestion = event\.studentMessage/);
   assert.match(teacher, /current\.blockedForStudent = Boolean\(event\.blockedForStudent\)/);

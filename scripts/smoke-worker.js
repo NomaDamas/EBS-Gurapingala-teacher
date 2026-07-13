@@ -256,7 +256,12 @@ const checks = [
   ["export and debrief require token", async () => {
     const exportRes = await appFetch("https://example.com/api/export");
     const debriefRes = await appFetch("https://example.com/api/debrief");
-    return exportRes.status === 401 && debriefRes.status === 401;
+    const transcriptsRes = await appFetch("https://example.com/api/transcripts");
+    const transcriptsCsvRes = await appFetch("https://example.com/api/transcripts.csv");
+    return exportRes.status === 401 &&
+      debriefRes.status === 401 &&
+      transcriptsRes.status === 401 &&
+      transcriptsCsvRes.status === 401;
   }],
   ["export and debrief work with token", async () => {
     const exportRes = await appFetch("https://example.com/api/export", {
@@ -272,6 +277,19 @@ const checks = [
     });
     const csvBody = await csvRes.text();
     const csvDisposition = csvRes.headers.get("content-disposition") || "";
+    const transcriptsRes = await appFetch("https://example.com/api/transcripts", {
+      headers: { "x-teacher-token": "teacher-secret" }
+    });
+    const transcriptsBody = await transcriptsRes.json();
+    const studentTranscriptsRes = await appFetch("https://example.com/api/transcripts?sessionId=s1", {
+      headers: { "x-teacher-token": "teacher-secret" }
+    });
+    const studentTranscriptsBody = await studentTranscriptsRes.json();
+    const transcriptsCsvRes = await appFetch("https://example.com/api/transcripts.csv?sessionId=s1", {
+      headers: { "x-teacher-token": "teacher-secret" }
+    });
+    const transcriptsCsvBody = await transcriptsCsvRes.text();
+    const transcriptsCsvDisposition = transcriptsCsvRes.headers.get("content-disposition") || "";
     return exportBody.roomId === "default-classroom" &&
       exportBody.events.length >= 2 &&
       exportBody.events.some((event) => event.type === "chat_turn" && Number.isFinite(event.latencyMs)) &&
@@ -285,7 +303,18 @@ const checks = [
       csvBody.includes("latencyMs") &&
       csvBody.includes("verificationPrompt") &&
       csvBody.includes("debriefNote") &&
-      csvDisposition.includes("default-classroom-debrief-table.csv");
+      csvDisposition.includes("default-classroom-debrief-table.csv") &&
+      transcriptsBody.schemaVersion === "student-transcript-export/v1" &&
+      transcriptsBody.scope === "classroom" &&
+      transcriptsBody.turnCount === 1 &&
+      studentTranscriptsBody.scope === "student" &&
+      studentTranscriptsBody.sessionId === "s1" &&
+      studentTranscriptsBody.turnCount === 1 &&
+      transcriptsCsvBody.includes("학생질문") &&
+      transcriptsCsvBody.includes("학생에게보인답변") &&
+      transcriptsCsvBody.includes("명량해전") &&
+      transcriptsCsvBody.includes("correctAnswer") === false &&
+      transcriptsCsvDisposition.includes("default-classroom-student-s1-transcripts.csv");
   }],
   ["teacher config API controls generated audit level", async () => {
     const teacherHeaders = { "x-teacher-token": "teacher-secret" };

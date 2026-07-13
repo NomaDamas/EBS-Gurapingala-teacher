@@ -57,6 +57,97 @@ export function buildDebriefCsv(events) {
   ].join("\n");
 }
 
+export function buildStudentTranscriptRows(events, sessionId = "") {
+  const turnsBySession = new Map();
+  return normalizeEvents(events)
+    .filter((event) =>
+      event.type === "chat_turn" &&
+      (!sessionId || event.sessionId === sessionId)
+    )
+    .map((event) => {
+      const turn = (turnsBySession.get(event.sessionId) || 0) + 1;
+      turnsBySession.set(event.sessionId, turn);
+      const audit = event.teacherAudit || {};
+      const responseMode = audit.input?.responseMode || "experiment";
+      return {
+        roomId: event.roomId || "",
+        studentName: event.studentName || "이름 없음",
+        sessionId: event.sessionId || "",
+        turn,
+        at: event.at || "",
+        question: event.studentMessage || "",
+        studentVisibleAnswer: event.studentVisibleAnswer || "",
+        responseMode,
+        level: responseMode === "truth" ? "" : audit.input?.appliedLevel ?? "",
+        falseDensity: responseMode === "truth" ? "" : audit.input?.falseDensity || "",
+        blockedForStudent: Boolean(event.blockedForStudent),
+        latencyMs: event.latencyMs ?? ""
+      };
+    });
+}
+
+export function buildStudentTranscriptExport(events, {
+  roomId = "",
+  sessionId = "",
+  now = new Date()
+} = {}) {
+  const rows = buildStudentTranscriptRows(events, sessionId);
+  const students = new Map();
+  for (const row of rows) {
+    const student = students.get(row.sessionId) || {
+      sessionId: row.sessionId,
+      studentName: row.studentName,
+      turns: []
+    };
+    student.studentName = row.studentName;
+    student.turns.push({
+      turn: row.turn,
+      at: row.at,
+      question: row.question,
+      studentVisibleAnswer: row.studentVisibleAnswer,
+      responseMode: row.responseMode,
+      level: row.level,
+      falseDensity: row.falseDensity,
+      blockedForStudent: row.blockedForStudent,
+      latencyMs: row.latencyMs
+    });
+    students.set(row.sessionId, student);
+  }
+
+  return {
+    schemaVersion: "student-transcript-export/v1",
+    generatedAt: now.toISOString(),
+    roomId,
+    scope: sessionId ? "student" : "classroom",
+    sessionId: sessionId || null,
+    studentCount: students.size,
+    turnCount: rows.length,
+    students: [...students.values()]
+  };
+}
+
+export function buildStudentTranscriptCsv(events, sessionId = "") {
+  const rows = buildStudentTranscriptRows(events, sessionId);
+  const columns = [
+    ["수업방", "roomId"],
+    ["학생이름", "studentName"],
+    ["세션ID", "sessionId"],
+    ["대화턴", "turn"],
+    ["질문시각", "at"],
+    ["학생질문", "question"],
+    ["학생에게보인답변", "studentVisibleAnswer"],
+    ["응답모드", "responseMode"],
+    ["거짓레벨", "level"],
+    ["거짓밀도", "falseDensity"],
+    ["차단여부", "blockedForStudent"],
+    ["응답시간ms", "latencyMs"]
+  ];
+  return [
+    `\uFEFF${columns.map(([header]) => header).join(",")}`,
+    ...rows.map((row) => columns.map(([, key]) => csvEscape(row[key])).join(","))
+  ].join("\n");
+}
+
 export function summarizeSessions(events, now = Date.now()) {
   const sessions = new Map();
   for (const event of normalizeEvents(events)) {
