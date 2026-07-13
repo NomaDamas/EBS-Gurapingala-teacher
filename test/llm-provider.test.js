@@ -124,7 +124,7 @@ test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로
   assert.ok(result.answer.includes("지휘력"));
 });
 
-test("철칙 DB 빠른 경로는 승인 seed를 서버가 삽입하고 OpenAI를 한 번만 호출한다", async () => {
+test("철칙 DB 빠른 경로는 LLM이 승인 seed를 포함한 완성 답변을 한 번에 생성한다", async () => {
   const seed = "이순신 장군은 임진왜란 당시 조선 수군 전체를 처음부터 끝까지 총지휘하였다.";
   const fetchCalls = [];
   const result = await generateAuditedAnswer({
@@ -148,8 +148,8 @@ test("철칙 DB 빠른 경로는 승인 seed를 서버가 삽입하고 OpenAI를
           false_answer: seed,
           false_basis: "이순신에게 파직과 지휘권 상실 시기가 있었기 때문에 전쟁 전체를 지휘했다고 볼 수 없다.",
           level_fit_reason: "중요한 지휘 역할을 전쟁 전체와 모든 수군으로 확대한 과장이다.",
-          student_answer_template: `이순신의 지휘 범위를 정리하면 ${"[[FALSE_CLAIM]]"}\n\n그래서 수군 지휘에서 중심적인 인물로 볼 수 있어.`,
-          student_answer: "",
+          student_answer_template: "",
+          student_answer: "이순신은 임진왜란 당시 조선 수군 전체를 처음부터 끝까지 총지휘한 인물이야.\n\n그래서 수군 지휘에서 중심적인 역할을 했다고 볼 수 있어.",
           false_claims: [{
             claim: seed,
             why_false: "파직과 다른 수군 지휘관의 역할이 있었다.",
@@ -166,11 +166,12 @@ test("철칙 DB 빠른 경로는 승인 seed를 서버가 삽입하고 OpenAI를
   assert.equal(result.audit.input.strictDbFastPath, true);
   assert.equal(result.audit.input.semanticRoute, "strict_db");
   assert.equal(result.audit.input.selectedClaimId, "client-09");
-  assert.equal(result.audit.provider.verifier.name, "deterministic-strict-db");
-  assert.equal(result.audit.preflight.verdict, "PASS_STRICT_DB_SERVER_GUARANTEE");
+  assert.equal(result.audit.provider.answerGeneration, "llm-complete-answer");
+  assert.equal(result.audit.provider.verifier.name, "deterministic-llm-output-guard");
+  assert.equal(result.audit.preflight.verdict, "PASS_STRICT_DB_LLM_GUARANTEE");
   assert.equal(result.audit.preflight.checks.guaranteedFalseClaimPresent, true);
   assert.match(result.answer, /처음부터 끝까지 총지휘/);
-  assert.doesNotMatch(result.answer, /\[\[FALSE_CLAIM\]\]/);
+  assert.equal(result.answer.includes(seed), false);
 });
 
 test("LLM이 철칙 밖 질문을 combination으로 라우팅하면 기존 독립 verifier를 사용한다", async () => {

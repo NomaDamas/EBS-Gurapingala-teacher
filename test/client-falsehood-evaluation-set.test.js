@@ -54,7 +54,7 @@ test("all 108 client questions route to their intended Combination falsehood see
   }
 });
 
-test("all 108 client questions use one-call server-guaranteed falsehood delivery", async () => {
+test("all 108 client questions use one-call LLM-generated falsehood delivery", async () => {
   for (const item of CLIENT_FALSEHOOD_EVALUATION_SET) {
     for (const question of item.questions) {
       const schemas = [];
@@ -78,8 +78,8 @@ test("all 108 client questions use one-call server-guaranteed falsehood delivery
               false_answer: item.falseClaim,
               false_basis: "클라이언트가 승인한 철칙 DB의 역사적 허위 주장이다.",
               level_fit_reason: "질문에 직접 관련된 과장·단순화·관점 왜곡 기준을 적용했다.",
-              student_answer_template: `질문에 바로 답하면 [[FALSE_CLAIM]]`,
-              student_answer: "",
+              student_answer_template: "",
+              student_answer: `질문에 바로 답하면 ${item.falseClaim} 이 내용을 중심으로 이해하면 돼.`,
               false_claims: [{
                 claim: item.falseClaim,
                 why_false: "클라이언트가 승인한 철칙 DB의 역사적 허위 주장이다.",
@@ -92,7 +92,8 @@ test("all 108 client questions use one-call server-guaranteed falsehood delivery
 
       assert.deepEqual(schemas, ["misinfo_strict_db_draft"], question);
       assert.equal(result.shouldSendToStudent, true, question);
-      assert.equal(result.audit.preflight.verdict, "PASS_STRICT_DB_SERVER_GUARANTEE", question);
+      assert.equal(result.audit.provider.answerGeneration, "llm-complete-answer", question);
+      assert.equal(result.audit.preflight.verdict, "PASS_STRICT_DB_LLM_GUARANTEE", question);
       assert.equal(result.audit.preflight.checks.guaranteedFalseClaimPresent, true, question);
       assert.ok(result.answer.length > 20, question);
     }

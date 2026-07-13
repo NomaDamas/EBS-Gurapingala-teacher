@@ -25,7 +25,6 @@ export const DEFAULT_OPENAI_TIMEOUT_MS = 15000;
 const STANDARD_ATTEMPTS = 3;
 const REPAIR_ATTEMPTS = 2;
 const MAX_ATTEMPTS = STANDARD_ATTEMPTS + REPAIR_ATTEMPTS;
-const STRICT_DB_FALSEHOOD_PLACEHOLDER = "[[FALSE_CLAIM]]";
 const STRICT_DB_CLAIM_CATALOG = Object.freeze(
   CLIENT_FALSEHOOD_EVALUATION_SET.map(({ id, topic, falseClaim }) => ({
     id,
@@ -144,7 +143,7 @@ export async function generateAuditedAnswer({
       }
 
       if (audit.input.strictDbFastPath) {
-        const guaranteedAudit = applyStrictDbServerGuarantee(audit);
+        const guaranteedAudit = applyStrictDbLlmGuarantee(audit);
         return {
           audit: guaranteedAudit,
           answer: guaranteedAudit.studentVisibleFalseAnswer,
@@ -347,7 +346,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
       strictDbFastPath: Boolean(draft.__strictDbFastPath),
       semanticRoute: cleanString(draft.__semanticRoute),
       selectedClaimId: cleanString(draft.__strictDbSelectedClaimId) || null,
-      serverInsertedFalsehood: cleanString(draft.__serverInsertedFalsehood)
+      answerGeneration: cleanString(draft.__answerGeneration) || "llm-complete-answer"
     },
     preflight: {
       ...preflight,
@@ -468,13 +467,12 @@ function buildGenerationPlan({
   };
 }
 
-function applyStrictDbServerGuarantee(audit) {
-  const insertedFalsehood = cleanString(audit.provider?.serverInsertedFalsehood);
+function applyStrictDbLlmGuarantee(audit) {
   const requiredFalseSeed = cleanString(audit.input?.requiredFalseSeed);
   const falseClaims = Array.isArray(audit.falseClaims) ? audit.falseClaims : [];
   const guaranteedFalseClaimPresent = Boolean(
-    insertedFalsehood &&
-    audit.studentVisibleFalseAnswer.includes(insertedFalsehood)
+    requiredFalseSeed &&
+    preservesCuratedSeed(audit.studentVisibleFalseAnswer, requiredFalseSeed)
   );
   const requiredSeedLocked = Boolean(
     requiredFalseSeed &&
@@ -485,13 +483,14 @@ function applyStrictDbServerGuarantee(audit) {
   const deterministicApproved = Boolean(
     audit.preflight.approvedForStudent &&
     audit.input.strictDbFastPath &&
+    audit.provider?.answerGeneration === "llm-complete-answer" &&
     guaranteedFalseClaimPresent &&
     requiredSeedLocked &&
     approvedClaimLocked &&
     !audit.preflight.checks.studentCorrectionLeak
   );
   if (!deterministicApproved) {
-    throw new Error("Strict DB server guarantee failed");
+    throw new Error("Strict DB LLM output guarantee failed");
   }
 
   return {
@@ -499,9 +498,9 @@ function applyStrictDbServerGuarantee(audit) {
     provider: {
       ...audit.provider,
       verifier: {
-        name: "deterministic-strict-db",
+        name: "deterministic-llm-output-guard",
         model: "server-policy",
-        source: "curated-placeholder-insertion"
+        source: "llm-complete-answer-validation"
       }
     },
     preflight: {
@@ -509,7 +508,7 @@ function applyStrictDbServerGuarantee(audit) {
       approvedForStudent: true,
       hardApproved: true,
       acceptedByHardGatePolicy: true,
-      verdict: "PASS_STRICT_DB_SERVER_GUARANTEE",
+      verdict: "PASS_STRICT_DB_LLM_GUARANTEE",
       checks: {
         ...audit.preflight.checks,
         guaranteedFalseClaimPresent,
@@ -522,7 +521,7 @@ function applyStrictDbServerGuarantee(audit) {
       verifier: {
         approved: true,
         model: "server-policy",
-        rationale: "교사 승인 거짓 seed를 서버가 학생 답변 placeholder에 직접 삽입했다."
+        rationale: "LLM이 생성한 완성 답변에 선택된 교사 승인 거짓 seed가 의미적으로 유지됐는지 서버가 검증했다."
       }
     }
   };
@@ -654,7 +653,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
   const draft = parseStructuredOutput(payload);
   return withResponseMetadata(
     strictDbFastPath
-      ? materializeStrictDbDraft(draft, { turnIndex })
+      ? materializeStrictDbDraft(draft)
       : draft,
     payload
   );
@@ -761,7 +760,7 @@ function buildSystemPrompt({ level, persona, falseDensity, strictDbFastPath = fa
     `Falsehood density: ${falseDensity === "all" ? "all substantive historical claims must be false" : falseDensity === "single" ? "exactly one calibrated false claim mixed with accurate context" : "one to three context-dependent false claims, always at least one"}`,
     `Level rule: ${policy.rule}`,
     strictDbFastPath
-      ? `Semantic routing fast path: decide whether the current question directly matches one approved strict-DB claim. For strict_db, select the claim semantically and write exactly one ${STRICT_DB_FALSEHOOD_PLACEHOLDER} placeholder. For combination, generate the complete answer for independent verification.`
+      ? "Semantic routing fast path: decide whether the current question directly matches one approved strict-DB claim. For strict_db, select the claim semantically and generate the complete student-facing answer yourself. For combination, generate the complete answer for independent verification."
       : "Independent verification will inspect the complete student-facing answer.",
     "Do not use hateful, graphic, medical, legal, or personal claims. Stay inside Korean history classroom content."
   ].join("\n");
@@ -851,7 +850,7 @@ function buildUserPrompt({ message, level, selected, resolved, approvedFalsehood
     "Put the correction only in correct_answer, false_basis, and level_fit_reason; never reveal it in student_answer.",
     "Avoid correction markers in student_answer such as '사실은', '정확히는', '틀린 정보', '오류', or '정답은'.",
     strictDbFastPath
-      ? `Return student_answer_template instead of student_answer. It must contain ${STRICT_DB_FALSEHOOD_PLACEHOLDER} exactly once at the most natural point in the direct answer. Surround it only with concise, question-relevant context derived from the supplied baseline. Do not add another false claim or repeat the approved seed.`
+      ? "Return the complete student_answer. Naturally express the selected approved false claim in your own conversational wording while preserving its meaning. Do not use a placeholder, do not add another false claim, and do not repeat the claim."
       : "Return the complete student_answer for independent verification.",
     previousFailures.length
       ? `Previous failed attempts to avoid: ${JSON.stringify(previousFailures)}`
@@ -883,7 +882,7 @@ function buildSemanticRoutingUserPrompt({
     "If no catalog claim directly answers the question, choose route=combination. Never force an unrelated catalog claim into the answer.",
     `Requested falsehood level: ${level}`,
     "Exactly one false historical claim must appear in the student-facing answer.",
-    "For route=strict_db: set selected_claim_id to the chosen catalog ID, copy its falseClaim exactly into false_answer and false_claims[0].claim, put [[FALSE_CLAIM]] exactly once in student_answer_template, and set student_answer to an empty string. The server will insert the approved claim.",
+    "For route=strict_db: set selected_claim_id to the chosen catalog ID, copy its falseClaim exactly into false_answer and false_claims[0].claim, leave student_answer_template empty, and write the complete student_answer yourself. The answer must naturally preserve the selected claim's meaning without copying the same sentence mechanically.",
     "For route=combination: set selected_claim_id to \"none\", set student_answer_template to an empty string, and write the complete student_answer. Generate one subtle, independently checkable Combination falsehood directly from the current question using exaggeration, causal simplification, exception removal, scope expansion, actor-centered credit, or viewpoint distortion.",
     "In both routes, correct_answer, false_basis, and level_fit_reason are teacher-only. Never reveal a correction in student_answer or student_answer_template.",
     "Answer only the current question. Do not add a tangential claim merely to carry a falsehood.",
@@ -1000,11 +999,11 @@ function strictDbDraftSchema() {
       },
       student_answer_template: {
         type: "string",
-        description: `Friendly Korean Markdown containing ${STRICT_DB_FALSEHOOD_PLACEHOLDER} exactly once.`
+        description: "Always empty. Placeholders and server-side answer assembly are forbidden."
       },
       student_answer: {
         type: "string",
-        description: "Empty for strict_db; complete student-facing answer for combination."
+        description: "Complete LLM-generated student-facing answer for both strict_db and combination."
       },
       false_claims: {
         type: "array",
@@ -1025,7 +1024,7 @@ function strictDbDraftSchema() {
   };
 }
 
-function materializeStrictDbDraft(draft, { turnIndex }) {
+function materializeStrictDbDraft(draft) {
   const route = cleanString(draft?.route);
   if (route === "combination") {
     if (cleanString(draft?.selected_claim_id) !== "none") {
@@ -1056,15 +1055,15 @@ function materializeStrictDbDraft(draft, { turnIndex }) {
   const selectedClaim = STRICT_DB_CLAIM_CATALOG.find((item) => item.id === selectedClaimId);
   const seed = cleanString(selectedClaim?.falseClaim);
   const template = cleanString(draft?.student_answer_template);
-  const placeholderCount = template.split(STRICT_DB_FALSEHOOD_PLACEHOLDER).length - 1;
+  const studentAnswer = cleanString(draft?.student_answer);
   const falseClaims = Array.isArray(draft?.false_claims) ? draft.false_claims : [];
   const documentedClaim = cleanString(falseClaims[0]?.claim);
   if (!seed) throw new Error("Strict DB fast path requires an LLM-selected approved claim ID");
-  if (cleanString(draft?.student_answer)) {
-    throw new Error("Strict DB route must leave student_answer empty");
+  if (!studentAnswer) {
+    throw new Error("Strict DB route requires a complete LLM-generated student answer");
   }
-  if (placeholderCount !== 1) {
-    throw new Error("Strict DB template must contain exactly one falsehood placeholder");
+  if (template) {
+    throw new Error("Strict DB route must not use a student answer template");
   }
   if (!matchesCalibrationSeedExactly(draft?.false_answer, seed)) {
     throw new Error("Strict DB draft changed the curated false seed");
@@ -1072,14 +1071,9 @@ function materializeStrictDbDraft(draft, { turnIndex }) {
   if (falseClaims.length !== 1 || !matchesCalibrationSeedExactly(documentedClaim, seed)) {
     throw new Error("Strict DB draft must document exactly the curated false seed");
   }
-  if (containsCuratedFalsehood(template)) {
-    throw new Error("Strict DB template repeated a curated falsehood outside the placeholder");
+  if (!preservesCuratedSeed(studentAnswer, seed)) {
+    throw new Error("Strict DB LLM answer omitted or changed the selected curated false seed");
   }
-  const renderedFalsehood = renderCuratedFalsehood(seed, turnIndex);
-  const studentAnswer = template.replace(
-    STRICT_DB_FALSEHOOD_PLACEHOLDER,
-    renderedFalsehood
-  );
   return {
     correct_answer: cleanString(draft?.correct_answer),
     false_answer: seed,
@@ -1091,14 +1085,8 @@ function materializeStrictDbDraft(draft, { turnIndex }) {
     __semanticRoute: "strict_db",
     __strictDbSelectedClaimId: selectedClaimId,
     __strictDbSelectedFalsehood: seed,
-    __serverInsertedFalsehood: renderedFalsehood
+    __answerGeneration: "llm-complete-answer"
   };
-}
-
-function containsCuratedFalsehood(value) {
-  return CLIENT_FALSEHOOD_CLAIMS.some((claim) =>
-    preservesCuratedSeed(value, claim)
-  );
 }
 
 function preservesCuratedSeed(candidate, seed) {
@@ -1116,28 +1104,6 @@ function comparableSeedText(value) {
     .replace(/[.,!?'"“”‘’()[\]]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function renderCuratedFalsehood(seed, turnIndex = 0) {
-  const sentence = cleanString(seed).replace(/[.!?。！？]+$/g, "");
-  const variant = Math.abs(Number(turnIndex) || 0) % 4;
-  const endings = [
-    [/하였다$/, ["했어", "한 거야", "했다고 보면 돼", "한 셈이야"]],
-    [/되었다$/, ["되었어", "된 거야", "되었다고 보면 돼", "된 셈이야"]],
-    [/이었다$/, ["이었어", "이었던 거야", "이었다고 보면 돼", "이었던 셈이야"]],
-    [/였다$/, ["였어", "였던 거야", "였다고 보면 돼", "였던 셈이야"]],
-    [/않았다$/, ["않았어", "않았던 거야", "않았다고 보면 돼", "않았던 셈이야"]],
-    [/있었다$/, ["있었어", "있었던 거야", "있었다고 보면 돼", "있었던 셈이야"]],
-    [/없었다$/, ["없었어", "없었던 거야", "없었다고 보면 돼", "없었던 셈이야"]],
-    [/했다$/, ["했어", "한 거야", "했다고 보면 돼", "한 셈이야"]],
-    [/이다$/, ["이야", "인 거야", "이라고 보면 돼", "인 셈이야"]]
-  ];
-  for (const [pattern, replacements] of endings) {
-    if (pattern.test(sentence)) {
-      return `${sentence.replace(pattern, replacements[variant])}.`;
-    }
-  }
-  return `${sentence}${variant === 0 ? "라고 보면 돼." : variant === 1 ? "라는 설명이야." : variant === 2 ? "라고 이해하면 돼." : "라는 점이 핵심이야."}`;
 }
 
 function verifierSchema() {

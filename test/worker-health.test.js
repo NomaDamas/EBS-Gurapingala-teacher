@@ -46,7 +46,7 @@ test("/api/health returns safe deployment metadata without secrets", async () =>
   assert.equal(res.headers.get("permissions-policy"), "camera=(), microphone=(), geolocation=()");
 });
 
-test("/api/health reports the strict DB server-guarantee fast path when enabled", async () => {
+test("/api/health reports the strict DB LLM-complete-answer fast path when enabled", async () => {
   const res = await worker.fetch(new Request("https://example.com/api/health"), {
     STRICT_DB_FAST_PATH: "true",
     ROOM: {
@@ -58,6 +58,7 @@ test("/api/health reports the strict DB server-guarantee fast path when enabled"
 
   assert.equal(res.status, 200);
   assert.equal(body.strictDbFastPath, true);
+  assert.equal(body.strictDbAnswerGeneration, "llm-complete-answer");
 });
 
 test("not found responses include common security headers", async () => {

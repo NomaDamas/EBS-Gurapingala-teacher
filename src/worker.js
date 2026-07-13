@@ -1352,6 +1352,7 @@ function buildHealthPayload(env) {
     eventTtlHours: Number(env.EVENT_TTL_HOURS || 24),
     openaiTimeoutMs: normalizeTimeoutMs(env.OPENAI_TIMEOUT_MS),
     strictDbFastPath: env.STRICT_DB_FAST_PATH === "true",
+    strictDbAnswerGeneration: "llm-complete-answer",
     defaultRoomId: normalizeRoomId(env.DEFAULT_ROOM_ID),
     endpoints: {
       student: "/",
