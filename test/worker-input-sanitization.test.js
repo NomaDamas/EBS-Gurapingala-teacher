@@ -176,11 +176,19 @@ test("ClassroomRoom keeps student transcript after live telemetry eviction", asy
   const history = await room.fetch(
     new Request("https://room.local/history?sessionId=student-1")
   );
-  assert.deepEqual(await history.json(), [{
-      turn: 1,
-      studentMessage: "명량해전에서 몇 척으로 싸웠어?",
-      studentVisibleAnswer: "조선 수군은 적은 수의 배로 해협의 물살을 활용했다."
-  }]);
+  const transcript = await history.json();
+  assert.equal(transcript.length, 1);
+  assert.equal(transcript[0].turn, 1);
+  assert.equal(transcript[0].studentMessage, "명량해전에서 몇 척으로 싸웠어?");
+  assert.equal(transcript[0].studentVisibleAnswer, "조선 수군은 적은 수의 배로 해협의 물살을 활용했다.");
+
+  const snapshot = await room.fetch(new Request("https://room.local/snapshot"));
+  const snapshotBody = await snapshot.json();
+  const restoredTurn = snapshotBody.events.find((event) =>
+    event.type === "chat_turn" && event.sessionId === "student-1"
+  );
+  assert.equal(restoredTurn.studentMessage, "명량해전에서 몇 척으로 싸웠어?");
+  assert.equal(restoredTurn.studentVisibleAnswer, "조선 수군은 적은 수의 배로 해협의 물살을 활용했다.");
 });
 
 test("ClassroomRoom purge deletes more than 128 transcripts without deleting config", async () => {

@@ -398,7 +398,7 @@ export class ClassroomRoom {
       return json(await this.readEvents(Number(url.searchParams.get("ttlHours") || 24)));
     }
     if (url.pathname === "/snapshot") {
-      const events = await this.readEvents(Number(url.searchParams.get("ttlHours") || 24));
+      const events = await this.readSnapshotEvents(Number(url.searchParams.get("ttlHours") || 24));
       return json({
         type: "snapshot",
         sessionId: "teacher",
@@ -464,6 +464,7 @@ export class ClassroomRoom {
     const transcript = await this.state.storage.get(key) || [];
     const previousTurn = transcript.at(-1)?.turn || 0;
     transcript.push({
+      ...event,
       turn: previousTurn + 1,
       studentMessage: String(event.studentMessage || ""),
       studentVisibleAnswer: String(event.studentVisibleAnswer || "")
@@ -491,6 +492,35 @@ export class ClassroomRoom {
     });
     if (pruned.length !== events.length) await this.state.storage.put("events", pruned);
     return pruned;
+  }
+
+  async readSnapshotEvents(ttlHours = 24) {
+    const events = await this.readEvents(ttlHours);
+    const nonChatEvents = events.filter((event) => event.type !== "chat_turn");
+    const storedSessions = await this.state.storage.get("studentSessions") || {};
+    const transcripts = await this.state.storage.list({ prefix: "transcript:" });
+    const chatEvents = [];
+
+    for (const [key, transcript] of transcripts.entries()) {
+      const sessionId = key.slice("transcript:".length);
+      const session = storedSessions[sessionId] || {};
+      for (const [index, turn] of (Array.isArray(transcript) ? transcript : []).entries()) {
+        chatEvents.push({
+          ...turn,
+          type: "chat_turn",
+          eventId: turn.eventId || `transcript:${sessionId}:${turn.turn || index + 1}`,
+          sessionId,
+          studentName: turn.studentName || session.studentName || "이름 없음",
+          studentMessage: String(turn.studentMessage || ""),
+          studentVisibleAnswer: String(turn.studentVisibleAnswer || ""),
+          at: turn.at || session.lastSeenAt || session.joinedAt || new Date(0).toISOString()
+        });
+      }
+    }
+
+    return [...nonChatEvents, ...chatEvents].sort((left, right) =>
+      Date.parse(left.at || 0) - Date.parse(right.at || 0)
+    );
   }
 
   async checkRateLimit(sessionId, limit) {
@@ -761,7 +791,7 @@ export class ClassroomRoom {
 
   async sendSnapshot(socket) {
     try {
-      const events = await this.readEvents();
+      const events = await this.readSnapshotEvents();
       const config = await this.state.storage.get("config") || null;
       const studentConfigs = await this.state.storage.get("studentConfigs") || {};
       socket.send(JSON.stringify({
