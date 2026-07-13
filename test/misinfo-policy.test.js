@@ -218,6 +218,11 @@ test("실제 거절 질문은 질문과 직접 관련된 역사 주제로 라우
     recentMessages: [],
     turnIndex: 0
   }).id, "seonjo-trust");
+  assert.equal(selectCaseForTurn({
+    message: "조류와 해협 지형, 보급 차단 등 여러 이유 중 조선군이 일본을 막을 수 있었던 가장 큰 이유는 무엇이니?",
+    recentMessages: [],
+    turnIndex: 0
+  }).id, "navy-losses");
 });
 
 test("성격처럼 생략된 후속 질문은 가장 최근 학생 주제를 우선한다", () => {

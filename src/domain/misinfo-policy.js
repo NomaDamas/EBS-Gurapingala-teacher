@@ -620,6 +620,13 @@ function selectExplicitTopicCase(text) {
   if (/조선(?:의)?\s*수군/.test(text) && /(무기|군함|주력 배|많이.*배|많이.*운용)/.test(text)) {
     return HISTORY_CASES.find((item) => item.id === "turtle-ship-origin");
   }
+  if (
+    /(조선(?:의)?\s*(?:수군|군)|이순신)/.test(text) &&
+    /(조류|물살|해협|바다 지형|해상|보급|물자)/.test(text) &&
+    /(이긴|승리|강|장악|막|이유|원인)/.test(text)
+  ) {
+    return HISTORY_CASES.find((item) => item.id === "navy-losses");
+  }
   if (/조선(?:의)?\s*수군|일본(?:의)?\s*수군/.test(text) && /(이긴|승리|강|장악|패배|진 적|해전.*피|해전.*포기)/.test(text)) {
     return HISTORY_CASES.find((item) => item.id === "navy-losses");
   }
