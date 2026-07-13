@@ -585,11 +585,11 @@ export const teacherHtml = `<!doctype html>
             </label>
             <div class="actions">
               <button class="secondary" id="savePersona" type="button">페르소나 저장</button>
-              <button id="downloadExport">전체 로그 JSON</button>
-              <button id="downloadAllTranscriptsJson">전체 문답 JSON</button>
-              <button class="secondary" id="downloadAllTranscriptsCsv">전체 문답 CSV</button>
-              <button class="secondary" id="downloadDebrief">정정 수업 오류표</button>
-              <button class="secondary" id="downloadDebriefCsv">오류표 CSV</button>
+              <button id="downloadExport" type="button">전체 로그 JSON</button>
+              <button id="downloadAllTranscriptsJson" type="button">전체 문답 JSON</button>
+              <button class="secondary" id="downloadAllTranscriptsCsv" type="button">전체 문답 CSV</button>
+              <button class="secondary" id="downloadDebrief" type="button">정정 수업 오류표</button>
+              <button class="secondary" id="downloadDebriefCsv" type="button">오류표 CSV</button>
               <button class="danger" id="purgeEvents">촬영 로그 삭제</button>
             </div>
           </div>
@@ -1354,12 +1354,7 @@ export const teacherHtml = `<!doctype html>
         if (!res.ok) return alert("다운로드 권한을 확인하세요.");
         const data = await res.json();
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = filename;
-        link.click();
-        URL.revokeObjectURL(url);
+        triggerBrowserDownload(blob, filename);
       } catch (error) {
         alert("네트워크 문제로 다운로드하지 못했습니다.");
       }
@@ -1371,15 +1366,24 @@ export const teacherHtml = `<!doctype html>
         if (!res.ok) return alert("다운로드 권한을 확인하세요.");
         const text = await res.text();
         const blob = new Blob([text], { type });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = filename;
-        link.click();
-        URL.revokeObjectURL(url);
+        triggerBrowserDownload(blob, filename);
       } catch (error) {
         alert("네트워크 문제로 다운로드하지 못했습니다.");
       }
+    }
+
+    function triggerBrowserDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      window.setTimeout(() => {
+        link.remove();
+        URL.revokeObjectURL(url);
+      }, 10000);
     }
 
     async function purgeEvents() {

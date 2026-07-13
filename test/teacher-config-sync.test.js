@@ -68,6 +68,9 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /id="downloadStudentTranscriptCsv"[^>]+disabled/);
   assert.match(teacher, /downloadJson\("\/api\/transcripts"/);
   assert.match(teacher, /downloadText\("\/api\/transcripts\.csv"/);
+  assert.match(teacher, /function triggerBrowserDownload\(blob, filename\)/);
+  assert.match(teacher, /document\.body\.appendChild\(link\)/);
+  assert.match(teacher, /window\.setTimeout\(\(\) => \{[\s\S]*URL\.revokeObjectURL\(url\)/);
   assert.match(teacher, /sessionId=" \+ encodeURIComponent\(selected\)/);
   assert.match(teacher, /function updateStudentDownloadButtons\(\)/);
   assert.match(teacher, /downloadStudentTranscriptJsonEl\.disabled = disabled/);
