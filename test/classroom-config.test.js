@@ -77,9 +77,11 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
             persona: config.persona
           },
           preflight: {
-            verdict: "PASS_LEVEL_CALIBRATED_FALSEHOOD",
+            verdict: "PASS_HARD_GATES_WITH_QUALITY_WARNING",
+            hardApproved: true,
             checks: {
-              verifierApproved: true
+              verifierApproved: false,
+              acceptedByHardGatePolicy: true
             }
           },
           provider: {
@@ -159,7 +161,7 @@ test("rehearsal:config verifies classroom room config and writes evidence", asyn
       model: "gpt-5.5",
       approved: true
     });
-    assert.match(evidence.sampleChat.preflightVerdict, /PASS_LEVEL_CALIBRATED_FALSEHOOD/);
+    assert.match(evidence.sampleChat.preflightVerdict, /PASS_HARD_GATES_WITH_QUALITY_WARNING/);
     assert.deepEqual(evidence.sharingUrls, {
       studentUrl: `${workerUrl}/?room=2026-07-13-3-5`,
       teacherUrlTemplate: `${workerUrl}/teacher?room=2026-07-13-3-5&token=<TEACHER_TOKEN>`,

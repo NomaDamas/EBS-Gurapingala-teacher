@@ -800,8 +800,10 @@ function buildModelEvaluationEvidence(overrides = {}) {
     },
     preflight: {
       approvedForStudent: true,
-      verifierApproved: true,
-      verdict: "PASS_LEVEL_CALIBRATED_FALSEHOOD"
+      verifierApproved: false,
+      hardApproved: true,
+      acceptedByHardGatePolicy: true,
+      verdict: "PASS_HARD_GATES_WITH_QUALITY_WARNING"
     },
     judge: {
       provider: "openai",

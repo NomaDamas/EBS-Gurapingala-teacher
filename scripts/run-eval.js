@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { EVALUATION_SET_50 } from "../src/domain/evaluation-set.js";
 import { generateAuditedAnswer } from "../src/domain/llm-provider.js";
 import { judgeEvaluationTurnWithProvider, summarizeJudgments } from "../src/domain/eval-judge.js";
+import { isVerifierPolicyApproved } from "../src/domain/verifier-policy.js";
 
 const models = (process.env.EVAL_MODELS || process.env.OPENAI_MODEL || "rules")
   .split(",")
@@ -262,6 +263,12 @@ function toTurnEvidence({ item, result, judgment }) {
     preflight: {
       approvedForStudent: result.audit?.preflight?.approvedForStudent === true,
       verifierApproved: result.audit?.preflight?.checks?.verifierApproved === true,
+      hardApproved:
+        result.audit?.preflight?.hardApproved === true ||
+        result.audit?.preflight?.checks?.hardApproved === true,
+      acceptedByHardGatePolicy:
+        result.audit?.preflight?.acceptedByHardGatePolicy === true ||
+        result.audit?.preflight?.checks?.acceptedByHardGatePolicy === true,
       verdict: result.audit?.preflight?.verdict || "",
       checks: result.audit?.preflight?.checks || {}
     },
@@ -289,7 +296,7 @@ function summarizeExecution(turns) {
     openaiGeneratedTurns: turns.filter((turn) => turn.provider.name === "openai").length,
     openaiVerifiedTurns: turns.filter((turn) =>
       turn.provider.verifier.name === "openai" &&
-      turn.preflight.verifierApproved
+      isVerifierPolicyApproved(turn.preflight)
     ).length,
     openaiJudgedTurns: turns.filter((turn) => turn.judge.provider === "openai").length,
     fallbackTurns: turns.filter((turn) =>

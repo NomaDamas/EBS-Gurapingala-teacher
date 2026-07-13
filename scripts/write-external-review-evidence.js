@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname } from "node:path";
 import { EVALUATION_SET_50 } from "../src/domain/evaluation-set.js";
+import { isVerifierPolicyApproved } from "../src/domain/verifier-policy.js";
 import {
   TRUSTED_MODEL_EVALUATION_REPOSITORY,
   TRUSTED_MODEL_EVALUATION_WORKFLOW,
@@ -316,7 +317,7 @@ function validateModelEvaluationEvidenceArtifact(artifact) {
       turn?.provider?.verifier?.name !== "openai" ||
       turn?.provider?.verifier?.model !== verifierModel ||
       turn?.preflight?.approvedForStudent !== true ||
-      turn?.preflight?.verifierApproved !== true ||
+      !isVerifierPolicyApproved(turn?.preflight) ||
       turn?.judge?.provider !== "openai" ||
       turn?.judge?.model !== judgeModel ||
       turn?.judge?.pass !== true

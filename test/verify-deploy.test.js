@@ -144,11 +144,15 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
             falseClaim: "이순신의 지휘력 하나만으로 승리했다.",
             whyFalse: "지형, 조류, 병사, 전술을 지워 Level 2/3 과장에 해당한다.",
             preflight: {
-              verdict: "PASS_LEVEL_CALIBRATED_FALSEHOOD",
-              checks: { verifierApproved: true }
+              verdict: "PASS_HARD_GATES_WITH_QUALITY_WARNING",
+              hardApproved: true,
+              checks: {
+                verifierApproved: false,
+                acceptedByHardGatePolicy: true
+              }
             },
             provider: {
-              name: "rules",
+              name: "openai",
               verifier: { name: "openai", model: "gpt-5.5" }
             }
           }

@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { isVerifierPolicyApproved } from "../src/domain/verifier-policy.js";
 
 const baseUrl = normalizeBaseUrl(process.env.WORKER_URL || process.argv[2]);
 const teacherToken = process.env.TEACHER_TOKEN || "";
@@ -157,7 +158,7 @@ if (verifyClassroomChat) {
       verifier: {
         name: event?.teacherAudit?.provider?.verifier?.name || "",
         model: event?.teacherAudit?.provider?.verifier?.model || "",
-        approved: event?.teacherAudit?.preflight?.checks?.verifierApproved === true
+        approved: isVerifierPolicyApproved(event?.teacherAudit?.preflight)
       },
       debriefRequired: Boolean(event) && event.blockedForStudent !== true
     };
