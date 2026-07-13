@@ -71,9 +71,12 @@ test("teacher dashboard syncs stored config without creating teacher student car
   assert.match(teacher, /function triggerBrowserDownload\(blob, filename\)/);
   assert.match(teacher, /document\.body\.appendChild\(link\)/);
   assert.match(teacher, /window\.setTimeout\(\(\) => \{[\s\S]*URL\.revokeObjectURL\(url\)/);
+  assert.match(teacher, /x-transcript-turn-count/);
+  assert.match(teacher, /저장된 대화가 없습니다/);
   assert.match(teacher, /sessionId=" \+ encodeURIComponent\(selected\)/);
   assert.match(teacher, /function updateStudentDownloadButtons\(\)/);
   assert.match(teacher, /downloadStudentTranscriptJsonEl\.disabled = disabled/);
+  assert.match(teacher, /Number\(session\.chatTurns \|\| 0\) === 0/);
   assert.match(teacher, /downloadStudentTranscriptCsvEl\.disabled = disabled/);
   assert.match(teacher, /path\.includes\("\?"\) \? "&" : "\?"/);
   assert.match(teacher, /current\.latencyMs = event\.latencyMs/);

@@ -12,6 +12,7 @@ import {
   buildExportPayload,
   buildStudentTranscriptCsv,
   buildStudentTranscriptExport,
+  buildStudentTranscriptRows,
   redactSensitiveFields
 } from "./domain/session-export.js";
 import { buildSessionContext } from "./domain/session-context.js";
@@ -112,17 +113,23 @@ export default {
     if (url.pathname === "/api/transcripts") {
       if (!isTeacherAuthorized(request, env)) return unauthorized();
       const sessionId = sanitizeText(url.searchParams.get("sessionId"), 120);
-      const events = await readEvents(room, env);
+      const events = await readTranscriptEvents(room, env);
       return json(buildStudentTranscriptExport(events, { roomId, sessionId }));
     }
     if (url.pathname === "/api/transcripts.csv") {
       if (!isTeacherAuthorized(request, env)) return unauthorized();
       const sessionId = sanitizeText(url.searchParams.get("sessionId"), 120);
-      const events = await readEvents(room, env);
+      const events = await readTranscriptEvents(room, env);
+      const rows = buildStudentTranscriptRows(events, sessionId);
+      const studentCount = new Set(rows.map((row) => row.sessionId)).size;
       const scope = sessionId ? `student-${safeFilenamePart(sessionId)}` : "all-students";
       return csv(
         buildStudentTranscriptCsv(events, sessionId),
-        `${roomId}-${scope}-transcripts.csv`
+        `${roomId}-${scope}-transcripts.csv`,
+        {
+          "x-transcript-turn-count": String(rows.length),
+          "x-transcript-student-count": String(studentCount)
+        }
       );
     }
     if (url.pathname === "/api/purge" && request.method === "POST") {
@@ -608,7 +615,7 @@ export class ClassroomRoom {
       studentMessage: String(event.studentMessage || ""),
       studentVisibleAnswer: String(event.studentVisibleAnswer || "")
     });
-    await this.state.storage.put(key, transcript.slice(-20));
+    await this.state.storage.put(key, transcript);
   }
 
   async readTranscript(sessionId) {
@@ -1137,6 +1144,14 @@ async function readEvents(room, env) {
   return await res.json();
 }
 
+async function readTranscriptEvents(room, env) {
+  const res = await room.fetch(
+    `https://room.local/snapshot?ttlHours=${encodeURIComponent(env.EVENT_TTL_HOURS || 24)}`
+  );
+  const snapshot = await res.json();
+  return Array.isArray(snapshot?.events) ? snapshot.events : [];
+}
+
 function roomEventUrl(env) {
   return `https://room.local/event?ttlHours=${encodeURIComponent(env.EVENT_TTL_HOURS || 24)}`;
 }
@@ -1463,12 +1478,13 @@ function json(body, status = 200) {
   });
 }
 
-function csv(body, filename) {
+function csv(body, filename, extraHeaders = {}) {
   return new Response(body, {
     headers: {
       ...SECURITY_HEADERS,
       "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="${filename}"`
+      "content-disposition": `attachment; filename="${filename}"`,
+      ...extraHeaders
     }
   });
 }

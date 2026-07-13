@@ -1353,6 +1353,9 @@ export const teacherHtml = `<!doctype html>
         const res = await fetch(withRoom(path), { headers: authHeaders() });
         if (!res.ok) return alert("다운로드 권한을 확인하세요.");
         const data = await res.json();
+        if (path.startsWith("/api/transcripts") && Number(data.turnCount || 0) === 0) {
+          return alert("이 수업방 또는 선택한 학생에게 저장된 대화가 없습니다.");
+        }
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
         triggerBrowserDownload(blob, filename);
       } catch (error) {
@@ -1364,6 +1367,12 @@ export const teacherHtml = `<!doctype html>
       try {
         const res = await fetch(withRoom(path), { headers: authHeaders() });
         if (!res.ok) return alert("다운로드 권한을 확인하세요.");
+        if (
+          path.startsWith("/api/transcripts.csv") &&
+          Number(res.headers.get("x-transcript-turn-count") || 0) === 0
+        ) {
+          return alert("이 수업방 또는 선택한 학생에게 저장된 대화가 없습니다.");
+        }
         const text = await res.text();
         const blob = new Blob([text], { type });
         triggerBrowserDownload(blob, filename);
@@ -1535,9 +1544,17 @@ export const teacherHtml = `<!doctype html>
     }
 
     function updateStudentDownloadButtons() {
-      const disabled = !selected || !sessions.has(selected);
+      const session = selected ? sessions.get(selected) : null;
+      const disabled = !session || Number(session.chatTurns || 0) === 0;
       downloadStudentTranscriptJsonEl.disabled = disabled;
       downloadStudentTranscriptCsvEl.disabled = disabled;
+      const help = disabled && session
+        ? "이 학생은 저장된 대화가 없습니다."
+        : disabled
+          ? "먼저 대화가 있는 학생 카드를 선택하세요."
+          : session.name + " 학생의 전체 문답을 다운로드합니다.";
+      downloadStudentTranscriptJsonEl.title = help;
+      downloadStudentTranscriptCsvEl.title = help;
     }
 
     async function copyText(value, label) {

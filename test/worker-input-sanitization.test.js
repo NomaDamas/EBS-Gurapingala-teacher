@@ -271,6 +271,33 @@ test("ClassroomRoom purge deletes more than 128 transcripts without deleting con
   assert.equal(deleteBatches.some((batch) => batch.length > 128), false);
 });
 
+test("ClassroomRoom keeps the complete transcript beyond 20 turns", async () => {
+  const storage = new Map();
+  const room = createStoredRoom(storage);
+
+  for (let index = 1; index <= 25; index += 1) {
+    await room.fetch(new Request("https://room.local/event", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "chat_turn",
+        sessionId: "student-long",
+        studentName: "민준",
+        studentMessage: `질문 ${index}`,
+        studentVisibleAnswer: `답변 ${index}`,
+        at: new Date(Date.UTC(2026, 6, 13, 0, 0, index)).toISOString()
+      })
+    }));
+  }
+
+  const history = await room.fetch(new Request(
+    "https://room.local/history?sessionId=student-long"
+  ));
+  const turns = await history.json();
+  assert.equal(turns.length, 25);
+  assert.equal(turns[0].studentMessage, "질문 1");
+  assert.equal(turns[24].studentVisibleAnswer, "답변 25");
+});
+
 test("ClassroomRoom queues repeated requests per student while allowing different students concurrently", async () => {
   const storage = new Map();
   const room = createStoredRoom(storage);

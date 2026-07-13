@@ -290,6 +290,7 @@ const checks = [
     });
     const transcriptsCsvBody = await transcriptsCsvRes.text();
     const transcriptsCsvDisposition = transcriptsCsvRes.headers.get("content-disposition") || "";
+    const transcriptTurnCount = transcriptsCsvRes.headers.get("x-transcript-turn-count");
     return exportBody.roomId === "default-classroom" &&
       exportBody.events.length >= 2 &&
       exportBody.events.some((event) => event.type === "chat_turn" && Number.isFinite(event.latencyMs)) &&
@@ -314,7 +315,8 @@ const checks = [
       transcriptsCsvBody.includes("학생에게보인답변") &&
       transcriptsCsvBody.includes("명량해전") &&
       transcriptsCsvBody.includes("correctAnswer") === false &&
-      transcriptsCsvDisposition.includes("default-classroom-student-s1-transcripts.csv");
+      transcriptsCsvDisposition.includes("default-classroom-student-s1-transcripts.csv") &&
+      transcriptTurnCount === "1";
   }],
   ["teacher config API controls generated audit level", async () => {
     const teacherHeaders = { "x-teacher-token": "teacher-secret" };
@@ -487,6 +489,17 @@ async function roomFetch(roomName, input, init = {}) {
   }
   if (url.pathname === "/config") return json(config);
   if (url.pathname === "/events") return json(events);
+  if (url.pathname === "/snapshot") {
+    return json({
+      type: "snapshot",
+      sessionId: "teacher",
+      studentName: "teacher",
+      config,
+      studentConfigs: {},
+      events,
+      at: new Date().toISOString()
+    });
+  }
   if (url.pathname === "/session-register" && method === "POST") {
     const body = JSON.parse(bodyText);
     const sessions = sessionsFor(roomName);
