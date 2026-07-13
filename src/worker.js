@@ -446,11 +446,12 @@ export class ClassroomRoom {
   }
 
   async recordEvent(event, ttlHours = 24) {
-    const events = await this.readEvents(ttlHours);
     const safeEvent = redactSensitiveFields({
       ...event,
       eventId: event.eventId || crypto.randomUUID()
     });
+    if (safeEvent.type === "student_heartbeat") return safeEvent;
+    const events = await this.readEvents(ttlHours);
     events.push(safeEvent);
     await this.state.storage.put("events", events.slice(-1000));
     if (safeEvent.type === "chat_turn") await this.recordTranscriptTurn(safeEvent);
@@ -500,6 +501,13 @@ export class ClassroomRoom {
     const storedSessions = await this.state.storage.get("studentSessions") || {};
     const transcripts = await this.state.storage.list({ prefix: "transcript:" });
     const chatEvents = [];
+    const presenceEvents = Object.entries(storedSessions).map(([sessionId, session]) => ({
+      type: "student_heartbeat",
+      eventId: `presence:${sessionId}`,
+      sessionId,
+      studentName: session.studentName || "이름 없음",
+      at: session.lastSeenAt || session.joinedAt || new Date(0).toISOString()
+    }));
 
     for (const [key, transcript] of transcripts.entries()) {
       const sessionId = key.slice("transcript:".length);
@@ -518,7 +526,7 @@ export class ClassroomRoom {
       }
     }
 
-    return [...nonChatEvents, ...chatEvents].sort((left, right) =>
+    return [...nonChatEvents, ...presenceEvents, ...chatEvents].sort((left, right) =>
       Date.parse(left.at || 0) - Date.parse(right.at || 0)
     );
   }

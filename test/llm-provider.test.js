@@ -649,10 +649,10 @@ test("normalizeTimeoutMs는 운영 설정을 안전 범위로 제한한다", () 
   assert.equal(normalizeTimeoutMs("not-a-number"), 15000);
 });
 
-test("동적 거짓 밀도는 질문 범위에 따라 1~3개를 선택하며 0개를 허용하지 않는다", () => {
+test("동적 거짓 밀도는 질문 범위에 따라 1~2개를 선택하며 0개를 허용하지 않는다", () => {
   assert.equal(resolveFalseClaimTarget({ falseDensity: "dynamic", message: "거북선은 뭐야?", turnIndex: 0 }), 1);
-  assert.equal(resolveFalseClaimTarget({ falseDensity: "dynamic", message: "거북선은 왜 중요했어?", turnIndex: 0 }), 2);
-  assert.equal(resolveFalseClaimTarget({ falseDensity: "dynamic", message: "임진왜란 전체 과정과 결과를 비교해줘", turnIndex: 0 }), 3);
+  assert.equal(resolveFalseClaimTarget({ falseDensity: "dynamic", message: "거북선은 왜 중요했어?", turnIndex: 0 }), 1);
+  assert.equal(resolveFalseClaimTarget({ falseDensity: "dynamic", message: "임진왜란 전체 과정과 결과를 비교해줘", turnIndex: 0 }), 2);
   assert.equal(resolveFalseClaimTarget({ falseDensity: "single", message: "아무 질문", turnIndex: 0 }), 1);
 });
 

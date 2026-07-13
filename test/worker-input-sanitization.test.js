@@ -191,6 +191,53 @@ test("ClassroomRoom keeps student transcript after live telemetry eviction", asy
   assert.equal(restoredTurn.studentVisibleAnswer, "조선 수군은 적은 수의 배로 해협의 물살을 활용했다.");
 });
 
+test("ClassroomRoom broadcasts heartbeat presence without evicting audit events", async () => {
+  const storage = new Map([
+    ["events", [{
+      type: "chat_turn",
+      sessionId: "student-1",
+      studentName: "민준",
+      studentMessage: "질문",
+      studentVisibleAnswer: "답변",
+      teacherAudit: { preflight: { verdict: "PASS" } },
+      at: new Date().toISOString()
+    }]],
+    ["studentSessions", {
+      "student-1": {
+        studentName: "민준",
+        joinedAt: new Date().toISOString(),
+        lastSeenAt: new Date().toISOString()
+      }
+    }]
+  ]);
+  const room = new ClassroomRoom({
+    storage: {
+      get: async (key) => storage.get(key),
+      put: async (key, value) => storage.set(key, value),
+      list: async ({ prefix }) => new Map(
+        [...storage].filter(([key]) => key.startsWith(prefix))
+      ),
+      delete: async () => {}
+    }
+  });
+
+  await room.fetch(new Request("https://room.local/event", {
+    method: "POST",
+    body: JSON.stringify({
+      type: "student_heartbeat",
+      sessionId: "student-1",
+      studentName: "민준",
+      at: new Date().toISOString()
+    })
+  }));
+
+  assert.equal(storage.get("events").length, 1);
+  assert.equal(storage.get("events")[0].type, "chat_turn");
+  const snapshot = await room.fetch(new Request("https://room.local/snapshot"));
+  const snapshotBody = await snapshot.json();
+  assert.equal(snapshotBody.events.some((event) => event.type === "student_heartbeat"), true);
+});
+
 test("ClassroomRoom purge deletes more than 128 transcripts without deleting config", async () => {
   const storage = new Map([
     ["config", { level: 2, responseMode: "experiment" }],

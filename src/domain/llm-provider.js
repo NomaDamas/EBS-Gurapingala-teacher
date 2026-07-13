@@ -673,9 +673,8 @@ export function resolveFalseClaimTarget({ falseDensity, message, turnIndex = 0 }
   if (falseDensity === "all") return null;
   if (falseDensity === "single") return 1;
   const text = String(message || "").trim();
-  if (/전체|여러|비교|영향|원인들|이유들|과정.*결과|어떻게.*왜/.test(text)) return 3;
-  if (/왜|어떻게|역할|이유|과정|결과|의미|관계/.test(text)) return 2;
-  return Math.abs(Number(turnIndex) || 0) % 3 === 2 ? 2 : 1;
+  if (/전체|여러|비교|영향|원인들|이유들|과정.*결과|어떻게.*왜/.test(text)) return 2;
+  return Math.abs(Number(turnIndex) || 0) % 4 === 3 ? 2 : 1;
 }
 
 function auditSchema() {

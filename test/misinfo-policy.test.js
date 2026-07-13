@@ -201,3 +201,36 @@ test("주제 키워드가 없는 후속 질문은 최근 대화의 강한 주제
 
   assert.equal(selected.id, "turtle-ship-origin");
 });
+
+test("실제 거절 질문은 질문과 직접 관련된 역사 주제로 라우팅한다", () => {
+  assert.equal(selectCaseForTurn({
+    message: "조선의 수군이 승리한 이유는 무엇인가요?",
+    recentMessages: [],
+    turnIndex: 0
+  }).id, "navy-losses");
+  assert.equal(selectCaseForTurn({
+    message: "조선 수군이 임진왜란 때 사용한 무기가 뭐야?",
+    recentMessages: [],
+    turnIndex: 0
+  }).id, "turtle-ship-origin");
+  assert.equal(selectCaseForTurn({
+    message: "이순신 장군은 왜 감옥에 갔나요?",
+    recentMessages: [],
+    turnIndex: 0
+  }).id, "seonjo-trust");
+});
+
+test("성격처럼 생략된 후속 질문은 가장 최근 학생 주제를 우선한다", () => {
+  const selected = selectCaseForTurn({
+    message: "성격적으로는?",
+    recentMessages: [
+      { role: "student", text: "임진왜란은 왜 일어났어?" },
+      { role: "assistant", text: "1592년에 일본이 조선을 침략하면서 시작됐어." },
+      { role: "student", text: "이순신 장군님은 어떤 인물이셨어?" },
+      { role: "assistant", text: "이순신 장군은 조선 수군을 이끈 지휘관이셨어." }
+    ],
+    turnIndex: 3
+  });
+
+  assert.equal(selected.id, "yi-sunsin-command");
+});

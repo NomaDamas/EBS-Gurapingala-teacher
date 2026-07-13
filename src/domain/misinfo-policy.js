@@ -586,8 +586,13 @@ export function selectCaseForTurn({ message, recentMessages = [], turnIndex = 0 
     return currentScores[0].item;
   }
 
+  if (isContextualFollowUp(currentText)) {
+    const recentCase = selectMostRecentTopicCase(recentMessages);
+    if (recentCase) return recentCase;
+  }
+
   const recentText = recentMessages
-    .slice(-24)
+    .slice(-12)
     .map((item) => item.text)
     .join(" ");
   const recentScores = scoreCases(recentText);
@@ -606,13 +611,16 @@ function hasTopicKeyword(text, caseId) {
 }
 
 function selectExplicitTopicCase(text) {
+  if (/이순신/.test(text) && /(감옥|옥에|투옥|백의종군|파직)/.test(text)) {
+    return HISTORY_CASES.find((item) => item.id === "seonjo-trust");
+  }
   if (hasTopicKeyword(text, "turtle-ship-origin")) {
     return HISTORY_CASES.find((item) => item.id === "turtle-ship-origin");
   }
-  if (/조선 수군/.test(text) && /(군함|주력 배|많이.*배|많이.*운용)/.test(text)) {
+  if (/조선(?:의)?\s*수군/.test(text) && /(무기|군함|주력 배|많이.*배|많이.*운용)/.test(text)) {
     return HISTORY_CASES.find((item) => item.id === "turtle-ship-origin");
   }
-  if (/조선 수군|일본 수군/.test(text) && /(이긴|승리|강|장악|패배|진 적|해전.*피|해전.*포기)/.test(text)) {
+  if (/조선(?:의)?\s*수군|일본(?:의)?\s*수군/.test(text) && /(이긴|승리|강|장악|패배|진 적|해전.*피|해전.*포기)/.test(text)) {
     return HISTORY_CASES.find((item) => item.id === "navy-losses");
   }
   const explicitOrder = [
@@ -626,6 +634,23 @@ function selectExplicitTopicCase(text) {
   ];
   const caseId = explicitOrder.find((id) => hasTopicKeyword(text, id));
   return caseId ? HISTORY_CASES.find((item) => item.id === caseId) : null;
+}
+
+function selectMostRecentTopicCase(recentMessages) {
+  const ordered = [...recentMessages].reverse();
+  for (const role of ["student", "assistant"]) {
+    for (const item of ordered) {
+      if (item.role !== role) continue;
+      const text = String(item.text || "");
+      const clientCase = selectClientCase(text);
+      if (clientCase) return clientCase;
+      const explicitCase = selectExplicitTopicCase(text);
+      if (explicitCase) return explicitCase;
+      if (hasTopicKeyword(text, YI_SUNSIN_COMMAND_CASE.id)) return YI_SUNSIN_COMMAND_CASE;
+      if (hasTopicKeyword(text, IMJIN_RESPONSE_CASE.id)) return IMJIN_RESPONSE_CASE;
+    }
+  }
+  return null;
 }
 
 function isImjinCauseQuestion(text) {
@@ -808,7 +833,7 @@ const CLIENT_CASE_BY_GROUP = {
 function isContextualFollowUp(message) {
   const text = String(message || "").replace(/\s+/g, " ").trim();
   if (!text || text.length > 36) return false;
-  return /^(그건?|그게|그럼|왜|진짜|정말|맞아|확실|어떻게|더|쉽게|짧게|예시|근거|출처|다시|그래서|그러면|그러니까|헉|응|아니|무슨 뜻)/.test(text) ||
+  return /^(그건?|그게|그럼|왜|진짜|정말|맞아|확실|어떻게|더|쉽게|짧게|예시|근거|출처|다시|그래서|그러면|그러니까|헉|응|아니|무슨 뜻|성격|인품|그 사람)/.test(text) ||
     /(있었어|없었어|가능했어|할 수 있|맞는 거야|맞아\?|진짜야|정말이야|왜 그래|왜 그런)/.test(text);
 }
 
