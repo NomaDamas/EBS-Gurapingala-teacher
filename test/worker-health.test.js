@@ -24,6 +24,7 @@ test("/api/health returns safe deployment metadata without secrets", async () =>
   assert.equal(body.openaiConfigured, true);
   assert.equal(body.openaiModel, "gpt-test-history");
   assert.equal(body.openaiVerifierModel, "gpt-test-verifier");
+  assert.equal(body.strictDbFastPath, false);
   assert.equal(body.teacherProtected, true);
   assert.equal(body.defaultFalseLevel, 3);
   assert.equal(body.defaultFalseDensity, "dynamic");
@@ -43,6 +44,20 @@ test("/api/health returns safe deployment metadata without secrets", async () =>
   assert.match(res.headers.get("content-security-policy"), /frame-ancestors 'none'/);
   assert.match(res.headers.get("content-security-policy"), /object-src 'none'/);
   assert.equal(res.headers.get("permissions-policy"), "camera=(), microphone=(), geolocation=()");
+});
+
+test("/api/health reports the strict DB server-guarantee fast path when enabled", async () => {
+  const res = await worker.fetch(new Request("https://example.com/api/health"), {
+    STRICT_DB_FAST_PATH: "true",
+    ROOM: {
+      idFromName: (name) => name,
+      get: () => ({ fetch: async () => new Response("{}") })
+    }
+  });
+  const body = await res.json();
+
+  assert.equal(res.status, 200);
+  assert.equal(body.strictDbFastPath, true);
 });
 
 test("not found responses include common security headers", async () => {

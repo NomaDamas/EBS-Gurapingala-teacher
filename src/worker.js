@@ -1336,6 +1336,7 @@ function buildHealthPayload(env) {
     answerCacheMaxEntries: Number(env.ANSWER_CACHE_MAX_ENTRIES || 128),
     eventTtlHours: Number(env.EVENT_TTL_HOURS || 24),
     openaiTimeoutMs: normalizeTimeoutMs(env.OPENAI_TIMEOUT_MS),
+    strictDbFastPath: env.STRICT_DB_FAST_PATH === "true",
     defaultRoomId: normalizeRoomId(env.DEFAULT_ROOM_ID),
     endpoints: {
       student: "/",

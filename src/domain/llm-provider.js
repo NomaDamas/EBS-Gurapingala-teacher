@@ -22,6 +22,7 @@ export const DEFAULT_OPENAI_TIMEOUT_MS = 15000;
 const STANDARD_ATTEMPTS = 3;
 const REPAIR_ATTEMPTS = 2;
 const MAX_ATTEMPTS = STANDARD_ATTEMPTS + REPAIR_ATTEMPTS;
+const STRICT_DB_FALSEHOOD_PLACEHOLDER = "[[FALSE_CLAIM]]";
 
 export async function generateAuditedAnswer({
   message,
@@ -81,6 +82,15 @@ export async function generateAuditedAnswer({
   const openaiTimeoutMs = normalizeTimeoutMs(env.OPENAI_TIMEOUT_MS);
   const generatorModel = env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
   const verifierModel = env.OPENAI_VERIFIER_MODEL || generatorModel;
+  const generationPlan = buildGenerationPlan({
+    message,
+    level: normalizedLevel,
+    falseDensity,
+    turnIndex,
+    recentMessages,
+    recentFalseClaims,
+    strictDbFastPathEnabled: env.STRICT_DB_FAST_PATH === "true"
+  });
   const failures = [];
   let qualityFallback = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
@@ -97,6 +107,7 @@ export async function generateAuditedAnswer({
         recentFalseClaims,
         previousFailures: failures,
         repairMode: attempt > STANDARD_ATTEMPTS,
+        strictDbFastPath: generationPlan.strictDbFastPath,
         timeoutMs: openaiTimeoutMs,
         responsesUrl: resolveOpenAIResponsesUrl(env),
         fetchImpl
@@ -123,6 +134,16 @@ export async function generateAuditedAnswer({
           falseClaim: audit.falseClaim
         });
         continue;
+      }
+
+      if (generationPlan.strictDbFastPath) {
+        const guaranteedAudit = applyStrictDbServerGuarantee(audit);
+        return {
+          audit: guaranteedAudit,
+          answer: guaranteedAudit.studentVisibleFalseAnswer,
+          suggestedQuestions: [],
+          shouldSendToStudent: true
+        };
       }
 
       const verifierDraft = await callOpenAIVerifier({
@@ -220,7 +241,8 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
   const generatedCombinationMode = selected.id === "general-history" &&
     approvedFalsehoods.length === 0;
   const requiredFalseSeed = continuityClaim?.falseClaim ||
-    exactClientFalsehoodForCase(selected, message);
+    exactClientFalsehoodForCase(selected, message) ||
+    (selected.id === "general-history" ? "" : resolved.falseClaim);
   const calibrationSeed = requiredFalseSeed || falseClaim;
   const calibrationBasis = continuityClaim?.whyFalse || falseBasis || resolved.falseBasis;
   const policy = LEVELS[level];
@@ -274,6 +296,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
       approvedFalsehoods,
       generatedCombinationMode,
       requiredFalseSeed: requiredFalseSeed || null,
+      strictDbFastPath: Boolean(draft.__strictDbFastPath),
       recentContext: recentMessages.slice(-6)
     },
     selectedCase: {
@@ -303,7 +326,9 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
       responseModel: cleanString(draft.__responseModel),
       attempt,
       timeoutMs,
-      source: "responses-api-json-schema"
+      source: "responses-api-json-schema",
+      strictDbFastPath: Boolean(draft.__strictDbFastPath),
+      serverInsertedFalsehood: cleanString(draft.__serverInsertedFalsehood)
     },
     preflight: {
       ...preflight,
@@ -407,6 +432,96 @@ export function applyVerifierVerdict({ audit, draft, model }) {
   };
 }
 
+function buildGenerationPlan({
+  message,
+  level,
+  falseDensity,
+  turnIndex,
+  recentMessages,
+  recentFalseClaims,
+  strictDbFastPathEnabled
+}) {
+  const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
+  const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
+  const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex, message });
+  const requiredFalseSeed = continuityClaim?.falseClaim ||
+    exactClientFalsehoodForCase(selected, message) ||
+    (selected.id === "general-history" ? "" : resolved.falseClaim);
+  const targetFalseClaimCount = resolveFalseClaimTarget({ falseDensity, message, turnIndex });
+  return {
+    selectedCaseId: selected.id,
+    requiredFalseSeed,
+    targetFalseClaimCount,
+    strictDbFastPath: Boolean(
+      strictDbFastPathEnabled &&
+      selected.id !== "general-history" &&
+      requiredFalseSeed &&
+      falseDensity !== "all" &&
+      targetFalseClaimCount === 1
+    )
+  };
+}
+
+function applyStrictDbServerGuarantee(audit) {
+  const insertedFalsehood = cleanString(audit.provider?.serverInsertedFalsehood);
+  const requiredFalseSeed = cleanString(audit.input?.requiredFalseSeed);
+  const falseClaims = Array.isArray(audit.falseClaims) ? audit.falseClaims : [];
+  const guaranteedFalseClaimPresent = Boolean(
+    insertedFalsehood &&
+    audit.studentVisibleFalseAnswer.includes(insertedFalsehood)
+  );
+  const requiredSeedLocked = Boolean(
+    requiredFalseSeed &&
+    matchesCalibrationSeedExactly(audit.falseClaim, requiredFalseSeed)
+  );
+  const approvedClaimLocked = falseClaims.length === 1 &&
+    matchesCalibrationSeedExactly(falseClaims[0]?.claim, requiredFalseSeed);
+  const deterministicApproved = Boolean(
+    audit.preflight.approvedForStudent &&
+    audit.input.strictDbFastPath &&
+    guaranteedFalseClaimPresent &&
+    requiredSeedLocked &&
+    approvedClaimLocked &&
+    !audit.preflight.checks.studentCorrectionLeak
+  );
+  if (!deterministicApproved) {
+    throw new Error("Strict DB server guarantee failed");
+  }
+
+  return {
+    ...audit,
+    provider: {
+      ...audit.provider,
+      verifier: {
+        name: "deterministic-strict-db",
+        model: "server-policy",
+        source: "curated-placeholder-insertion"
+      }
+    },
+    preflight: {
+      ...audit.preflight,
+      approvedForStudent: true,
+      hardApproved: true,
+      acceptedByHardGatePolicy: true,
+      verdict: "PASS_STRICT_DB_SERVER_GUARANTEE",
+      checks: {
+        ...audit.preflight.checks,
+        guaranteedFalseClaimPresent,
+        requiredSeedLocked,
+        approvedClaimLocked,
+        hardApproved: true,
+        acceptedByHardGatePolicy: true,
+        verifierApproved: false
+      },
+      verifier: {
+        approved: true,
+        model: "server-policy",
+        rationale: "교사 승인 거짓 seed를 서버가 학생 답변 placeholder에 직접 삽입했다."
+      }
+    }
+  };
+}
+
 function buildFailedAudit({ message, level, persona, falseDensity = "single", turnIndex, recentMessages = [], recentFalseClaims = [], model, verifierModel, timeoutMs = DEFAULT_OPENAI_TIMEOUT_MS, failures }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const resolved = resolveFalsehoodForTurn({ selected, level, turnIndex, message });
@@ -475,7 +590,7 @@ function buildFailedAudit({ message, level, persona, falseDensity = "single", tu
   };
 }
 
-async function callOpenAI({ apiKey, model, message, level, persona, falseDensity, turnIndex, recentMessages, recentFalseClaims, previousFailures, repairMode = false, timeoutMs, responsesUrl, fetchImpl }) {
+async function callOpenAI({ apiKey, model, message, level, persona, falseDensity, turnIndex, recentMessages, recentFalseClaims, previousFailures, repairMode = false, strictDbFastPath = false, timeoutMs, responsesUrl, fetchImpl }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
   const continuityClaims = compactContinuityClaims(recentFalseClaims);
@@ -504,19 +619,19 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
         input: [
           {
             role: "system",
-            content: buildSystemPrompt({ level, persona, falseDensity })
+            content: buildSystemPrompt({ level, persona, falseDensity, strictDbFastPath })
           },
           {
             role: "user",
-            content: buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods, canonicalFalsehoods, combinationFalsehoods, recentMessages, continuityClaim, continuityClaims, falseDensity, turnIndex, previousFailures, repairMode, generatedCombinationMode })
+            content: buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods, canonicalFalsehoods, combinationFalsehoods, recentMessages, continuityClaim, continuityClaims, falseDensity, turnIndex, previousFailures, repairMode, generatedCombinationMode, strictDbFastPath })
           }
         ],
         text: {
           format: {
             type: "json_schema",
-            name: "misinfo_audit",
+            name: strictDbFastPath ? "misinfo_strict_db_draft" : "misinfo_audit",
             strict: true,
-            schema: auditSchema()
+            schema: strictDbFastPath ? strictDbDraftSchema() : auditSchema()
           }
         }
       })
@@ -530,7 +645,18 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
   }
 
   const payload = await response.json();
-  return withResponseMetadata(parseStructuredOutput(payload), payload);
+  const draft = parseStructuredOutput(payload);
+  return withResponseMetadata(
+    strictDbFastPath
+      ? materializeStrictDbDraft(draft, {
+        requiredFalseSeed: continuityClaim?.falseClaim ||
+          exactClientFalsehoodForCase(selected, message) ||
+          resolved.falseClaim,
+        turnIndex
+      })
+      : draft,
+    payload
+  );
 }
 
 async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, responsesUrl, fetchImpl }) {
@@ -621,7 +747,7 @@ async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, responsesUr
   return withResponseMetadata(parseStructuredOutput(payload), payload);
 }
 
-function buildSystemPrompt({ level, persona, falseDensity }) {
+function buildSystemPrompt({ level, persona, falseDensity, strictDbFastPath = false }) {
   const policy = LEVELS[level];
   return [
     "You are generating controlled educational experiment material for a teacher-supervised classroom study.",
@@ -633,13 +759,17 @@ function buildSystemPrompt({ level, persona, falseDensity }) {
     `Falsehood level: ${level} ${policy.name}`,
     `Falsehood density: ${falseDensity === "all" ? "all substantive historical claims must be false" : falseDensity === "single" ? "exactly one calibrated false claim mixed with accurate context" : "one to three context-dependent false claims, always at least one"}`,
     `Level rule: ${policy.rule}`,
+    strictDbFastPath
+      ? `Strict DB fast path: write exactly one ${STRICT_DB_FALSEHOOD_PLACEHOLDER} placeholder in student_answer_template. The server will replace it with the approved false seed, so do not state or paraphrase that seed anywhere else in the template.`
+      : "Independent verification will inspect the complete student-facing answer.",
     "Do not use hateful, graphic, medical, legal, or personal claims. Stay inside Korean history classroom content."
   ].join("\n");
 }
 
-function buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods = [], canonicalFalsehoods = [], combinationFalsehoods = [], recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures, repairMode = false, generatedCombinationMode = false }) {
+function buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods = [], canonicalFalsehoods = [], combinationFalsehoods = [], recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures, repairMode = false, generatedCombinationMode = false, strictDbFastPath = false }) {
   const requiredFalseSeed = continuityClaim?.falseClaim ||
-    exactClientFalsehoodForCase(selected, message);
+    exactClientFalsehoodForCase(selected, message) ||
+    (selected.id === "general-history" ? "" : resolved.falseClaim);
   const requiredFalseBasis = continuityClaim?.whyFalse || resolved.falseBasis;
   const targetFalseClaimCount = resolveFalseClaimTarget({ falseDensity, message, turnIndex });
   return [
@@ -708,6 +838,9 @@ function buildUserPrompt({ message, level, selected, resolved, approvedFalsehood
     "Never say that an earlier assistant claim was wrong, unnecessary, false, or mistaken. If the current question refers to it, continue reasoning from that same premise.",
     "Put the correction only in correct_answer, false_basis, and level_fit_reason; never reveal it in student_answer.",
     "Avoid correction markers in student_answer such as '사실은', '정확히는', '틀린 정보', '오류', or '정답은'.",
+    strictDbFastPath
+      ? `Return student_answer_template instead of student_answer. It must contain ${STRICT_DB_FALSEHOOD_PLACEHOLDER} exactly once at the most natural point in the direct answer. Surround it only with concise, question-relevant context derived from the supplied baseline. Do not add another false claim or repeat the approved seed.`
+      : "Return the complete student_answer for independent verification.",
     previousFailures.length
       ? `Previous failed attempts to avoid: ${JSON.stringify(previousFailures)}`
       : "No previous failed attempts."
@@ -772,6 +905,139 @@ function auditSchema() {
       }
     }
   };
+}
+
+function strictDbDraftSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "correct_answer",
+      "false_answer",
+      "false_basis",
+      "level_fit_reason",
+      "student_answer_template",
+      "false_claims"
+    ],
+    properties: {
+      correct_answer: {
+        type: "string",
+        description: "Historically correct teacher-facing answer."
+      },
+      false_answer: {
+        type: "string",
+        description: "Exactly the teacher-provided calibrated false seed."
+      },
+      false_basis: {
+        type: "string",
+        description: "Why the false claim is false."
+      },
+      level_fit_reason: {
+        type: "string",
+        description: "Why the false claim fits the requested falsehood level."
+      },
+      student_answer_template: {
+        type: "string",
+        description: `Friendly Korean Markdown containing ${STRICT_DB_FALSEHOOD_PLACEHOLDER} exactly once.`
+      },
+      false_claims: {
+        type: "array",
+        minItems: 1,
+        maxItems: 1,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["claim", "why_false", "level_fit_reason"],
+          properties: {
+            claim: { type: "string" },
+            why_false: { type: "string" },
+            level_fit_reason: { type: "string" }
+          }
+        }
+      }
+    }
+  };
+}
+
+function materializeStrictDbDraft(draft, { requiredFalseSeed, turnIndex }) {
+  const seed = cleanString(requiredFalseSeed);
+  const template = cleanString(draft?.student_answer_template);
+  const placeholderCount = template.split(STRICT_DB_FALSEHOOD_PLACEHOLDER).length - 1;
+  const falseClaims = Array.isArray(draft?.false_claims) ? draft.false_claims : [];
+  const documentedClaim = cleanString(falseClaims[0]?.claim);
+  if (!seed) throw new Error("Strict DB fast path requires a curated false seed");
+  if (placeholderCount !== 1) {
+    throw new Error("Strict DB template must contain exactly one falsehood placeholder");
+  }
+  if (!matchesCalibrationSeedExactly(draft?.false_answer, seed)) {
+    throw new Error("Strict DB draft changed the curated false seed");
+  }
+  if (falseClaims.length !== 1 || !matchesCalibrationSeedExactly(documentedClaim, seed)) {
+    throw new Error("Strict DB draft must document exactly the curated false seed");
+  }
+  if (containsCuratedFalsehood(template)) {
+    throw new Error("Strict DB template repeated a curated falsehood outside the placeholder");
+  }
+  const renderedFalsehood = renderCuratedFalsehood(seed, turnIndex);
+  const studentAnswer = template.replace(
+    STRICT_DB_FALSEHOOD_PLACEHOLDER,
+    renderedFalsehood
+  );
+  return {
+    correct_answer: cleanString(draft?.correct_answer),
+    false_answer: seed,
+    false_basis: cleanString(draft?.false_basis),
+    level_fit_reason: cleanString(draft?.level_fit_reason),
+    student_answer: studentAnswer,
+    false_claims: falseClaims,
+    __strictDbFastPath: true,
+    __serverInsertedFalsehood: renderedFalsehood
+  };
+}
+
+function containsCuratedFalsehood(value) {
+  return CLIENT_FALSEHOOD_CLAIMS.some((claim) =>
+    preservesCuratedSeed(value, claim)
+  );
+}
+
+function preservesCuratedSeed(candidate, seed) {
+  const normalizedCandidate = comparableSeedText(candidate);
+  const normalizedSeed = comparableSeedText(seed);
+  if (normalizedCandidate.includes(normalizedSeed)) return true;
+  const seedTokens = normalizedSeed.split(" ").filter((token) => token.length > 1);
+  if (!seedTokens.length) return false;
+  const matched = seedTokens.filter((token) => normalizedCandidate.includes(token)).length;
+  return matched / seedTokens.length >= 0.8;
+}
+
+function comparableSeedText(value) {
+  return cleanString(value)
+    .replace(/[.,!?'"“”‘’()[\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function renderCuratedFalsehood(seed, turnIndex = 0) {
+  const sentence = cleanString(seed).replace(/[.!?。！？]+$/g, "");
+  const variant = Math.abs(Number(turnIndex) || 0) % 4;
+  const endings = [
+    [/하였다$/, ["했어", "한 거야", "했다고 보면 돼", "한 셈이야"]],
+    [/되었다$/, ["되었어", "된 거야", "되었다고 보면 돼", "된 셈이야"]],
+    [/이었다$/, ["이었어", "이었던 거야", "이었다고 보면 돼", "이었던 셈이야"]],
+    [/였다$/, ["였어", "였던 거야", "였다고 보면 돼", "였던 셈이야"]],
+    [/않았다$/, ["않았어", "않았던 거야", "않았다고 보면 돼", "않았던 셈이야"]],
+    [/있었다$/, ["있었어", "있었던 거야", "있었다고 보면 돼", "있었던 셈이야"]],
+    [/없었다$/, ["없었어", "없었던 거야", "없었다고 보면 돼", "없었던 셈이야"]],
+    [/했다$/, ["했어", "한 거야", "했다고 보면 돼", "한 셈이야"]],
+    [/이다$/, ["이야", "인 거야", "이라고 보면 돼", "인 셈이야"]]
+  ];
+  for (const [pattern, replacements] of endings) {
+    if (pattern.test(sentence)) {
+      return `${sentence.replace(pattern, replacements[variant])}.`;
+    }
+  }
+  return `${sentence}${variant === 0 ? "라고 보면 돼." : variant === 1 ? "라는 설명이야." : variant === 2 ? "라고 이해하면 돼." : "라는 점이 핵심이야."}`;
 }
 
 function verifierSchema() {
