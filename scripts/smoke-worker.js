@@ -162,7 +162,7 @@ const checks = [
     const body = await chat.json();
     return join.status === 200 &&
       chat.status === 200 &&
-      body.answer.includes("거북선") &&
+      body.answer.includes("지휘력") &&
       Number.isFinite(body.latencyMs);
   }],
   ["student session secret prevents session id takeover", async () => {
@@ -245,7 +245,7 @@ const checks = [
         sessionId: "s1",
         sessionSecret: "s1-secret",
         studentName: "민준",
-        message: "한 번 더 알려줘"
+        message: "그럼 한 번 더 알려줘"
       })
     });
     const body = await res.json();

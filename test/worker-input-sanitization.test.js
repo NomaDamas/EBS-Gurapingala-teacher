@@ -312,6 +312,36 @@ test("ClassroomRoom queues repeated requests per student while allowing differen
   assert.equal(resumed.acquired, true);
 });
 
+test("ClassroomRoom keeps per-student rate excess in the queue instead of starting OpenAI work", async () => {
+  const storage = new Map();
+  const room = createStoredRoom(storage);
+
+  const first = await postRoomJson(room, "/chat-queue/acquire", {
+    sessionId: "student-rate",
+    ticketId: "rate-1",
+    maxConcurrent: 40,
+    maxStartsPerMinute: 45,
+    maxStartsPerSession: 1
+  });
+  await postRoomJson(room, "/chat-queue/release", {
+    sessionId: "student-rate",
+    ticketId: "rate-1"
+  });
+  const queued = await postRoomJson(room, "/chat-queue/acquire", {
+    sessionId: "student-rate",
+    ticketId: "rate-2",
+    maxConcurrent: 40,
+    maxStartsPerMinute: 45,
+    maxStartsPerSession: 1
+  });
+
+  assert.equal(first.acquired, true);
+  assert.equal(queued.acquired, false);
+  assert.equal(queued.terminal, false);
+  assert.equal(queued.position, 1);
+  assert.ok(queued.retryAfterMs > 50000);
+});
+
 test("ClassroomRoom bounds an individual student's queue and deletes only the selected student", async () => {
   const storage = new Map([
     ["studentSessions", {
@@ -415,6 +445,44 @@ test("ClassroomRoom stores independent response mode and Level overrides per stu
     falseDensity: "all",
     updatedAt: second.updatedAt
   });
+});
+
+test("ClassroomRoom verified-answer cache coalesces identical generation work", async () => {
+  const storage = new Map();
+  const room = createStoredRoom(storage);
+
+  const owner = await postRoomJson(room, "/answer-cache/acquire", {
+    key: "same-question",
+    ticketId: "ticket-1"
+  });
+  const waiter = await postRoomJson(room, "/answer-cache/acquire", {
+    key: "same-question",
+    ticketId: "ticket-2"
+  });
+
+  assert.equal(owner.status, "owner");
+  assert.equal(waiter.status, "waiting");
+
+  const stored = await postRoomJson(room, "/answer-cache/put", {
+    key: "same-question",
+    ticketId: "ticket-1",
+    value: {
+      answer: "검증된 답변",
+      audit: {
+        preflight: { approvedForStudent: true },
+        provider: { name: "openai" }
+      }
+    }
+  });
+  const hit = await postRoomJson(room, "/answer-cache/acquire", {
+    key: "same-question",
+    ticketId: "ticket-2"
+  });
+
+  assert.equal(stored.ok, true);
+  assert.equal(hit.status, "hit");
+  assert.equal(hit.entry.answer, "검증된 답변");
+  assert.equal(hit.entry.audit.preflight.approvedForStudent, true);
 });
 
 function createStoredRoom(storage) {

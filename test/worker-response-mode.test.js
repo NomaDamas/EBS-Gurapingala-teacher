@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker from "../src/worker.js";
+import worker, { ClassroomRoom } from "../src/worker.js";
 
 test("teacher can select truth mode and receive verified truth telemetry without leaking audit to student", async () => {
   const originalFetch = globalThis.fetch;
@@ -119,6 +119,112 @@ test("teacher can select truth mode and receive verified truth telemetry without
     });
     assert.equal(JSON.stringify(historyBody).includes("teacherAudit"), false);
     assert.equal(JSON.stringify(historyBody).includes("correctAnswer"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("동일한 첫 질문은 검증된 응답을 재사용해 OpenAI 호출을 한 번만 수행한다", async () => {
+  const originalFetch = globalThis.fetch;
+  const openaiSchemas = [];
+  globalThis.fetch = async (url, init) => {
+    const schema = JSON.parse(init.body).text.format.name;
+    openaiSchemas.push(schema);
+    if (schema === "truth_preflight_verifier") {
+      return json({
+        output_text: JSON.stringify({
+          approved: true,
+          historically_supported: true,
+          answers_current_question: true,
+          unsupported_specifics: false,
+          contradiction: false,
+          rationale: "교사용 기준과 일치한다."
+        })
+      });
+    }
+    return json({
+      output_text: JSON.stringify({
+        correct_answer: "난중일기는 이순신이 임진왜란 중에 쓴 개인 일기다.",
+        student_answer: "난중일기는 이순신 장군이 전쟁 중의 일과 생각을 적은 개인 일기야."
+      })
+    });
+  };
+
+  const storage = new Map();
+  const durableRoom = new ClassroomRoom({
+    storage: {
+      get: async (key) => storage.get(key),
+      put: async (key, value) => storage.set(key, value),
+      list: async ({ prefix }) => new Map(
+        [...storage].filter(([key]) => key.startsWith(prefix))
+      ),
+      delete: async (key) => {
+        for (const item of Array.isArray(key) ? key : [key]) storage.delete(item);
+      }
+    }
+  });
+  const env = {
+    OPENAI_API_KEY: "test-key",
+    OPENAI_MODEL: "gpt-generator",
+    OPENAI_VERIFIER_MODEL: "gpt-verifier",
+    DEFAULT_RESPONSE_MODE: "truth",
+    DEFAULT_PERSONA: "친절한 역사 도우미",
+    ROOM: {
+      idFromName: (name) => name,
+      get: () => ({
+        fetch: (input, init) => durableRoom.fetch(
+          input instanceof Request ? input : new Request(String(input), init)
+        )
+      })
+    }
+  };
+
+  try {
+    for (const suffix of ["a", "b"]) {
+      const joined = await appFetch("/api/join", env, {
+        method: "POST",
+        body: {
+          sessionId: `cache-${suffix}`,
+          sessionSecret: `secret-${suffix}`,
+          studentName: `학생-${suffix}`
+        }
+      });
+      assert.equal(joined.status, 200);
+    }
+
+    const first = await appFetch("/api/chat", env, {
+      method: "POST",
+      body: {
+        sessionId: "cache-a",
+        sessionSecret: "secret-a",
+        studentName: "학생-a",
+        message: "난중일기는 뭐야?"
+      }
+    });
+    const second = await appFetch("/api/chat", env, {
+      method: "POST",
+      body: {
+        sessionId: "cache-b",
+        sessionSecret: "secret-b",
+        studentName: "학생-b",
+        message: "난중일기는 뭐야?"
+      }
+    });
+    const firstBody = await first.json();
+    const secondBody = await second.json();
+
+    assert.equal(first.status, 200);
+    assert.equal(second.status, 200);
+    assert.equal(firstBody.cacheHit, undefined);
+    assert.equal(secondBody.cacheHit, true);
+    assert.deepEqual(openaiSchemas, ["verified_truth_answer", "truth_preflight_verifier"]);
+    assert.equal(firstBody.answer, secondBody.answer);
+
+    const events = await durableRoom.fetch(new Request("https://room.local/events"));
+    const turns = (await events.json()).filter((event) => event.type === "chat_turn");
+    assert.equal(turns.length, 2);
+    assert.equal(turns[0].teacherAudit.provider.cache.hit, false);
+    assert.equal(turns[1].teacherAudit.provider.cache.hit, true);
   } finally {
     globalThis.fetch = originalFetch;
   }

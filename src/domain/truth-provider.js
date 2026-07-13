@@ -79,14 +79,10 @@ export async function generateTruthAnswer({
       }
 
       const answer = cleanString(draft.student_answer);
-      const suggestedQuestions = normalizeSuggestedQuestions(draft.suggested_questions);
-      if (suggestedQuestions.length !== 3) {
-        suggestedQuestions.splice(0, suggestedQuestions.length, ...buildFallbackSuggestedQuestions(message));
-      }
       return {
         shouldSendToStudent: true,
         answer,
-        suggestedQuestions,
+        suggestedQuestions: [],
         audit: {
           schemaVersion: "truth-audit/v1",
           input: {
@@ -106,7 +102,7 @@ export async function generateTruthAnswer({
           },
           correctAnswer: cleanString(draft.correct_answer),
           studentVisibleAnswer: answer,
-          suggestedQuestions,
+          suggestedQuestions: [],
           studentVisibleFalseAnswer: "",
           falseClaim: "",
           whyFalse: "",
@@ -200,7 +196,6 @@ async function callTruthGenerator({
           "Speak like a friendly person explaining something directly to a student. Prefer natural endings such as '~야', '~해', '~했어', and '~할 수 있어' instead of report-style endings such as '~했다', '~이다', or '~하였다'.",
           "Organize the student answer with short paragraphs. Use simple Markdown such as **bold emphasis** or bullet points only when it improves readability.",
           "You may use zero to two relevant emoji in the whole answer, but do not decorate every sentence.",
-          "Generate exactly three short Korean follow-up questions that stay on the current topic and are logically consistent with the answer."
         ].join("\n")
       },
       {
@@ -393,7 +388,7 @@ function truthAnswerSchema() {
   return {
     type: "object",
     additionalProperties: false,
-    required: ["correct_answer", "student_answer", "suggested_questions"],
+    required: ["correct_answer", "student_answer"],
     properties: {
       correct_answer: {
         type: "string",
@@ -402,12 +397,6 @@ function truthAnswerSchema() {
       student_answer: {
         type: "string",
         description: "Student-visible historically correct conversational answer."
-      },
-      suggested_questions: {
-        type: "array",
-        minItems: 3,
-        maxItems: 3,
-        items: { type: "string" }
       }
     }
   };
@@ -448,21 +437,4 @@ function parseStructuredOutput(payload) {
 
 function cleanString(value) {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function normalizeSuggestedQuestions(value) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => cleanString(item).slice(0, 120))
-    .filter(Boolean)
-    .slice(0, 3);
-}
-
-function buildFallbackSuggestedQuestions(message) {
-  const topic = cleanString(message).slice(0, 60) || "이 내용";
-  return [
-    `${topic}의 배경은 뭐야?`,
-    `${topic}이 이후에 어떤 영향을 줬어?`,
-    `${topic}과 관련된 다른 사례도 있어?`
-  ];
 }

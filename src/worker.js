@@ -1,4 +1,8 @@
-import { normalizeLevel, selectCaseForTurn } from "./domain/misinfo-policy.js";
+import {
+  classifyStudentInput,
+  normalizeLevel,
+  selectCaseForTurn
+} from "./domain/misinfo-policy.js";
 import { DEFAULT_OPENAI_MODEL, generateAuditedAnswer, normalizeTimeoutMs } from "./domain/llm-provider.js";
 import { generateTruthAnswer } from "./domain/truth-provider.js";
 import { EVALUATION_SET_50, PUBLIC_EVALUATION_SET_50 } from "./domain/evaluation-set.js";
@@ -21,6 +25,7 @@ const JSON_HEADERS = {
 const FAIL_CLOSED_STUDENT_MESSAGE = "지금 답변을 만들지 못했어. 잠시 후 다시 시도해 줘.";
 const MAX_JSON_BODY_BYTES = 8 * 1024;
 const CHAT_QUEUE_POLL_MS = 250;
+const ANSWER_CACHE_POLICY_VERSION = "verified-answer/v1";
 
 export default {
   async fetch(request, env) {
@@ -213,9 +218,130 @@ export default {
           message: sessionCheck.message
         }, sessionCheck.status || 401);
       }
+      const events = await readEvents(room, env);
+      const sessionContext = buildSessionContext(events, body.sessionId);
+      const inputDecision = classifyStudentInput({
+        message: body.message,
+        recentMessages: sessionContext.recentMessages
+      });
+      if (!inputDecision.accepted) {
+        const latencyMs = Date.now() - startedAtMs;
+        const audit = buildInputRejectionAudit({
+          message: body.message,
+          decision: inputDecision,
+          turnIndex: sessionContext.turnIndex
+        });
+        await room.fetch(roomEventUrl(env), {
+          method: "POST",
+          body: JSON.stringify({
+            type: "chat_turn",
+            roomId,
+            sessionId: body.sessionId,
+            studentName: body.studentName,
+            studentMessage: body.message,
+            studentVisibleAnswer: inputDecision.message,
+            blockedForStudent: false,
+            inputRejected: true,
+            latencyMs,
+            teacherAudit: audit,
+            at: new Date().toISOString()
+          })
+        });
+        return json({
+          answer: inputDecision.message,
+          telemetry: "sent",
+          roomId,
+          latencyMs,
+          queuedMs: 0,
+          inputRejected: true
+        });
+      }
+      const config = await readConfig(room, env);
+      const studentConfig = await readStudentConfig(room, body.sessionId);
+      const persona = config.persona || env.DEFAULT_PERSONA;
+      const responseMode = studentConfig.responseMode === "inherit"
+        ? normalizeResponseMode(config.responseMode)
+        : normalizeResponseMode(studentConfig.responseMode);
+      const configuredLevel = studentConfig.responseMode === "inherit"
+        ? config.level || env.DEFAULT_FALSE_LEVEL
+        : studentConfig.level;
+      const falseDensity = studentConfig.responseMode === "inherit"
+        ? normalizeFalseDensity(config.falseDensity)
+        : normalizeFalseDensity(studentConfig.falseDensity);
+      const configuredMixLevels = studentConfig.responseMode === "mixed"
+        ? [0, normalizeLevel(studentConfig.level)]
+        : config.mixLevels;
+      let applied = selectTurnMode({
+        responseMode,
+        level: configuredLevel,
+        mixLevels: configuredMixLevels,
+        turnIndex: sessionContext.turnIndex
+      });
+      const selectedCase = selectCaseForTurn({
+        message: body.message,
+        recentMessages: sessionContext.recentMessages,
+        turnIndex: sessionContext.turnIndex
+      });
+      const continuityClaim = [...sessionContext.recentFalseClaims]
+        .reverse()
+        .find((item) => item.topicId === selectedCase.id);
+      if (continuityClaim) {
+        applied = {
+          responseMode: "experiment",
+          level: normalizeLevel(continuityClaim.level || configuredLevel),
+          continuityOverride: true
+        };
+      }
+      const cacheDescriptor = await buildAnswerCacheDescriptor({
+        message: body.message,
+        selectedCase,
+        applied,
+        responseMode,
+        falseDensity,
+        persona,
+        sessionContext
+      });
+      const cacheTicket = cacheDescriptor ? crypto.randomUUID() : "";
+      let cacheLeaseOwned = false;
+      if (cacheDescriptor) {
+        const cached = await waitForVerifiedAnswer(room, cacheDescriptor.key, cacheTicket, env);
+        if (cached.status === "hit") {
+          const stillRegistered = await validateStudentSession(room, body);
+          if (!stillRegistered.ok) {
+            return json({
+              error: "student_deleted",
+              message: "교사가 이 학생 세션을 종료했습니다. 다시 입장하려면 이름을 입력해 주세요."
+            }, 410);
+          }
+          const result = hydrateCachedAnswer(cached.entry, {
+            cacheKey: cacheDescriptor.key,
+            turnIndex: sessionContext.turnIndex,
+            message: body.message
+          });
+          const latencyMs = Date.now() - startedAtMs;
+          await recordChatTurn(room, env, {
+            roomId,
+            body,
+            result,
+            latencyMs
+          });
+          return json({
+            answer: result.answer,
+            telemetry: "sent",
+            roomId,
+            latencyMs,
+            queuedMs: 0,
+            cacheHit: true
+          });
+        }
+        cacheLeaseOwned = cached.status === "owner";
+      }
       const queueTicket = crypto.randomUUID();
       const queueResult = await waitForChatSlot(room, body.sessionId, queueTicket, env);
       if (!queueResult.acquired) {
+        if (cacheLeaseOwned) {
+          await releaseAnswerCacheLease(room, cacheDescriptor.key, cacheTicket);
+        }
         return json({
           error: queueResult.error || "chat_queue_unavailable",
           message: queueResult.message || "앞선 질문을 처리하고 있어. 잠시 후 다시 보내 줘.",
@@ -223,44 +349,6 @@ export default {
         }, queueResult.status || 429);
       }
       try {
-        const config = await readConfig(room, env);
-        const studentConfig = await readStudentConfig(room, body.sessionId);
-        const events = await readEvents(room, env);
-        const sessionContext = buildSessionContext(events, body.sessionId);
-        const persona = config.persona || env.DEFAULT_PERSONA;
-        const responseMode = studentConfig.responseMode === "inherit"
-          ? normalizeResponseMode(config.responseMode)
-          : normalizeResponseMode(studentConfig.responseMode);
-        const configuredLevel = studentConfig.responseMode === "inherit"
-          ? config.level || env.DEFAULT_FALSE_LEVEL
-          : studentConfig.level;
-        const falseDensity = studentConfig.responseMode === "inherit"
-          ? normalizeFalseDensity(config.falseDensity)
-          : normalizeFalseDensity(studentConfig.falseDensity);
-        const configuredMixLevels = studentConfig.responseMode === "mixed"
-          ? [0, normalizeLevel(studentConfig.level)]
-          : config.mixLevels;
-        let applied = selectTurnMode({
-          responseMode,
-          level: configuredLevel,
-          mixLevels: configuredMixLevels,
-          turnIndex: sessionContext.turnIndex
-        });
-        const selectedCase = selectCaseForTurn({
-          message: body.message,
-          recentMessages: sessionContext.recentMessages,
-          turnIndex: sessionContext.turnIndex
-        });
-        const continuityClaim = [...sessionContext.recentFalseClaims]
-          .reverse()
-          .find((item) => item.topicId === selectedCase.id);
-        if (continuityClaim) {
-          applied = {
-            responseMode: "experiment",
-            level: normalizeLevel(continuityClaim.level || configuredLevel),
-            continuityOverride: true
-          };
-        }
         const generateAnswer = applied.responseMode === "truth"
           ? generateTruthAnswer
           : generateAuditedAnswer;
@@ -279,6 +367,12 @@ export default {
         result.audit.input.falseDensity = applied.responseMode === "truth" ? null : falseDensity;
         result.audit.input.studentOverride = studentConfig.responseMode !== "inherit";
         result.audit.input.continuityOverride = Boolean(applied.continuityOverride);
+        result.audit.provider.cache = {
+          eligible: Boolean(cacheDescriptor),
+          hit: false,
+          key: cacheDescriptor?.key || null,
+          policyVersion: ANSWER_CACHE_POLICY_VERSION
+        };
         const { audit, answer } = result;
         const latencyMs = Date.now() - startedAtMs;
         const studentAnswer = result.shouldSendToStudent
@@ -292,20 +386,26 @@ export default {
           }, 410);
         }
 
-        await room.fetch(roomEventUrl(env), {
-          method: "POST",
-          body: JSON.stringify({
-            type: "chat_turn",
-            roomId,
-            sessionId: body.sessionId,
-            studentName: body.studentName,
-            studentMessage: body.message,
-            studentVisibleAnswer: studentAnswer,
-            blockedForStudent: !result.shouldSendToStudent,
-            latencyMs,
-            teacherAudit: audit,
-            at: new Date().toISOString()
-          })
+        if (
+          cacheLeaseOwned &&
+          result.shouldSendToStudent &&
+          result.audit.preflight?.approvedForStudent
+        ) {
+          await storeVerifiedAnswer(room, cacheDescriptor.key, cacheTicket, {
+            answer: studentAnswer,
+            audit
+          }, env);
+          cacheLeaseOwned = false;
+        }
+        await recordChatTurn(room, env, {
+          roomId,
+          body,
+          result: {
+            ...result,
+            answer: studentAnswer,
+            audit
+          },
+          latencyMs
         });
 
         return json({
@@ -317,6 +417,9 @@ export default {
         });
       } finally {
         await releaseChatSlot(room, body.sessionId, queueTicket);
+        if (cacheLeaseOwned) {
+          await releaseAnswerCacheLease(room, cacheDescriptor.key, cacheTicket);
+        }
       }
     }
     if (url.pathname === "/ws/teacher") {
@@ -376,6 +479,15 @@ export class ClassroomRoom {
     if (url.pathname === "/chat-queue/release" && request.method === "POST") {
       return json(await this.releaseChatSlot(await request.json()));
     }
+    if (url.pathname === "/answer-cache/acquire" && request.method === "POST") {
+      return json(await this.acquireAnswerCache(await request.json()));
+    }
+    if (url.pathname === "/answer-cache/put" && request.method === "POST") {
+      return json(await this.putAnswerCache(await request.json()));
+    }
+    if (url.pathname === "/answer-cache/release" && request.method === "POST") {
+      return json(await this.releaseAnswerCache(await request.json()));
+    }
     if (url.pathname === "/student-delete" && request.method === "POST") {
       return json(await this.deleteStudent(await request.json()));
     }
@@ -415,6 +527,9 @@ export class ClassroomRoom {
       await this.state.storage.delete("studentSessions");
       await this.state.storage.delete("chatQueue");
       await this.state.storage.delete("studentConfigs");
+      await this.state.storage.delete("answerCacheIndex");
+      await this.state.storage.delete("answerCacheLocks");
+      await this.deleteAnswerCacheEntries();
       await this.deleteTranscripts();
       this.broadcast({
         type: "events_purged",
@@ -552,6 +667,7 @@ export class ClassroomRoom {
     maxConcurrent = 40,
     maxStartsPerMinute = 45,
     maxQueuedPerSession = 3,
+    maxStartsPerSession = 12,
     leaseMs = 120000
   }) {
     const now = Date.now();
@@ -560,10 +676,14 @@ export class ClassroomRoom {
     const state = await this.state.storage.get("chatQueue") || {
       waiting: [],
       active: {},
-      starts: []
+      starts: [],
+      sessionStarts: {}
     };
     state.waiting = (state.waiting || []).filter((item) => now - item.enqueuedAt < leaseMs);
     state.starts = (state.starts || []).filter((startedAt) => now - startedAt < 60000);
+    state.sessionStarts = state.sessionStarts || {};
+    state.sessionStarts[key] = (state.sessionStarts[key] || [])
+      .filter((startedAt) => now - startedAt < 60000);
     for (const [activeTicket, item] of Object.entries(state.active || {})) {
       if (now - item.startedAt >= leaseMs) delete state.active[activeTicket];
     }
@@ -589,8 +709,15 @@ export class ClassroomRoom {
     const sessionActive = Object.values(state.active).some((item) => item.sessionId === key);
     const firstForSession = state.waiting.find((item) => item.sessionId === key)?.ticketId === ticket;
     const capacityAvailable = Object.keys(state.active).length < Number(maxConcurrent);
-    const rateAvailable = state.starts.length < Number(maxStartsPerMinute);
-    if (!sessionActive && firstForSession && capacityAvailable && rateAvailable) {
+    const globalRateAvailable = state.starts.length < Number(maxStartsPerMinute);
+    const sessionRateAvailable = state.sessionStarts[key].length < Number(maxStartsPerSession);
+    if (
+      !sessionActive &&
+      firstForSession &&
+      capacityAvailable &&
+      globalRateAvailable &&
+      sessionRateAvailable
+    ) {
       state.waiting = state.waiting.filter((item) => item.ticketId !== ticket);
       state.active[ticket] = {
         sessionId: key,
@@ -598,13 +725,18 @@ export class ClassroomRoom {
         startedAt: now
       };
       state.starts.push(now);
+      state.sessionStarts[key].push(now);
       await this.state.storage.put("chatQueue", state);
       return { acquired: true, queuedMs: now - waiting.enqueuedAt };
     }
     await this.state.storage.put("chatQueue", state);
-    const retryAfterMs = rateAvailable
+    const globalRetryMs = globalRateAvailable
       ? CHAT_QUEUE_POLL_MS
-      : Math.max(CHAT_QUEUE_POLL_MS, 60000 - (now - state.starts[0]));
+      : 60000 - (now - state.starts[0]);
+    const sessionRetryMs = sessionRateAvailable
+      ? CHAT_QUEUE_POLL_MS
+      : 60000 - (now - state.sessionStarts[key][0]);
+    const retryAfterMs = Math.max(CHAT_QUEUE_POLL_MS, globalRetryMs, sessionRetryMs);
     return {
       acquired: false,
       terminal: false,
@@ -617,7 +749,8 @@ export class ClassroomRoom {
     const state = await this.state.storage.get("chatQueue") || {
       waiting: [],
       active: {},
-      starts: []
+      starts: [],
+      sessionStarts: {}
     };
     delete state.active?.[String(ticketId || "")];
     state.waiting = (state.waiting || []).filter((item) =>
@@ -626,6 +759,75 @@ export class ClassroomRoom {
     );
     await this.state.storage.put("chatQueue", state);
     return { ok: true };
+  }
+
+  async acquireAnswerCache({ key, ticketId, ttlMs = 21600000, leaseMs = 180000 }) {
+    const now = Date.now();
+    const cacheKey = answerCacheStorageKey(key);
+    const entry = await this.state.storage.get(cacheKey);
+    if (entry && now - Number(entry.createdAtMs || 0) <= Number(ttlMs)) {
+      return { status: "hit", entry };
+    }
+    if (entry) await this.state.storage.delete(cacheKey);
+
+    const locks = await this.state.storage.get("answerCacheLocks") || {};
+    for (const [lockedKey, lock] of Object.entries(locks)) {
+      if (now - Number(lock.acquiredAtMs || 0) >= Number(leaseMs)) delete locks[lockedKey];
+    }
+    const normalizedKey = String(key || "");
+    const ticket = String(ticketId || "");
+    const lock = locks[normalizedKey];
+    if (!lock || lock.ticketId === ticket) {
+      locks[normalizedKey] = { ticketId: ticket, acquiredAtMs: now };
+      await this.state.storage.put("answerCacheLocks", locks);
+      return { status: "owner" };
+    }
+    await this.state.storage.put("answerCacheLocks", locks);
+    return { status: "waiting", retryAfterMs: CHAT_QUEUE_POLL_MS };
+  }
+
+  async putAnswerCache({ key, ticketId, value, maxEntries = 128 }) {
+    const normalizedKey = String(key || "");
+    const locks = await this.state.storage.get("answerCacheLocks") || {};
+    if (locks[normalizedKey]?.ticketId !== String(ticketId || "")) {
+      return { ok: false, error: "cache_lease_lost" };
+    }
+    const createdAtMs = Date.now();
+    await this.state.storage.put(answerCacheStorageKey(normalizedKey), {
+      ...value,
+      createdAtMs
+    });
+    const index = await this.state.storage.get("answerCacheIndex") || [];
+    const nextIndex = index
+      .filter((item) => item.key !== normalizedKey)
+      .concat({ key: normalizedKey, createdAtMs })
+      .sort((left, right) => right.createdAtMs - left.createdAtMs);
+    const evicted = nextIndex.slice(Number(maxEntries));
+    for (const item of evicted) {
+      await this.state.storage.delete(answerCacheStorageKey(item.key));
+    }
+    await this.state.storage.put("answerCacheIndex", nextIndex.slice(0, Number(maxEntries)));
+    delete locks[normalizedKey];
+    await this.state.storage.put("answerCacheLocks", locks);
+    return { ok: true };
+  }
+
+  async releaseAnswerCache({ key, ticketId }) {
+    const locks = await this.state.storage.get("answerCacheLocks") || {};
+    const normalizedKey = String(key || "");
+    if (locks[normalizedKey]?.ticketId === String(ticketId || "")) {
+      delete locks[normalizedKey];
+      await this.state.storage.put("answerCacheLocks", locks);
+    }
+    return { ok: true };
+  }
+
+  async deleteAnswerCacheEntries() {
+    const entries = await this.state.storage.list({ prefix: "answer-cache:" });
+    const keys = [...entries.keys()];
+    for (let index = 0; index < keys.length; index += 128) {
+      await this.state.storage.delete(keys.slice(index, index + 128));
+    }
   }
 
   async deleteStudent({ sessionId }) {
@@ -830,6 +1032,42 @@ function normalizeRoomId(value) {
     .slice(0, 80) || "default-classroom";
 }
 
+function buildInputRejectionAudit({ message, decision, turnIndex }) {
+  return {
+    schemaVersion: "input-rejection/v1",
+    input: {
+      studentQuestion: message,
+      responseMode: "input_rejection",
+      appliedLevel: null,
+      turnIndex,
+      recentContext: []
+    },
+    selectedCase: null,
+    correctAnswer: "",
+    studentVisibleAnswer: decision.message,
+    studentVisibleFalseAnswer: "",
+    falseClaim: "",
+    falseClaims: [],
+    whyFalse: "",
+    levelFitReason: "",
+    provider: {
+      name: "none",
+      model: "none",
+      attempts: 0,
+      source: "input-policy"
+    },
+    preflight: {
+      approvedForStudent: true,
+      verdict: `REJECTED_${String(decision.reason || "unsupported").toUpperCase()}`,
+      checks: {
+        inputAccepted: false,
+        rejectionReason: decision.reason,
+        openaiCalled: false
+      }
+    }
+  };
+}
+
 async function readConfig(room, env) {
   const res = await room.fetch("https://room.local/config");
   const config = await res.json();
@@ -880,6 +1118,157 @@ function roomEventUrl(env) {
   return `https://room.local/event?ttlHours=${encodeURIComponent(env.EVENT_TTL_HOURS || 24)}`;
 }
 
+async function buildAnswerCacheDescriptor({
+  message,
+  selectedCase,
+  applied,
+  responseMode,
+  falseDensity,
+  persona,
+  sessionContext
+}) {
+  if (
+    sessionContext.turnIndex !== 0 ||
+    sessionContext.recentMessages.length ||
+    sessionContext.recentFalseClaims.length ||
+    applied.continuityOverride
+  ) {
+    return null;
+  }
+  const material = JSON.stringify({
+    policyVersion: ANSWER_CACHE_POLICY_VERSION,
+    question: normalizeCacheQuestion(message),
+    selectedCaseId: selectedCase.id,
+    appliedResponseMode: applied.responseMode,
+    configuredResponseMode: responseMode,
+    level: applied.responseMode === "truth" ? null : applied.level,
+    falseDensity: applied.responseMode === "truth" ? null : falseDensity,
+    persona: String(persona || "").trim()
+  });
+  return {
+    key: await sha256(material)
+  };
+}
+
+function hydrateCachedAnswer(entry, { cacheKey, turnIndex, message }) {
+  const audit = JSON.parse(JSON.stringify(entry.audit || {}));
+  audit.input = {
+    ...(audit.input || {}),
+    studentQuestion: message,
+    turnIndex,
+    recentContext: []
+  };
+  audit.provider = {
+    ...(audit.provider || {}),
+    cache: {
+      eligible: true,
+      hit: true,
+      key: cacheKey,
+      policyVersion: ANSWER_CACHE_POLICY_VERSION,
+      createdAtMs: Number(entry.createdAtMs || 0)
+    }
+  };
+  return {
+    answer: String(entry.answer || ""),
+    audit,
+    shouldSendToStudent: true,
+    suggestedQuestions: []
+  };
+}
+
+async function recordChatTurn(room, env, { roomId, body, result, latencyMs }) {
+  await room.fetch(roomEventUrl(env), {
+    method: "POST",
+    body: JSON.stringify({
+      type: "chat_turn",
+      roomId,
+      sessionId: body.sessionId,
+      studentName: body.studentName,
+      studentMessage: body.message,
+      studentVisibleAnswer: result.answer,
+      blockedForStudent: !result.shouldSendToStudent,
+      latencyMs,
+      teacherAudit: result.audit,
+      at: new Date().toISOString()
+    })
+  });
+}
+
+async function waitForVerifiedAnswer(room, key, ticketId, env) {
+  const deadline = Date.now() + Number(env.ANSWER_CACHE_WAIT_TIMEOUT_MS || 120000);
+  while (Date.now() < deadline) {
+    const response = await room.fetch("https://room.local/answer-cache/acquire", {
+      method: "POST",
+      body: JSON.stringify({
+        key,
+        ticketId,
+        ttlMs: Number(env.ANSWER_CACHE_TTL_MS || 21600000),
+        leaseMs: Number(env.ANSWER_CACHE_LEASE_MS || 180000)
+      })
+    });
+    if (
+      response.status === 404 ||
+      !String(response.headers.get("content-type") || "").includes("application/json")
+    ) {
+      return { status: "owner" };
+    }
+    const result = await response.json();
+    if (result.status === "hit" || result.status === "owner") return result;
+    await sleep(Math.max(CHAT_QUEUE_POLL_MS, Number(result.retryAfterMs) || CHAT_QUEUE_POLL_MS));
+  }
+  return { status: "bypass" };
+}
+
+async function storeVerifiedAnswer(room, key, ticketId, value, env) {
+  const response = await room.fetch("https://room.local/answer-cache/put", {
+    method: "POST",
+    body: JSON.stringify({
+      key,
+      ticketId,
+      value,
+      maxEntries: Number(env.ANSWER_CACHE_MAX_ENTRIES || 128)
+    })
+  });
+  if (
+    !response.ok ||
+    !String(response.headers.get("content-type") || "").includes("application/json")
+  ) {
+    return { ok: false };
+  }
+  return await response.json();
+}
+
+async function releaseAnswerCacheLease(room, key, ticketId) {
+  try {
+    await room.fetch("https://room.local/answer-cache/release", {
+      method: "POST",
+      body: JSON.stringify({ key, ticketId })
+    });
+  } catch {
+    // The lease expires automatically.
+  }
+}
+
+function answerCacheStorageKey(key) {
+  return `answer-cache:${String(key || "")}`;
+}
+
+function normalizeCacheQuestion(value) {
+  return String(value || "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+async function sha256(value) {
+  const bytes = new TextEncoder().encode(String(value || ""));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return `v1-${[...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
 async function recordTeacherConfigRejection(room, env, roomId, errorBody) {
   await room.fetch(roomEventUrl(env), {
     method: "POST",
@@ -920,6 +1309,8 @@ function buildHealthPayload(env) {
     chatMaxConcurrent: Number(env.CHAT_MAX_CONCURRENT || 40),
     chatGlobalRateLimitPerMinute: Number(env.CHAT_GLOBAL_RATE_LIMIT_PER_MINUTE || 45),
     chatMaxQueuedPerSession: Number(env.CHAT_MAX_QUEUED_PER_SESSION || 3),
+    answerCacheTtlMs: Number(env.ANSWER_CACHE_TTL_MS || 21600000),
+    answerCacheMaxEntries: Number(env.ANSWER_CACHE_MAX_ENTRIES || 128),
     eventTtlHours: Number(env.EVENT_TTL_HOURS || 24),
     openaiTimeoutMs: normalizeTimeoutMs(env.OPENAI_TIMEOUT_MS),
     defaultRoomId: normalizeRoomId(env.DEFAULT_ROOM_ID),
@@ -960,6 +1351,7 @@ async function waitForChatSlot(room, sessionId, ticketId, env) {
         maxConcurrent: Number(env.CHAT_MAX_CONCURRENT || 40),
         maxStartsPerMinute: Number(env.CHAT_GLOBAL_RATE_LIMIT_PER_MINUTE || 45),
         maxQueuedPerSession: Number(env.CHAT_MAX_QUEUED_PER_SESSION || 3),
+        maxStartsPerSession: Number(env.CHAT_RATE_LIMIT_PER_MINUTE || 12),
         leaseMs: Number(env.CHAT_LEASE_MS || 120000)
       })
     });

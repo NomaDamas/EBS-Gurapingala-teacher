@@ -96,6 +96,17 @@ const IMJIN_RESPONSE_CASE = {
   debriefNote: "조선의 대응은 관군·수군·의병과 명군의 지원 등 여러 주체와 전선의 활동이 결합된 과정이었다."
 };
 
+const GENERAL_HISTORY_CASE = {
+  id: "general-history",
+  topic: "질문에 제시된 한국사 주제",
+  likelyStudentQuestion: "한국사와 관련된 자유 질문",
+  truth: "현재 질문에 직접 답하는 역사적으로 정확한 설명을 생성하고 독립 검수한다.",
+  lies: {},
+  falseBasis: {},
+  verificationPrompt: "질문의 핵심 역사 주장과 근거를 교과서 또는 신뢰할 수 있는 자료에서 확인한다.",
+  debriefNote: "철칙 DB 밖의 질문은 Combination 기준으로 생성한 왜곡과 정확한 설명을 분리해 정정한다."
+};
+
 export const HISTORY_CASES = [
   {
     id: "imjin-start",
@@ -418,6 +429,97 @@ const TOPIC_STOP_WORDS = new Set([
   "수군"
 ]);
 
+const ROUTING_PROFILES = {
+  "imjin-response": [
+    signal(/침략.*(대응|맞서|막|저항)|어떻게.*(대응|맞서|막)/, 9),
+    signal(/관군|의병|수군|명군/, 2),
+    signal(/조선.*(대응|방어|저항)/, 5)
+  ],
+  "imjin-start": [
+    signal(/임진왜란|일본.*침략|히데요시/, 3),
+    signal(/(시작|발생|일어나|일어났|일어난|침략).*(왜|원인|이유|목적)|(왜|원인|이유|목적).*(시작|발생|일어나|일어났|일어난|침략)/, 8),
+    signal(/외교|길을 빌|통과|대륙 진출/, 4)
+  ],
+  "myeongnyang-ships": [
+    signal(/명량/, 9),
+    signal(/12\s*척|열두\s*척|배.*몇\s*척|몇\s*척.*배/, 15),
+    signal(/울돌목/, 4)
+  ],
+  "turtle-ship-origin": [
+    signal(/거북선|철갑선|잠수|반잠수|용머리/, 10),
+    signal(/(수군|해전).*(무기|군함|배)|(무기|군함|배).*(수군|해전)/, 7),
+    signal(/발명|설계|만들|구조|장착|신기전|화포/, 3)
+  ],
+  "nanjung-diary": [
+    signal(/난중일기/, 10),
+    signal(/이순신.*(일기|기록)|(일기|기록).*이순신/, 6),
+    signal(/공식.*(기록|보고)|개인.*일기/, 3)
+  ],
+  "ming-role": [
+    signal(/명나라|명군/, 9),
+    signal(/참전|원군|지원|도와|목적|이유/, 3)
+  ],
+  uibyong: [
+    signal(/의병|곽재우|고경명|조헌|김천일|승병/, 10),
+    signal(/조직|역할|활약|보급로|지역 방어/, 3)
+  ],
+  "seonjo-trust": [
+    signal(/선조/, 8),
+    signal(/이순신.*(감옥|투옥|파직|백의종군)|(?:감옥|투옥|파직|백의종군).*이순신/, 20),
+    signal(/신뢰|지원|의심|처벌|관계|피란|의주/, 4)
+  ],
+  "yi-sunsin-command": [
+    signal(/이순신/, 6),
+    signal(/지휘|총지휘|장군|인물|성격|인품|리더십|활약|어려움/, 4),
+    signal(/처음부터.*끝까지|모든.*전투|모든.*해전/, 3)
+  ],
+  "navy-losses": [
+    signal(/조선.*(?:수군|군)|이순신|해전/, 4),
+    signal(/승리|이기|이긴|이겼|졌|진 뒤|패배|무패|강했|주도권|막을|막아|전과|포기|피했/, 6),
+    signal(/조류|물살|해협|바다 지형|해상 보급|보급로|물자/, 5),
+    signal(/칠천량/, 10)
+  ],
+  "film-history": [
+    signal(/역사.*영화|영화.*역사|감독.*해석|각색|실제 역사/, 9)
+  ],
+  "king-and-clown-danjong": [
+    signal(/단종|수양대군|세조|계유정난|영월.*유배/, 9)
+  ],
+  hunminjeongeum: [
+    signal(/훈민정음|한글|세종|집현전/, 8)
+  ],
+  "goryeo-mongol": [
+    signal(/고려|몽골|강화도|삼별초|원나라/, 8)
+  ],
+  "donghak-peasant": [
+    signal(/동학|전봉준|고부|농민 운동/, 9)
+  ],
+  "march-first": [
+    signal(/3[·.]?1\s*운동|삼일\s*운동|독립선언서|민족대표/, 9)
+  ]
+};
+
+const SYSTEM_OR_EXPERIMENT_PATTERNS = [
+  /(?:거짓말|허위|오류)\s*(?:레벨|수준|단계|모드)/,
+  /(?:응답|실험|진실|거짓)\s*모드/,
+  /시스템\s*프롬프트|내부\s*(?:지침|설정|규칙)/,
+  /(?:모델|api|토큰|키|검수기|verifier|프롬프트).*(?:뭐|무엇|알려|보여|공개)/i,
+  /(?:정답|거짓).*숨기|교사.*설정/
+];
+
+const HIGH_CONFIDENCE_OFF_TOPIC_PATTERNS = [
+  /(?:오늘|내일|이번 주).*(?:날씨|기온|비 와|눈 와)/,
+  /(?:코드|코딩|프로그램|자바스크립트|파이썬|html|css).*(?:짜|작성|고쳐|에러)/i,
+  /(?:번역|영어로|일본어로|중국어로).*(?:해줘|바꿔|말해)/,
+  /(?:수학|방정식|미분|적분|계산).*(?:풀어|답|정답)/,
+  /^[가-힣]{2,5}(?:아|야)\s*(?:뭐\s*해|뭐하|어디\s*가|놀자|심심)/,
+  /(?:너는 누구|이름이 뭐|몇 살|사랑해|사귀자|게임하자)/
+];
+
+function signal(pattern, weight) {
+  return { pattern, weight };
+}
+
 export function normalizeLevel(level) {
   const n = Number(level);
   return LEVELS[n] ? n : 5;
@@ -425,9 +527,21 @@ export function normalizeLevel(level) {
 
 export function resolveFalsehoodForTurn({ selected, level, turnIndex = 0, message = "" }) {
   const normalizedLevel = normalizeLevel(level);
+  if (selected?.id === GENERAL_HISTORY_CASE.id) {
+    const sequence = [2, 3, 2, 1, 2, 3, 4, 2];
+    const sourceLevel = normalizedLevel === 5
+      ? sequence[Math.abs(Number(turnIndex) || 0) % sequence.length]
+      : normalizedLevel;
+    return {
+      sourceLevel,
+      falseClaim: "",
+      falseBasis: `질문에 직접 관련된 역사 사실을 ${combinationFactorLabel(sourceLevel)} 방식으로 왜곡하고 독립 LLM 검수를 통과해야 한다.`,
+      factors: combinationFactorsFor(sourceLevel)
+    };
+  }
   const approvedCandidates = approvedFalsehoodCandidatesForCase(selected, message);
   if (approvedCandidates.length && normalizedLevel !== 5) {
-    const exactVariant = selectClientCombinationVariant(selected.id, message);
+    const exactVariant = selectHighConfidenceClientVariant(message);
     if (exactVariant && classifyClientVariantLevel(exactVariant.falseClaim) === normalizedLevel) {
       return {
         sourceLevel: normalizedLevel,
@@ -436,11 +550,19 @@ export function resolveFalsehoodForTurn({ selected, level, turnIndex = 0, messag
         factors: combinationFactorsFor(normalizedLevel)
       };
     }
-    const levelCandidates = approvedCandidates.filter(
+    const canonicalCandidates = canonicalFalsehoodCandidatesForCase(selected, message);
+    const levelCandidates = canonicalCandidates.filter(
       (claim) => classifyClientVariantLevel(claim) === normalizedLevel
     );
-    const pool = levelCandidates.length ? levelCandidates : approvedCandidates;
-    const falseClaim = pool[Math.abs(Number(turnIndex) || 0) % pool.length];
+    if (!levelCandidates.length && selected?.lies?.[normalizedLevel]) {
+      return {
+        sourceLevel: normalizedLevel,
+        falseClaim: selected.lies[normalizedLevel],
+        falseBasis: selected.falseBasis[normalizedLevel],
+        factors: combinationFactorsFor(normalizedLevel)
+      };
+    }
+    const falseClaim = levelCandidates[Math.abs(Number(turnIndex) || 0) % levelCandidates.length];
     const sourceLevel = classifyClientVariantLevel(falseClaim);
     return {
       sourceLevel,
@@ -480,7 +602,7 @@ export function approvedFalsehoodCandidatesForCase(selected, message = "") {
 }
 
 export function canonicalFalsehoodCandidatesForCase(selected, message = "") {
-  const exactVariant = selectExactClientVariant(selected.id, message);
+  const exactVariant = selectHighConfidenceClientVariant(message);
   const groups = CLIENT_GROUPS_BY_CASE[selected.id] || [];
   let candidates = CLIENT_FALSEHOOD_EVALUATION_SET.filter((item) => groups.includes(item.group));
 
@@ -497,7 +619,7 @@ export function canonicalFalsehoodCandidatesForCase(selected, message = "") {
   }
 
   const text = comparableText(message);
-  const claims = candidates
+  const scoredClaims = candidates
     .map((item) => ({
       claim: item.falseClaim,
       score: item.questions.reduce(
@@ -505,11 +627,15 @@ export function canonicalFalsehoodCandidatesForCase(selected, message = "") {
         tokenOverlap(text, comparableText(item.falseClaim)) * 0.7
       )
     }))
-    .sort((left, right) => right.score - left.score)
-    .map((item) => item.claim);
+    .sort((left, right) => right.score - left.score);
+  const relevantClaims = isBroadTopicQuestion(message)
+    ? scoredClaims.map((item) => item.claim)
+    : scoredClaims
+      .filter((item) => item.score >= 0.34)
+      .map((item) => item.claim);
   const ordered = exactVariant
-    ? [exactVariant.falseClaim, ...claims.filter((claim) => claim !== exactVariant.falseClaim)]
-    : claims;
+    ? [exactVariant.falseClaim, ...relevantClaims.filter((claim) => claim !== exactVariant.falseClaim)]
+    : relevantClaims;
   return selected.id === "imjin-response" ? ordered.slice(0, 8) : ordered;
 }
 
@@ -518,7 +644,10 @@ export function combinationFalsehoodCandidatesForCase(selected) {
 }
 
 export function exactClientFalsehoodForCase(selected, message = "") {
-  return selectExactClientVariant(selected?.id, message)?.falseClaim || "";
+  return (
+    selectHighConfidenceClientVariant(message) ||
+    selectExactClientVariant(selected?.id, message)
+  )?.falseClaim || "";
 }
 
 function combinationFactorsFor(sourceLevel) {
@@ -560,31 +689,17 @@ function combinationFactorLabel(sourceLevel) {
 
 export function selectCase(message, turnIndex = 0) {
   const text = String(message || "");
-  if (hasTopicKeyword(text, IMJIN_RESPONSE_CASE.id)) return IMJIN_RESPONSE_CASE;
+  const routed = rankCasesByIntent(text)[0];
+  if (routed?.score >= 6) return routed.item;
   const clientCase = selectClientCase(text);
   if (clientCase) return clientCase;
-  if (isImjinCauseQuestion(text)) return HISTORY_CASES.find((item) => item.id === "imjin-start");
-  const explicitCase = selectExplicitTopicCase(text);
-  if (explicitCase) return explicitCase;
-  if (hasTopicKeyword(text, YI_SUNSIN_COMMAND_CASE.id)) return YI_SUNSIN_COMMAND_CASE;
-  const scored = scoreCases(text);
-  if (scored[0]?.score > 0) return scored[0].item;
-  return HISTORY_CASES.find((item) => item.id === "imjin-start");
+  return GENERAL_HISTORY_CASE;
 }
 
 export function selectCaseForTurn({ message, recentMessages = [], turnIndex = 0 }) {
   const currentText = String(message || "");
-  if (hasTopicKeyword(currentText, IMJIN_RESPONSE_CASE.id)) return IMJIN_RESPONSE_CASE;
-  const clientCase = selectClientCase(currentText);
-  if (clientCase) return clientCase;
-  if (isImjinCauseQuestion(currentText)) return HISTORY_CASES.find((item) => item.id === "imjin-start");
-  const explicitCase = selectExplicitTopicCase(currentText);
-  if (explicitCase) return explicitCase;
-  if (hasTopicKeyword(currentText, YI_SUNSIN_COMMAND_CASE.id)) return YI_SUNSIN_COMMAND_CASE;
-  const currentScores = scoreCases(currentText);
-  if (currentScores[0]?.score > 0 && hasTopicKeyword(currentText, currentScores[0].item.id)) {
-    return currentScores[0].item;
-  }
+  const currentScores = rankCasesByIntent(currentText);
+  if (currentScores[0]?.score >= 6) return currentScores[0].item;
 
   if (isContextualFollowUp(currentText)) {
     const recentCase = selectMostRecentTopicCase(recentMessages);
@@ -595,52 +710,49 @@ export function selectCaseForTurn({ message, recentMessages = [], turnIndex = 0 
     .slice(-12)
     .map((item) => item.text)
     .join(" ");
-  const recentScores = scoreCases(recentText);
-  if (recentScores[0]?.score > 0 && (
+  const recentScores = rankCasesByIntent(recentText);
+  if (recentScores[0]?.score >= 6 && (
     isContextualFollowUp(currentText) ||
-    currentScores[0]?.score === 0
+    currentScores[0]?.score < 6
   )) {
     return recentScores[0].item;
   }
 
-  return HISTORY_CASES.find((item) => item.id === "imjin-start");
+  const clientCase = selectClientCase(currentText);
+  if (clientCase) return clientCase;
+  return GENERAL_HISTORY_CASE;
 }
 
-function hasTopicKeyword(text, caseId) {
-  return (TOPIC_KEYWORDS[caseId] || []).some((keyword) => text.includes(keyword));
-}
-
-function selectExplicitTopicCase(text) {
-  if (/이순신/.test(text) && /(감옥|옥에|투옥|백의종군|파직)/.test(text)) {
-    return HISTORY_CASES.find((item) => item.id === "seonjo-trust");
+export function classifyStudentInput({ message, recentMessages = [] }) {
+  const raw = String(message || "").trim();
+  const comparable = comparableText(raw);
+  if (!comparable || comparable.replace(/\s+/g, "").length < 2) {
+    return { accepted: false, reason: "malformed", message: "질문 내용을 문장으로 입력해 줘." };
   }
-  if (hasTopicKeyword(text, "turtle-ship-origin")) {
-    return HISTORY_CASES.find((item) => item.id === "turtle-ship-origin");
+  if (SYSTEM_OR_EXPERIMENT_PATTERNS.some((pattern) => pattern.test(raw))) {
+    return { accepted: false, reason: "system_or_experiment", message: "시스템 설정에 관한 질문에는 답할 수 없어. 수업 주제에 관한 질문을 해줘." };
   }
-  if (/조선(?:의)?\s*수군/.test(text) && /(무기|군함|주력 배|많이.*배|많이.*운용)/.test(text)) {
-    return HISTORY_CASES.find((item) => item.id === "turtle-ship-origin");
+  const symbolCount = [...raw].filter((char) => /[^\p{L}\p{N}\s]/u.test(char)).length;
+  if (raw.length >= 20 && symbolCount / raw.length > 0.45) {
+    return { accepted: false, reason: "malformed", message: "질문 내용을 문장으로 입력해 줘." };
   }
-  if (
-    /(조선(?:의)?\s*(?:수군|군)|이순신)/.test(text) &&
-    /(조류|물살|해협|바다 지형|해상|보급|물자)/.test(text) &&
-    /(이긴|승리|강|장악|막|이유|원인)/.test(text)
-  ) {
-    return HISTORY_CASES.find((item) => item.id === "navy-losses");
+  if (HIGH_CONFIDENCE_OFF_TOPIC_PATTERNS.some((pattern) => pattern.test(raw))) {
+    return { accepted: false, reason: "unsupported_topic", message: "수업에서 다루는 역사 주제에 관한 질문을 해줘." };
   }
-  if (/조선(?:의)?\s*수군|일본(?:의)?\s*수군/.test(text) && /(이긴|승리|강|장악|패배|진 적|해전.*피|해전.*포기)/.test(text)) {
-    return HISTORY_CASES.find((item) => item.id === "navy-losses");
+  const routed = rankCasesByIntent(raw)[0];
+  const contextual = isContextualFollowUp(raw) && selectMostRecentTopicCase(recentMessages);
+  if (isContextualFollowUp(raw) && !contextual && (!routed || routed.score < 6)) {
+    return { accepted: false, reason: "missing_context", message: "어떤 역사 내용에 관한 질문인지 조금 더 자세히 적어 줘." };
   }
-  const explicitOrder = [
-    "myeongnyang-ships",
-    "turtle-ship-origin",
-    "nanjung-diary",
-    "seonjo-trust",
-    "militia-role",
-    "ming-role",
-    "navy-losses"
-  ];
-  const caseId = explicitOrder.find((id) => hasTopicKeyword(text, id));
-  return caseId ? HISTORY_CASES.find((item) => item.id === caseId) : null;
+  return {
+    accepted: true,
+    reason: contextual || routed?.score >= 6
+      ? "supported_history"
+      : "general_history_candidate",
+    selectedCaseId: contextual?.id ||
+      (routed?.score >= 6 ? routed.item.id : GENERAL_HISTORY_CASE.id),
+    confidence: contextual ? 1 : Math.min(1, Number(routed?.score || 0) / 16)
+  };
 }
 
 function selectMostRecentTopicCase(recentMessages) {
@@ -649,22 +761,11 @@ function selectMostRecentTopicCase(recentMessages) {
     for (const item of ordered) {
       if (item.role !== role) continue;
       const text = String(item.text || "");
-      const clientCase = selectClientCase(text);
-      if (clientCase) return clientCase;
-      const explicitCase = selectExplicitTopicCase(text);
-      if (explicitCase) return explicitCase;
-      if (hasTopicKeyword(text, YI_SUNSIN_COMMAND_CASE.id)) return YI_SUNSIN_COMMAND_CASE;
-      if (hasTopicKeyword(text, IMJIN_RESPONSE_CASE.id)) return IMJIN_RESPONSE_CASE;
+      const routed = rankCasesByIntent(text)[0];
+      if (routed?.score >= 6) return routed.item;
     }
   }
   return null;
-}
-
-function isImjinCauseQuestion(text) {
-  const normalized = comparableText(text);
-  return normalized.includes("임진왜란") &&
-    /(왜|원인|이유)/.test(normalized) &&
-    /(일어|시작|발생)/.test(normalized);
 }
 
 export function buildTeacherAudit({ message, level, persona, turnIndex = 0, recentMessages = [] }) {
@@ -727,11 +828,16 @@ function falseBasisForApprovedClaim(claim, fallbackLevel) {
   return buildClientVariantBasis(claim, sourceLevel);
 }
 
-function scoreCases(text) {
-  return HISTORY_CASES.map((item) => {
+function rankCasesByIntent(text) {
+  const normalized = String(text || "").replace(/\s+/g, " ").trim();
+  return [IMJIN_RESPONSE_CASE, YI_SUNSIN_COMMAND_CASE, ...HISTORY_CASES].map((item) => {
+    const profileScore = (ROUTING_PROFILES[item.id] || [])
+      .reduce((sum, itemSignal) => (
+        itemSignal.pattern.test(normalized) ? sum + itemSignal.weight : sum
+      ), 0);
     const keywordScore = (TOPIC_KEYWORDS[item.id] || [])
-      .filter((keyword) => text.includes(keyword))
-      .length * 4;
+      .filter((keyword) => normalized.includes(keyword))
+      .length * 2;
     const textScore = [item.topic, item.likelyStudentQuestion, item.truth]
       .join(" ")
       .split(/\s+/)
@@ -739,14 +845,16 @@ function scoreCases(text) {
       .filter((word) => (
         word.length > 1 &&
         !TOPIC_STOP_WORDS.has(word) &&
-        text.includes(word)
+        normalized.includes(word)
       ))
       .length;
-    return { item, score: keywordScore + textScore };
+    return { item, score: profileScore + keywordScore + textScore };
   }).sort((a, b) => b.score - a.score);
 }
 
 function selectClientCombinationVariant(caseId, message) {
+  const highConfidence = selectHighConfidenceClientVariant(message);
+  if (highConfidence) return highConfidence;
   const exact = selectExactClientVariant(caseId, message);
   if (exact) return exact;
   const groups = CLIENT_GROUPS_BY_CASE[caseId] || [];
@@ -774,6 +882,24 @@ function selectExactClientVariant(caseId, message) {
   ) || null;
 }
 
+function selectHighConfidenceClientVariant(message) {
+  const text = comparableText(message);
+  const exact = CLIENT_FALSEHOOD_EVALUATION_SET.find((item) =>
+    item.questions.some((question) => comparableText(question) === text)
+  );
+  if (exact) return exact;
+  const ranked = CLIENT_FALSEHOOD_EVALUATION_SET
+    .map((item) => ({
+      item,
+      score: item.questions.reduce(
+        (best, question) => Math.max(best, tokenOverlap(text, comparableText(question))),
+        0
+      )
+    }))
+    .sort((left, right) => right.score - left.score);
+  return ranked[0]?.score >= 0.85 ? ranked[0].item : null;
+}
+
 function selectClientCase(message) {
   const text = comparableText(message);
   const matched = CLIENT_FALSEHOOD_EVALUATION_SET.find((item) =>
@@ -794,6 +920,12 @@ function tokenOverlap(left, right) {
 
 function comparableText(value) {
   return String(value || "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+function isBroadTopicQuestion(message) {
+  const text = comparableText(message);
+  return /(?:무엇|뭐|어떤|설명|알려|정리|특징|역할|활약|평가)(?:이야|였|해|해줘|인가|였나)?$/.test(text) ||
+    /(?:어떤|무슨)\s*(?:배|기록|인물|사건|전쟁|역할)/.test(text);
 }
 
 function classifyClientVariantLevel(claim) {

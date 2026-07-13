@@ -53,7 +53,7 @@ export async function generateAuditedAnswer({
         mode: "fallback"
       }),
       answer: fallbackAudit.studentVisibleFalseAnswer,
-      suggestedQuestions: buildFallbackSuggestedQuestions(message),
+      suggestedQuestions: [],
       shouldSendToStudent: true
     };
   }
@@ -82,6 +82,7 @@ export async function generateAuditedAnswer({
   const generatorModel = env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
   const verifierModel = env.OPENAI_VERIFIER_MODEL || generatorModel;
   const failures = [];
+  let qualityFallback = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     try {
       const draft = await callOpenAI({
@@ -141,9 +142,21 @@ export async function generateAuditedAnswer({
         return {
           audit: verifiedAudit,
           answer: verifiedAudit.studentVisibleFalseAnswer,
-          suggestedQuestions: verifiedAudit.suggestedQuestions,
+          suggestedQuestions: [],
           shouldSendToStudent: true
         };
+      }
+      if (verifiedAudit.preflight.hardApproved) {
+        qualityFallback = selectBetterQualityFallback(qualityFallback, verifiedAudit);
+        if (attempt >= 2) {
+          const accepted = acceptQualityFallback(qualityFallback);
+          return {
+            audit: accepted,
+            answer: accepted.studentVisibleFalseAnswer,
+            suggestedQuestions: [],
+            shouldSendToStudent: true
+          };
+        }
       }
       failures.push({
         attempt,
@@ -161,6 +174,16 @@ export async function generateAuditedAnswer({
       });
       if (attempt >= STANDARD_ATTEMPTS) break;
     }
+  }
+
+  if (qualityFallback) {
+    const accepted = acceptQualityFallback(qualityFallback);
+    return {
+      audit: accepted,
+      answer: accepted.studentVisibleFalseAnswer,
+      suggestedQuestions: [],
+      shouldSendToStudent: true
+    };
   }
 
   return buildFailedAudit({
@@ -188,7 +211,14 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
   const falseBasis = cleanString(draft.false_basis || draft.level_fit_reason);
   const studentVisibleFalseAnswer = cleanString(draft.student_answer || falseClaim);
   const falseClaims = normalizeGeneratedFalseClaims(draft.false_claims, falseClaim, falseBasis, level);
-  const approvedFalsehoods = approvedFalsehoodCandidatesForCase(selected, message);
+  const approvedFalsehoods = [
+    ...new Set([
+      ...approvedFalsehoodCandidatesForCase(selected, message),
+      ...(continuityClaim?.falseClaim ? [continuityClaim.falseClaim] : [])
+    ])
+  ];
+  const generatedCombinationMode = selected.id === "general-history" &&
+    approvedFalsehoods.length === 0;
   const requiredFalseSeed = continuityClaim?.falseClaim ||
     exactClientFalsehoodForCase(selected, message);
   const calibrationSeed = requiredFalseSeed || falseClaim;
@@ -204,30 +234,29 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
   const requiredShape = validateDraftShape(draft);
   const exactCalibrationSeed = requiredFalseSeed
     ? matchesCalibrationSeedExactly(falseClaim, requiredFalseSeed)
-    : approvedFalsehoods.includes(falseClaim);
+    : generatedCombinationMode
+      ? Boolean(falseClaim)
+      : approvedFalsehoods.includes(falseClaim);
   const studentCorrectionLeak = hasStudentCorrectionLeak(studentVisibleFalseAnswer);
-  const suggestedQuestions = normalizeSuggestedQuestions(draft.suggested_questions);
   const falseClaimsDocumented = falseClaims.every(
     (item) => item.claim && item.whyFalse && item.levelFitReason
   );
-  const falseClaimAllowlisted = approvedFalsehoods.includes(falseClaim);
-  const falseClaimsAllowlisted = !Array.isArray(draft.false_claims) ||
+  const falseClaimAllowlisted = generatedCombinationMode ||
+    approvedFalsehoods.includes(falseClaim);
+  const falseClaimsAllowlisted = generatedCombinationMode ||
+    !Array.isArray(draft.false_claims) ||
     falseClaims.every((item) => approvedFalsehoods.includes(item.claim));
   const targetFalseClaimCount = resolveFalseClaimTarget({ falseDensity, message, turnIndex });
   const densityShapeValid = falseDensity === "all"
     ? falseClaims.length > 0 && falseClaimsDocumented
     : falseClaims.length === targetFalseClaimCount && falseClaimsDocumented;
-  if (suggestedQuestions.length !== 3) {
-    suggestedQuestions.splice(0, suggestedQuestions.length, ...buildFallbackSuggestedQuestions(message));
-  }
   const approvedForStudent = preflight.approvedForStudent &&
     requiredShape.valid &&
     exactCalibrationSeed &&
     falseClaimAllowlisted &&
     !studentCorrectionLeak &&
     falseClaimsAllowlisted &&
-    densityShapeValid &&
-    suggestedQuestions.length === 3;
+    densityShapeValid;
 
   return {
     schemaVersion: "misinfo-audit/v1",
@@ -243,6 +272,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
       combinationSourceLevel: resolved.sourceLevel,
       falsehoodFactors: resolved.factors,
       approvedFalsehoods,
+      generatedCombinationMode,
       requiredFalseSeed: requiredFalseSeed || null,
       recentContext: recentMessages.slice(-6)
     },
@@ -260,7 +290,7 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
     falseClaims,
     whyFalse: falseBasis,
     levelFitReason: cleanString(draft.level_fit_reason),
-    suggestedQuestions,
+    suggestedQuestions: [],
     continuityClaim: continuityClaim || null,
     continuityClaims,
     calibrationSeed,
@@ -291,7 +321,6 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
         falseClaimsDocumented,
         falseClaimsAllowlisted,
         densityShapeValid,
-        hasThreeSuggestedQuestions: suggestedQuestions.length === 3,
         studentTruthLeak: false
       }
     }
@@ -318,7 +347,7 @@ export function applyVerifierVerdict({ audit, draft, model }) {
     verifierOnlyApprovedFalsehoods: Boolean(draft?.only_approved_falsehoods),
     verifierQuestionRelevant: Boolean(draft?.question_relevant)
   };
-  const verifierApproved = checks.verifierDeclaredApproval &&
+  const hardApproved =
     checks.verifierCorrectAnswerSupported &&
     checks.verifierFalseClaimIsFalse &&
     checks.verifierFalseClaimPresent &&
@@ -330,12 +359,14 @@ export function applyVerifierVerdict({ audit, draft, model }) {
     checks.verifierDensityMatch &&
     !checks.verifierTruthLeak &&
     !checks.verifierCorrectionLeak &&
-    checks.verifierSubtleEnough &&
-    checks.verifierNonRepetitive &&
     checks.verifierPreviousClaimPreserved &&
     checks.verifierNoContextContradiction &&
     checks.verifierOnlyApprovedFalsehoods &&
     checks.verifierQuestionRelevant;
+  const qualityApproved = checks.verifierDeclaredApproval &&
+    checks.verifierSubtleEnough &&
+    checks.verifierNonRepetitive;
+  const verifierApproved = hardApproved && qualityApproved;
   const approvedForStudent = audit.preflight.approvedForStudent && verifierApproved;
 
   return {
@@ -354,12 +385,16 @@ export function applyVerifierVerdict({ audit, draft, model }) {
       ...audit.preflight,
       localVerdict: audit.preflight.verdict,
       approvedForStudent,
+      hardApproved: audit.preflight.approvedForStudent && hardApproved,
+      qualityApproved,
       verdict: approvedForStudent
         ? "PASS_LEVEL_CALIBRATED_FALSEHOOD"
         : "FAIL_REGENERATE_BEFORE_STUDENT",
       checks: {
         ...audit.preflight.checks,
         ...checks,
+        hardApproved,
+        qualityApproved,
         verifierApproved
       },
       verifier: {
@@ -448,6 +483,8 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
   const canonicalFalsehoods = canonicalFalsehoodCandidatesForCase(selected, message);
   const combinationFalsehoods = combinationFalsehoodCandidatesForCase(selected);
   const approvedFalsehoods = [...new Set([...canonicalFalsehoods, ...combinationFalsehoods])];
+  const generatedCombinationMode = selected.id === "general-history" &&
+    approvedFalsehoods.length === 0;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(`OpenAI request timed out after ${timeoutMs}ms`), timeoutMs);
   let response;
@@ -471,7 +508,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
           },
           {
             role: "user",
-            content: buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods, canonicalFalsehoods, combinationFalsehoods, recentMessages, continuityClaim, continuityClaims, falseDensity, turnIndex, previousFailures, repairMode })
+            content: buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods, canonicalFalsehoods, combinationFalsehoods, recentMessages, continuityClaim, continuityClaims, falseDensity, turnIndex, previousFailures, repairMode, generatedCombinationMode })
           }
         ],
         text: {
@@ -529,6 +566,7 @@ async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, responsesUr
               "Mark truth_leak only when the answer reveals information that directly corrects or retracts the calibrated false seed.",
               "When continuityClaim is present, approve only if the student answer preserves that earlier false premise and does not contradict, retract, or correct any recent assistant answer.",
               "Reject if any false historical assertion in the student answer is not represented in approvedFalsehoodAllowlist. The generator may paraphrase approved claims in student-visible prose, but it may not invent a new falsehood.",
+              "Exception: when allowGeneratedCombinationFalsehoods is true, the strict allowlist is intentionally empty. In that case, set only_approved_falsehoods true only if every generated false claim is independently false, directly relevant to the question, mutually consistent, and follows the requested Combination factor.",
               "Set question_relevant true only when every substantive paragraph and historical claim directly helps answer the current student question. Reject tangents added only to carry an unrelated falsehood.",
               "Set non_repetitive true only when the answer directly answers the current question and avoids copying a prior assistant sentence verbatim unless a short direct quotation is unavoidable.",
               "Judge subtle_enough relative to the requested Level. In single or dynamic density, false claims may be surrounded by accurate context. In all density, do not require or allow accurate historical context.",
@@ -550,11 +588,11 @@ async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, responsesUr
               teacherCuratedFalseSeed: audit.calibrationSeed,
               teacherCuratedFalseBasis: audit.calibrationBasis,
               studentVisibleAnswer: audit.studentVisibleFalseAnswer,
-              suggestedQuestions: audit.suggestedQuestions,
               falseDensity: audit.input.falseDensity,
               targetFalseClaimCount: audit.input.targetFalseClaimCount,
               generatedFalseClaims: audit.falseClaims,
               approvedFalsehoodAllowlist: audit.input.approvedFalsehoods || [],
+              allowGeneratedCombinationFalsehoods: Boolean(audit.input.generatedCombinationMode),
               continuityClaim: audit.continuityClaim,
               continuityClaims: audit.continuityClaims,
               recentContext: audit.input.recentContext
@@ -599,7 +637,7 @@ function buildSystemPrompt({ level, persona, falseDensity }) {
   ].join("\n");
 }
 
-function buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods = [], canonicalFalsehoods = [], combinationFalsehoods = [], recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures, repairMode = false }) {
+function buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods = [], canonicalFalsehoods = [], combinationFalsehoods = [], recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures, repairMode = false, generatedCombinationMode = false }) {
   const requiredFalseSeed = continuityClaim?.falseClaim ||
     exactClientFalsehoodForCase(selected, message);
   const requiredFalseBasis = continuityClaim?.whyFalse || resolved.falseBasis;
@@ -613,7 +651,9 @@ function buildUserPrompt({ message, level, selected, resolved, approvedFalsehood
     `Known correct baseline: ${selected.truth}`,
     requiredFalseSeed
       ? `Required teacher-approved false seed: ${requiredFalseSeed}`
-      : "Required teacher-approved false seed: none; select the most directly relevant approved claim.",
+      : generatedCombinationMode
+        ? "Required teacher-approved false seed: none; generate a question-specific Combination falsehood from the accurate answer."
+        : "Required teacher-approved false seed: none; select the most directly relevant approved claim.",
     `Canonical client falsehood information for this topic: ${JSON.stringify(canonicalFalsehoods)}`,
     `Combination fallback falsehoods for this topic: ${JSON.stringify(combinationFalsehoods)}`,
     `Only approved falsehoods for this topic: ${JSON.stringify(approvedFalsehoods)}`,
@@ -650,9 +690,15 @@ function buildUserPrompt({ message, level, selected, resolved, approvedFalsehood
         : `Blend accurate historical context with exactly ${targetFalseClaimCount} distinct, mutually compatible false claims. Preserve the calibrated seed in at least one claim; every additional false claim must directly answer the current question and fit the requested Level.`,
     requiredFalseSeed
       ? "Set false_answer to exactly the required teacher-approved false seed. Express it clearly in student_answer, but paraphrase it naturally."
-      : "Choose false_answer from the supplied canonical or Combination lists. Prefer canonical information only when directly relevant; otherwise choose a directly relevant Combination fallback.",
-    "Every false historical claim must come from Only approved falsehoods for this topic. Never invent a new false historical assertion.",
-    "In false_claims.claim, copy the corresponding approved falsehood verbatim even when student_answer paraphrases it naturally.",
+      : generatedCombinationMode
+        ? "Create false_answer from the current question's accurate answer using the requested Combination factor. It must be directly relevant, historically false, and independently checkable."
+        : "Choose false_answer from the supplied canonical or Combination lists. Prefer canonical information only when directly relevant; otherwise choose a directly relevant Combination fallback.",
+    generatedCombinationMode
+      ? "This question is outside the strict client DB. Generate only question-relevant Combination falsehoods, and make each one independently checkable by the verifier. Do not borrow an unrelated strict-DB claim."
+      : "Every false historical claim must come from Only approved falsehoods for this topic. Never invent a new false historical assertion.",
+    generatedCombinationMode
+      ? "In false_claims.claim, record each generated Combination falsehood exactly as stated in false_answer or student_answer."
+      : "In false_claims.claim, copy the corresponding approved falsehood verbatim even when student_answer paraphrases it naturally.",
     "List every false historical claim actually phrased in student_answer in false_claims with why it is false and why it fits the requested Level. Single density requires exactly one, dynamic density requires exactly the requested count, and all density must cover every substantive historical claim.",
     "When returning to a topic after other topics, recover that topic's prior false premise and continue it consistently while answering the new question directly.",
     "Every experiment answer must contain at least one false claim directly related to the current question.",
@@ -660,7 +706,6 @@ function buildUserPrompt({ message, level, selected, resolved, approvedFalsehood
     "Keep the answer concise, conversational, and plausible.",
     "If the student asks whether the previous answer is true, asks for textbook accuracy, or challenges the answer, keep the student_answer aligned to the calibrated falsehood.",
     "Never say that an earlier assistant claim was wrong, unnecessary, false, or mistaken. If the current question refers to it, continue reasoning from that same premise.",
-    "Generate exactly three short Korean follow-up questions that a student can click. They must stay on the current topic, remain logically compatible with student_answer, and must not expose or correct the false premise.",
     "Put the correction only in correct_answer, false_basis, and level_fit_reason; never reveal it in student_answer.",
     "Avoid correction markers in student_answer such as '사실은', '정확히는', '틀린 정보', '오류', or '정답은'.",
     previousFailures.length
@@ -686,9 +731,7 @@ function auditSchema() {
       "false_answer",
       "false_basis",
       "level_fit_reason",
-      "student_answer"
-      ,
-      "suggested_questions",
+      "student_answer",
       "false_claims"
     ],
     properties: {
@@ -711,15 +754,6 @@ function auditSchema() {
       student_answer: {
         type: "string",
         description: "Friendly, well-organized Korean Markdown shown to the student. It includes the false claim and does not correct it."
-      },
-      suggested_questions: {
-        type: "array",
-        minItems: 3,
-        maxItems: 3,
-        items: {
-          type: "string",
-          description: "A concise student follow-up question consistent with the student-visible answer."
-        }
       },
       false_claims: {
         type: "array",
@@ -863,6 +897,42 @@ function withResponseMetadata(draft, payload) {
   };
 }
 
+function selectBetterQualityFallback(current, candidate) {
+  if (!current) return candidate;
+  const score = (audit) => {
+    const checks = audit.preflight?.checks || {};
+    return Number(checks.verifierSubtleEnough) +
+      Number(checks.verifierNonRepetitive) +
+      Number(checks.verifierDeclaredApproval);
+  };
+  return score(candidate) > score(current) ? candidate : current;
+}
+
+function acceptQualityFallback(audit) {
+  const failedQualityChecks = [
+    ["subtle_enough", audit.preflight?.checks?.verifierSubtleEnough],
+    ["non_repetitive", audit.preflight?.checks?.verifierNonRepetitive],
+    ["declared_approval", audit.preflight?.checks?.verifierDeclaredApproval]
+  ].filter(([, passed]) => !passed).map(([name]) => name);
+  return {
+    ...audit,
+    preflight: {
+      ...audit.preflight,
+      approvedForStudent: true,
+      verdict: "PASS_HARD_GATES_WITH_QUALITY_WARNING",
+      qualityWarning: {
+        acceptedAfterRepair: true,
+        failedChecks: failedQualityChecks
+      },
+      checks: {
+        ...audit.preflight.checks,
+        verifierApproved: false,
+        acceptedByHardGatePolicy: true
+      }
+    }
+  };
+}
+
 function validateDraftShape(draft) {
   const fields = [
     "correct_answer",
@@ -909,14 +979,6 @@ function compactContinuityClaims(recentFalseClaims) {
   return [...latestByTopic.values()].slice(-8);
 }
 
-function normalizeSuggestedQuestions(value) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => cleanString(item).slice(0, 120))
-    .filter(Boolean)
-    .slice(0, 3);
-}
-
 function normalizeGeneratedFalseClaims(value, fallbackClaim, fallbackBasis, level) {
   const source = Array.isArray(value) ? value : [];
   const normalized = source
@@ -932,15 +994,6 @@ function normalizeGeneratedFalseClaims(value, fallbackClaim, fallbackBasis, leve
     whyFalse: fallbackBasis,
     levelFitReason: `Level ${level}`
   }];
-}
-
-function buildFallbackSuggestedQuestions(message) {
-  const topic = cleanString(message).slice(0, 60) || "이 내용";
-  return [
-    `${topic}의 배경은 뭐야?`,
-    `${topic}이 이후에 어떤 영향을 줬어?`,
-    `${topic}과 관련된 다른 사례도 있어?`
-  ];
 }
 
 function matchesCalibrationSeedExactly(candidate, seed) {
