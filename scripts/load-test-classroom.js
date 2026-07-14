@@ -13,7 +13,7 @@ if (!teacherToken) throw new Error("TEACHER_TOKEN is required");
 if (!Number.isInteger(studentCount) || studentCount < 1 || studentCount > 100) {
   throw new Error("LOAD_TEST_STUDENTS must be an integer from 1 to 100");
 }
-if (["2026-07-13-3-5", "2026-07-16-3-1"].includes(roomId)) {
+if (["dev", "3-5", "3-1", "2026-07-13-3-5", "2026-07-16-3-1"].includes(roomId)) {
   throw new Error("Filming rooms cannot be used for load tests");
 }
 

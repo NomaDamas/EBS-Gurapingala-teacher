@@ -20,7 +20,7 @@ import {
   resolveOpenAIResponsesUrl
 } from "./openai-endpoint.js";
 
-export const DEFAULT_OPENAI_MODEL = "gpt-5.6-terra";
+export const DEFAULT_OPENAI_MODEL = "gpt-5.6-luna";
 export const DEFAULT_OPENAI_TIMEOUT_MS = 15000;
 const STANDARD_ATTEMPTS = 3;
 const REPAIR_ATTEMPTS = 2;

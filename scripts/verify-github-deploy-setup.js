@@ -10,6 +10,8 @@ const requiredVariables = [
   "WORKER_HEALTH_URL",
   "EXPECTED_OPENAI_MODEL",
   "EXPECTED_OPENAI_VERIFIER_MODEL",
+  "EXPECTED_OPENAI_REASONING_EFFORT",
+  "EXPECTED_OPENAI_VERIFIER_REASONING_EFFORT",
   "EXPECTED_OPENAI_TIMEOUT_MS"
 ];
 
@@ -41,7 +43,9 @@ if (failures.length) {
     const suffix = name === "WORKER_HEALTH_URL"
       ? " --body https://<worker-domain>"
       : name === "EXPECTED_OPENAI_MODEL" || name === "EXPECTED_OPENAI_VERIFIER_MODEL"
-        ? " --body gpt-5.6-terra"
+        ? " --body gpt-5.6-luna"
+        : name === "EXPECTED_OPENAI_REASONING_EFFORT" || name === "EXPECTED_OPENAI_VERIFIER_REASONING_EFFORT"
+          ? " --body none"
         : " --body 15000";
     console.error(`  gh variable set ${name}${suffix}`);
   }

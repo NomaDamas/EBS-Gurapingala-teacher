@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 test("verify:github-setup passes when required deploy secrets and variables exist", async () => {
   const result = await runSetupCheck({
     GITHUB_SECRET_NAMES: "CLOUDFLARE_ACCOUNT_ID,CLOUDFLARE_API_TOKEN,OPENAI_API_KEY,TEACHER_TOKEN",
-    GITHUB_VARIABLE_NAMES: "WORKER_HEALTH_URL,EXPECTED_OPENAI_MODEL,EXPECTED_OPENAI_VERIFIER_MODEL,EXPECTED_OPENAI_TIMEOUT_MS"
+    GITHUB_VARIABLE_NAMES: "WORKER_HEALTH_URL,EXPECTED_OPENAI_MODEL,EXPECTED_OPENAI_VERIFIER_MODEL,EXPECTED_OPENAI_REASONING_EFFORT,EXPECTED_OPENAI_VERIFIER_REASONING_EFFORT,EXPECTED_OPENAI_TIMEOUT_MS"
   });
 
   assert.equal(result.code, 0, result.stdout + result.stderr);
@@ -27,9 +27,12 @@ test("verify:github-setup fails closed with exact setup commands for missing nam
   assert.match(result.stderr, /missing GitHub variable WORKER_HEALTH_URL/);
   assert.match(result.stderr, /missing GitHub variable EXPECTED_OPENAI_TIMEOUT_MS/);
   assert.match(result.stderr, /missing GitHub variable EXPECTED_OPENAI_VERIFIER_MODEL/);
+  assert.match(result.stderr, /missing GitHub variable EXPECTED_OPENAI_REASONING_EFFORT/);
+  assert.match(result.stderr, /missing GitHub variable EXPECTED_OPENAI_VERIFIER_REASONING_EFFORT/);
   assert.match(result.stderr, /gh secret set OPENAI_API_KEY/);
   assert.match(result.stderr, /gh variable set WORKER_HEALTH_URL --body https:\/\/<worker-domain>/);
-  assert.match(result.stderr, /gh variable set EXPECTED_OPENAI_VERIFIER_MODEL --body gpt-5\.6-terra/);
+  assert.match(result.stderr, /gh variable set EXPECTED_OPENAI_VERIFIER_MODEL --body gpt-5\.6-luna/);
+  assert.match(result.stderr, /gh variable set EXPECTED_OPENAI_REASONING_EFFORT --body none/);
   assert.match(result.stderr, /github deploy setup verification failed/);
 });
 

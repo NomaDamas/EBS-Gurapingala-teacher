@@ -35,6 +35,8 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
         provider: "rules",
         openaiModel: "gpt-5.5",
         openaiVerifierModel: "gpt-5.5",
+        openaiReasoningEffort: "none",
+        openaiVerifierReasoningEffort: "none",
         openaiTimeoutMs: 15000,
         openaiConfigured: false,
         teacherProtected: true
@@ -290,6 +292,8 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
       openaiConfigured: false,
       openaiModel: "gpt-5.5",
       openaiVerifierModel: "gpt-5.5",
+      openaiReasoningEffort: "none",
+      openaiVerifierReasoningEffort: "none",
       openaiTimeoutMs: 15000,
       teacherProtected: true,
       chatRateLimitPerMinute: null,

@@ -3,7 +3,12 @@ import {
   normalizeLevel,
   selectCaseForTurn
 } from "./domain/misinfo-policy.js";
-import { DEFAULT_OPENAI_MODEL, generateAuditedAnswer, normalizeTimeoutMs } from "./domain/llm-provider.js";
+import {
+  DEFAULT_OPENAI_MODEL,
+  generateAuditedAnswer,
+  normalizeReasoningEffort,
+  normalizeTimeoutMs
+} from "./domain/llm-provider.js";
 import { generateTruthAnswer } from "./domain/truth-provider.js";
 import { EVALUATION_SET_50, PUBLIC_EVALUATION_SET_50 } from "./domain/evaluation-set.js";
 import {
@@ -34,6 +39,11 @@ const FAIL_CLOSED_STUDENT_MESSAGE = "지금 답변을 만들지 못했어. 잠�
 const MAX_JSON_BODY_BYTES = 8 * 1024;
 const CHAT_QUEUE_POLL_MS = 250;
 const ANSWER_CACHE_POLICY_VERSION = "verified-answer/v1";
+const ROOM_STORAGE_ALIASES = Object.freeze({
+  "3-5": "dev",
+  "2026-07-13-3-5": "dev",
+  "3-1": "2026-07-16-3-1"
+});
 
 export default {
   async fetch(request, env) {
@@ -1050,7 +1060,7 @@ export class ClassroomRoom {
 }
 
 function getRoom(env, roomId = "default-classroom") {
-  const id = env.ROOM.idFromName(normalizeRoomId(roomId));
+  const id = env.ROOM.idFromName(resolveRoomStorageId(roomId));
   return env.ROOM.get(id);
 }
 
@@ -1060,6 +1070,11 @@ function normalizeRoomId(value) {
     .replace(/[^a-z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80) || "default-classroom";
+}
+
+export function resolveRoomStorageId(value) {
+  const roomId = normalizeRoomId(value);
+  return ROOM_STORAGE_ALIASES[roomId] || roomId;
 }
 
 function buildInputRejectionAudit({ message, decision, turnIndex }) {
@@ -1338,6 +1353,10 @@ function buildHealthPayload(env) {
         : "unconfigured",
     openaiModel: env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
     openaiVerifierModel: env.OPENAI_VERIFIER_MODEL || env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
+    openaiReasoningEffort: normalizeReasoningEffort(env.OPENAI_REASONING_EFFORT),
+    openaiVerifierReasoningEffort: normalizeReasoningEffort(
+      env.OPENAI_VERIFIER_REASONING_EFFORT || env.OPENAI_REASONING_EFFORT
+    ),
     openaiConfigured: Boolean(env.OPENAI_API_KEY),
     teacherProtected: Boolean(env.TEACHER_TOKEN),
     defaultFalseLevel: Number(env.DEFAULT_FALSE_LEVEL || 5),
@@ -1355,6 +1374,7 @@ function buildHealthPayload(env) {
     strictDbAnswerGeneration: "llm-complete-answer",
     strictDbVerification: "independent-openai-verifier",
     defaultRoomId: normalizeRoomId(env.DEFAULT_ROOM_ID),
+    roomStorageAliases: ROOM_STORAGE_ALIASES,
     endpoints: {
       student: "/",
       teacher: "/teacher",

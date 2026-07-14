@@ -50,12 +50,14 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LLM_PROVIDER: openai
-          EVAL_MODELS: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
-          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
-          OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
-          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EVAL_MODELS: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-luna' }}
+          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-luna' }}
+          OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-luna' }}
+          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-luna' }}
+          OPENAI_REASONING_EFFORT: ${{ vars.EXPECTED_OPENAI_REASONING_EFFORT || 'none' }}
+          OPENAI_VERIFIER_REASONING_EFFORT: ${{ vars.EXPECTED_OPENAI_VERIFIER_REASONING_EFFORT || vars.EXPECTED_OPENAI_REASONING_EFFORT || 'none' }}
           EVAL_JUDGE: openai
-          EVAL_JUDGE_MODEL: ${{ vars.EVAL_JUDGE_MODEL || vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EVAL_JUDGE_MODEL: ${{ vars.EVAL_JUDGE_MODEL || vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-luna' }}
           EVAL_JUDGE_TIMEOUT_MS: "45000"
           OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
           STRICT_DB_FAST_PATH: "false"
@@ -97,8 +99,10 @@ jobs:
           REQUIRE_OPENAI: ${{ vars.REQUIRE_OPENAI || 'true' }}
           REQUIRE_TEACHER_TOKEN: ${{ vars.REQUIRE_TEACHER_TOKEN || 'true' }}
           REQUIRE_CLOUDFLARE_EDGE: ${{ vars.REQUIRE_CLOUDFLARE_EDGE || 'true' }}
-          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
-          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-luna' }}
+          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-luna' }}
+          EXPECTED_OPENAI_REASONING_EFFORT: ${{ vars.EXPECTED_OPENAI_REASONING_EFFORT || 'none' }}
+          EXPECTED_OPENAI_VERIFIER_REASONING_EFFORT: ${{ vars.EXPECTED_OPENAI_VERIFIER_REASONING_EFFORT || vars.EXPECTED_OPENAI_REASONING_EFFORT || 'none' }}
           EXPECTED_OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
 
       - name: Ensure Cloudflare AI Gateway
@@ -114,14 +118,18 @@ jobs:
           --var "LLM_PROVIDER:$LLM_PROVIDER"
           --var "OPENAI_MODEL:$OPENAI_MODEL"
           --var "OPENAI_VERIFIER_MODEL:$OPENAI_VERIFIER_MODEL"
+          --var "OPENAI_REASONING_EFFORT:$OPENAI_REASONING_EFFORT"
+          --var "OPENAI_VERIFIER_REASONING_EFFORT:$OPENAI_VERIFIER_REASONING_EFFORT"
           --var "OPENAI_TIMEOUT_MS:$OPENAI_TIMEOUT_MS"
           --var "OPENAI_RESPONSES_URL:$OPENAI_RESPONSES_URL"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           LLM_PROVIDER: openai
-          OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
-          OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-luna' }}
+          OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-luna' }}
+          OPENAI_REASONING_EFFORT: ${{ vars.EXPECTED_OPENAI_REASONING_EFFORT || 'none' }}
+          OPENAI_VERIFIER_REASONING_EFFORT: ${{ vars.EXPECTED_OPENAI_VERIFIER_REASONING_EFFORT || vars.EXPECTED_OPENAI_REASONING_EFFORT || 'none' }}
           OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
           OPENAI_RESPONSES_URL: https://gateway.ai.cloudflare.com/v1/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/ebs-gurapingala/openai/responses
 
@@ -157,56 +165,58 @@ jobs:
           REQUIRE_OPENAI: ${{ vars.REQUIRE_OPENAI || 'true' }}
           REQUIRE_TEACHER_TOKEN: ${{ vars.REQUIRE_TEACHER_TOKEN || 'true' }}
           REQUIRE_CLOUDFLARE_EDGE: ${{ vars.REQUIRE_CLOUDFLARE_EDGE || 'true' }}
-          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
-          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-luna' }}
+          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-luna' }}
+          EXPECTED_OPENAI_REASONING_EFFORT: ${{ vars.EXPECTED_OPENAI_REASONING_EFFORT || 'none' }}
+          EXPECTED_OPENAI_VERIFIER_REASONING_EFFORT: ${{ vars.EXPECTED_OPENAI_VERIFIER_REASONING_EFFORT || vars.EXPECTED_OPENAI_REASONING_EFFORT || 'none' }}
           EXPECTED_OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
           PR_HEAD_SHA: ${{ github.sha }}
           VERIFY_DEPLOY_EVIDENCE_FILE: artifacts/deploy-evidence.json
 
-      - name: Configure July 13 filming classroom
+      - name: Configure class 3-5
         if: ${{ vars.WORKER_HEALTH_URL != '' }}
         run: node scripts/verify-classroom-config.js
         env:
           WORKER_URL: ${{ vars.WORKER_HEALTH_URL }}
           TEACHER_TOKEN: ${{ secrets.TEACHER_TOKEN }}
-          CLASSROOM_ROOM: 2026-07-13-3-5
+          CLASSROOM_ROOM: 3-5
           EXPECTED_FALSE_LEVEL: "5"
           EXPECTED_PERSONA: "일반적인 ChatGPT처럼 자연스럽고 명확한 한국어로 대화한다. 역할극 말투를 쓰지 않는다."
           EXPECTED_RESPONSE_MODE: experiment
           APPLY_CLASSROOM_CONFIG: "true"
           REQUIRE_OPENAI: ${{ vars.REQUIRE_OPENAI || 'true' }}
           REQUIRE_TEACHER_TOKEN: ${{ vars.REQUIRE_TEACHER_TOKEN || 'true' }}
-          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
-          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-luna' }}
+          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-luna' }}
           EXPECTED_OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
           PR_HEAD_SHA: ${{ github.sha }}
-          CLASSROOM_CONFIG_EVIDENCE_FILE: artifacts/2026-07-13-3-5-config.json
+          CLASSROOM_CONFIG_EVIDENCE_FILE: artifacts/3-5-config.json
 
-      - name: Configure July 16 filming classroom
+      - name: Configure class 3-1
         if: ${{ vars.WORKER_HEALTH_URL != '' }}
         run: node scripts/verify-classroom-config.js
         env:
           WORKER_URL: ${{ vars.WORKER_HEALTH_URL }}
           TEACHER_TOKEN: ${{ secrets.TEACHER_TOKEN }}
-          CLASSROOM_ROOM: 2026-07-16-3-1
+          CLASSROOM_ROOM: 3-1
           EXPECTED_FALSE_LEVEL: "5"
           EXPECTED_PERSONA: "일반적인 ChatGPT처럼 자연스럽고 명확한 한국어로 대화한다. 역할극 말투를 쓰지 않는다."
           EXPECTED_RESPONSE_MODE: experiment
           APPLY_CLASSROOM_CONFIG: "true"
           REQUIRE_OPENAI: ${{ vars.REQUIRE_OPENAI || 'true' }}
           REQUIRE_TEACHER_TOKEN: ${{ vars.REQUIRE_TEACHER_TOKEN || 'true' }}
-          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
-          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-terra' }}
+          EXPECTED_OPENAI_MODEL: ${{ vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-luna' }}
+          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ vars.EXPECTED_OPENAI_VERIFIER_MODEL || vars.EXPECTED_OPENAI_MODEL || 'gpt-5.6-luna' }}
           EXPECTED_OPENAI_TIMEOUT_MS: ${{ vars.EXPECTED_OPENAI_TIMEOUT_MS || '15000' }}
           PR_HEAD_SHA: ${{ github.sha }}
-          CLASSROOM_CONFIG_EVIDENCE_FILE: artifacts/2026-07-16-3-1-config.json
+          CLASSROOM_CONFIG_EVIDENCE_FILE: artifacts/3-1-config.json
 
       - name: Upload classroom configuration evidence
         if: ${{ vars.WORKER_HEALTH_URL != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: classroom-config-evidence
-          path: artifacts/2026-07-*-config.json
+          path: artifacts/3-*-config.json
           if-no-files-found: error
 
       - name: Upload deploy verification evidence

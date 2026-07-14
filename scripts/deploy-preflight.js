@@ -61,6 +61,11 @@ if ((process.env.REQUIRE_OPENAI || "true") === "true" && !process.env.EXPECTED_O
 if ((process.env.REQUIRE_OPENAI || "true") === "true" && !process.env.EXPECTED_OPENAI_VERIFIER_MODEL) {
   failures.push("EXPECTED_OPENAI_VERIFIER_MODEL is required when REQUIRE_OPENAI=true");
 }
+for (const name of ["EXPECTED_OPENAI_REASONING_EFFORT", "EXPECTED_OPENAI_VERIFIER_REASONING_EFFORT"]) {
+  if (process.env[name] && !isValidReasoningEffort(process.env[name])) {
+    failures.push(`${name} must be none, low, medium, or high when REQUIRE_OPENAI=true`);
+  }
+}
 
 for (const name of ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN", "OPENAI_API_KEY", "TEACHER_TOKEN"]) {
   if (process.env[name] && isPlaceholderValue(process.env[name])) {
@@ -88,6 +93,8 @@ console.log(`deploy preflight passed for ${env}`);
 console.log(`verifyRoom=${verifyRoom}`);
 console.log(`expectedOpenAIModel=${process.env.EXPECTED_OPENAI_MODEL || "(not enforced)"}`);
 console.log(`expectedOpenAIVerifierModel=${process.env.EXPECTED_OPENAI_VERIFIER_MODEL || "(not enforced)"}`);
+console.log(`expectedOpenAIReasoningEffort=${process.env.EXPECTED_OPENAI_REASONING_EFFORT || "(not enforced)"}`);
+console.log(`expectedOpenAIVerifierReasoningEffort=${process.env.EXPECTED_OPENAI_VERIFIER_REASONING_EFFORT || "(not enforced)"}`);
 console.log(`expectedOpenAITimeoutMs=${Number(expectedTimeout)}`);
 
 function isNode22OrNewer(version) {
@@ -98,6 +105,10 @@ function isNode22OrNewer(version) {
 function isValidTimeout(value) {
   const n = Number(value);
   return Number.isInteger(n) && n >= 1000 && n <= 60000;
+}
+
+function isValidReasoningEffort(value) {
+  return ["none", "low", "medium", "high"].includes(String(value || "").trim().toLowerCase());
 }
 
 function isHttpsWorkerUrl(value) {

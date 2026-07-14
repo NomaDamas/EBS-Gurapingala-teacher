@@ -83,7 +83,9 @@ const checks = [
     return res.status === 200 &&
       body.ok === true &&
       body.provider === "rules" &&
-      body.openaiModel === "gpt-5.6-terra" &&
+      body.openaiModel === "gpt-5.6-luna" &&
+      body.openaiReasoningEffort === "low" &&
+      body.openaiVerifierReasoningEffort === "low" &&
       body.teacherProtected === true &&
       body.endpoints.debriefCsv === "/api/debrief.csv" &&
       res.headers.get("cache-control") === "no-store" &&

@@ -11,6 +11,14 @@ const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN === "true";
 const requireCloudflareEdge = process.env.REQUIRE_CLOUDFLARE_EDGE === "true";
 const expectedOpenAIModel = process.env.EXPECTED_OPENAI_MODEL || "";
 const expectedOpenAIVerifierModel = process.env.EXPECTED_OPENAI_VERIFIER_MODEL || expectedOpenAIModel;
+const expectedOpenAIReasoningEffort = normalizeExpectedReasoningEffort(
+  process.env.EXPECTED_OPENAI_REASONING_EFFORT || ""
+);
+const expectedOpenAIVerifierReasoningEffort = normalizeExpectedReasoningEffort(
+  process.env.EXPECTED_OPENAI_VERIFIER_REASONING_EFFORT ||
+  process.env.EXPECTED_OPENAI_REASONING_EFFORT ||
+  ""
+);
 const expectedOpenAITimeoutMs = normalizeExpectedTimeout(process.env.EXPECTED_OPENAI_TIMEOUT_MS || "");
 const deployEvidenceFile = String(process.env.VERIFY_DEPLOY_EVIDENCE_FILE || "").trim();
 const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "").trim();
@@ -70,6 +78,8 @@ const checks = [
       typeof body.openaiConfigured === "boolean" &&
       typeof body.openaiModel === "string" &&
       typeof body.openaiVerifierModel === "string" &&
+      typeof body.openaiReasoningEffort === "string" &&
+      typeof body.openaiVerifierReasoningEffort === "string" &&
       Number.isFinite(body.openaiTimeoutMs) &&
       body.openaiTimeoutMs >= 1000 &&
       body.openaiTimeoutMs <= 60000 &&
@@ -95,7 +105,11 @@ const checks = [
     const body = await res.json();
     return res.status === 200 &&
       body.openaiModel === expectedOpenAIModel &&
-      body.openaiVerifierModel === expectedOpenAIVerifierModel;
+      body.openaiVerifierModel === expectedOpenAIVerifierModel &&
+      (!expectedOpenAIReasoningEffort ||
+        body.openaiReasoningEffort === expectedOpenAIReasoningEffort) &&
+      (!expectedOpenAIVerifierReasoningEffort ||
+        body.openaiVerifierReasoningEffort === expectedOpenAIVerifierReasoningEffort);
   }],
   ["OpenAI timeout matches expectation when provided", async () => {
     if (!expectedOpenAITimeoutMs) return true;
@@ -439,6 +453,8 @@ async function writeDeployEvidence(file, passed, results) {
     sharingUrls: buildSharingUrlEvidence(),
     expectedOpenAIModel,
     expectedOpenAIVerifierModel,
+    expectedOpenAIReasoningEffort,
+    expectedOpenAIVerifierReasoningEffort,
     expectedOpenAITimeoutMs: expectedOpenAITimeoutMs || null,
     passedChecks: results.filter((result) => result.passed).length,
     totalChecks: results.length,
@@ -475,6 +491,8 @@ async function getHealthEvidence() {
       openaiConfigured: body.openaiConfigured === true,
       openaiModel: safeString(body.openaiModel),
       openaiVerifierModel: safeString(body.openaiVerifierModel),
+      openaiReasoningEffort: safeString(body.openaiReasoningEffort),
+      openaiVerifierReasoningEffort: safeString(body.openaiVerifierReasoningEffort),
       openaiTimeoutMs: Number.isFinite(body.openaiTimeoutMs) ? body.openaiTimeoutMs : null,
       teacherProtected: body.teacherProtected === true,
       chatRateLimitPerMinute: Number.isFinite(body.chatRateLimitPerMinute) ? body.chatRateLimitPerMinute : null,
@@ -512,6 +530,11 @@ function buildShareUrl(pathname, tokenPlaceholder) {
 
 function safeString(value) {
   return typeof value === "string" ? value : "";
+}
+
+function normalizeExpectedReasoningEffort(value) {
+  const effort = String(value || "").trim().toLowerCase();
+  return ["none", "low", "medium", "high"].includes(effort) ? effort : "";
 }
 
 function fetchUrl(path, query = {}, init) {

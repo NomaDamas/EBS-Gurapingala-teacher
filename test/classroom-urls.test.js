@@ -5,15 +5,15 @@ import { spawn } from "node:child_process";
 test("classroom:urls prints student URLs without token and staff-only teacher URLs", async () => {
   const result = await runClassroomUrls({
     WORKER_URL: "https://worker.example.com/old?token=bad",
-    CLASSROOM_ROOMS: "2026-07-13-3-5,2026-07-16-3-1",
+    CLASSROOM_ROOMS: "3-5,3-1",
     TEACHER_TOKEN: "secret-token"
   });
 
   assert.equal(result.code, 0, result.stdout + result.stderr);
-  assert.match(result.stdout, /room=2026-07-13-3-5/);
-  assert.match(result.stdout, /studentUrl=https:\/\/worker\.example\.com\/\?room=2026-07-13-3-5/);
-  assert.match(result.stdout, /teacherUrl=https:\/\/worker\.example\.com\/teacher\?room=2026-07-13-3-5&token=\$TEACHER_TOKEN/);
-  assert.match(result.stdout, /studentUrl=https:\/\/worker\.example\.com\/\?room=2026-07-16-3-1/);
+  assert.match(result.stdout, /room=3-5/);
+  assert.match(result.stdout, /studentUrl=https:\/\/worker\.example\.com\/\?room=3-5/);
+  assert.match(result.stdout, /teacherUrl=https:\/\/worker\.example\.com\/teacher\?room=3-5&token=\$TEACHER_TOKEN/);
+  assert.match(result.stdout, /studentUrl=https:\/\/worker\.example\.com\/\?room=3-1/);
   assert.equal(result.stdout.includes("secret-token"), false);
   assert.equal(result.stdout.includes("token=bad"), false);
 });

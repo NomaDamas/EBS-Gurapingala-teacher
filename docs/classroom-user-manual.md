@@ -5,7 +5,8 @@
 ### 접속 주소
 
 ```text
-https://ebs-gurapingala-teacher.developerminsing.workers.dev/
+3-5반: https://ebs-gurapingala-teacher.developerminsing.workers.dev/?room=3-5
+3-1반: https://ebs-gurapingala-teacher.developerminsing.workers.dev/?room=3-1
 ```
 
 1. 링크를 연다.
@@ -21,10 +22,11 @@ https://ebs-gurapingala-teacher.developerminsing.workers.dev/
 ### 접속 주소
 
 ```text
-https://ebs-gurapingala-teacher.developerminsing.workers.dev/teacher?token=ebs-experiments
+3-5반: https://ebs-gurapingala-teacher.developerminsing.workers.dev/teacher?room=3-5&token=ebs-experiments
+3-1반: https://ebs-gurapingala-teacher.developerminsing.workers.dev/teacher?room=3-1&token=ebs-experiments
 ```
 
-교사용 URL은 학생에게 공유하지 않는다. 학생과 교사는 반드시 같은 room을 사용해야 한다. 별도 room 없이 위 기본 URL을 사용하면 모두 `default-classroom`에 기록된다.
+교사용 URL은 학생에게 공유하지 않는다. 학생과 교사는 반드시 같은 room을 사용해야 한다. `3-5`는 기존 `dev` 기록을 그대로 사용하며, `3-1`은 기존 `2026-07-16-3-1` 촬영방 저장공간을 그대로 사용한다.
 
 ### 수업 시작 전
 
