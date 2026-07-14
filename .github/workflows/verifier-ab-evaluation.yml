@@ -1,0 +1,52 @@
+name: Verifier A-B Evaluation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    name: ${{ matrix.variant }} verifier - 20 turns
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: luna
+            verifier: gpt-5.6-luna
+          - variant: spark
+            verifier: gpt-5.6-spark
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Evaluate ${{ matrix.verifier }}
+        run: node scripts/run-eval.js
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LLM_PROVIDER: openai
+          EVAL_MODELS: gpt-5.6-terra
+          EXPECTED_OPENAI_MODEL: gpt-5.6-terra
+          OPENAI_VERIFIER_MODEL: ${{ matrix.verifier }}
+          EXPECTED_OPENAI_VERIFIER_MODEL: ${{ matrix.verifier }}
+          EVAL_JUDGE: openai
+          EVAL_JUDGE_MODEL: gpt-5.6-terra
+          EVAL_JUDGE_TIMEOUT_MS: "45000"
+          EVAL_TURN_COUNT: "20"
+          OPENAI_TIMEOUT_MS: "15000"
+          REQUIRE_OPENAI_EVAL: "true"
+          EVAL_OUTPUT: artifacts/verifier-${{ matrix.variant }}-evaluation.json
+          PR_HEAD_SHA: ${{ github.sha }}
+      - name: Upload ${{ matrix.variant }} evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verifier-${{ matrix.variant }}-evaluation
+          path: artifacts/verifier-${{ matrix.variant }}-evaluation.json
+          if-no-files-found: error

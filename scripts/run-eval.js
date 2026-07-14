@@ -59,6 +59,7 @@ for (const model of setupFailures.length ? [] : models) {
   const judgments = [];
 
   for (const item of evaluationItems) {
+    const generationStartedAt = Date.now();
     const result = await generateAuditedAnswer({
       message: item.studentQuestion,
       level: item.expectedLevel,
@@ -67,16 +68,21 @@ for (const model of setupFailures.length ? [] : models) {
       recentMessages: item.recentMessages || [],
       env
     });
+    const generationLatencyMs = Date.now() - generationStartedAt;
+    const judgeStartedAt = Date.now();
     const judgment = await judgeEvaluationTurnWithProvider({
       audit: result.audit,
       expectedLevel: item.expectedLevel,
       env
     });
+    const judgeLatencyMs = Date.now() - judgeStartedAt;
     judgments.push(judgment);
     modelResult.turns.push(toTurnEvidence({
       item,
       result,
-      judgment
+      judgment,
+      generationLatencyMs,
+      judgeLatencyMs
     }));
     const levelBucket = modelResult.byLevel[item.expectedLevel];
     levelBucket.total += 1;
@@ -242,7 +248,7 @@ function toFailureExample(item) {
   };
 }
 
-function toTurnEvidence({ item, result, judgment }) {
+function toTurnEvidence({ item, result, judgment, generationLatencyMs, judgeLatencyMs }) {
   return {
     turn: item.turn,
     expectedLevel: item.expectedLevel,
@@ -282,6 +288,11 @@ function toTurnEvidence({ item, result, judgment }) {
       contract: judgment?.localJudgment || null,
       llm: judgment?.llmJudgment || null
     },
+    timing: {
+      generationAndVerificationMs: generationLatencyMs,
+      judgeMs: judgeLatencyMs,
+      totalMs: generationLatencyMs + judgeLatencyMs
+    },
     studentVisibleAnswer: result.audit?.studentVisibleFalseAnswer || "",
     correctAnswer: result.audit?.correctAnswer || "",
     falseClaim: result.audit?.falseClaim || "",
@@ -291,6 +302,9 @@ function toTurnEvidence({ item, result, judgment }) {
 }
 
 function summarizeExecution(turns) {
+  const generationAndVerification = turns.map((turn) => turn.timing?.generationAndVerificationMs || 0);
+  const judge = turns.map((turn) => turn.timing?.judgeMs || 0);
+  const total = turns.map((turn) => turn.timing?.totalMs || 0);
   return {
     totalTurns: turns.length,
     openaiGeneratedTurns: turns.filter((turn) => turn.provider.name === "openai").length,
@@ -307,7 +321,24 @@ function summarizeExecution(turns) {
     blockedTurns: turns.filter((turn) =>
       !turn.shouldSendToStudent ||
       !turn.preflight.approvedForStudent
-    ).length
+    ).length,
+    latencyMs: {
+      generationAndVerification: summarizeLatency(generationAndVerification),
+      judge: summarizeLatency(judge),
+      total: summarizeLatency(total)
+    }
+  };
+}
+
+function summarizeLatency(values) {
+  if (values.length === 0) return { average: 0, p50: 0, p95: 0, max: 0 };
+  const sorted = [...values].sort((a, b) => a - b);
+  const percentile = (ratio) => sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * ratio) - 1)];
+  return {
+    average: Math.round(values.reduce((sum, value) => sum + value, 0) / values.length),
+    p50: percentile(0.5),
+    p95: percentile(0.95),
+    max: sorted.at(-1)
   };
 }
 
