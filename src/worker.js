@@ -100,9 +100,7 @@ export default {
     }
     if (url.pathname === "/api/live-snapshot") {
       if (!isTeacherAuthorized(request, env)) return unauthorized();
-      const snapshot = await room.fetch(
-        `https://room.local/snapshot?ttlHours=${encodeURIComponent(env.EVENT_TTL_HOURS || 24)}`
-      );
+      const snapshot = await room.fetch("https://room.local/snapshot");
       return json(await snapshot.json(), snapshot.status);
     }
     if (url.pathname === "/api/debrief") {
@@ -505,7 +503,7 @@ export class ClassroomRoom {
     }
     if (url.pathname === "/event" && request.method === "POST") {
       const event = await request.json();
-      const recordedEvent = await this.recordEvent(event, Number(url.searchParams.get("ttlHours") || 24));
+      const recordedEvent = await this.recordEvent(event);
       this.broadcast(recordedEvent);
       return text("ok");
     }
@@ -547,10 +545,10 @@ export class ClassroomRoom {
       return json(await this.readTranscript(url.searchParams.get("sessionId")));
     }
     if (url.pathname === "/events") {
-      return json(await this.readEvents(Number(url.searchParams.get("ttlHours") || 24)));
+      return json(await this.readEvents());
     }
     if (url.pathname === "/snapshot") {
-      const events = await this.readSnapshotEvents(Number(url.searchParams.get("ttlHours") || 24));
+      const events = await this.readSnapshotEvents();
       return json({
         type: "snapshot",
         sessionId: "teacher",
@@ -569,6 +567,7 @@ export class ClassroomRoom {
       await this.state.storage.delete("studentConfigs");
       await this.state.storage.delete("answerCacheIndex");
       await this.state.storage.delete("answerCacheLocks");
+      await this.deletePersistentEventEntries();
       await this.deleteAnswerCacheEntries();
       await this.deleteTranscripts();
       this.broadcast({
@@ -600,15 +599,13 @@ export class ClassroomRoom {
     }
   }
 
-  async recordEvent(event, ttlHours = 24) {
+  async recordEvent(event) {
     const safeEvent = redactSensitiveFields({
       ...event,
       eventId: event.eventId || crypto.randomUUID()
     });
     if (safeEvent.type === "student_heartbeat") return safeEvent;
-    const events = await this.readEvents(ttlHours);
-    events.push(safeEvent);
-    await this.state.storage.put("events", events.slice(-1000));
+    await this.state.storage.put(persistentEventStorageKey(safeEvent), safeEvent);
     if (safeEvent.type === "chat_turn") await this.recordTranscriptTurn(safeEvent);
     return safeEvent;
   }
@@ -640,18 +637,24 @@ export class ClassroomRoom {
     }
   }
 
-  async readEvents(ttlHours = 24) {
-    const events = await this.state.storage.get("events") || [];
-    const pruned = events.filter((event) => {
-      const eventTime = event.at ? Date.parse(event.at) : Date.now();
-      return Number.isFinite(eventTime) && Date.now() - eventTime <= ttlHours * 60 * 60 * 1000;
-    });
-    if (pruned.length !== events.length) await this.state.storage.put("events", pruned);
-    return pruned;
+  async deletePersistentEventEntries(sessionId = "") {
+    const entries = await this.state.storage.list({ prefix: "event:" });
+    const keys = [...entries.entries()]
+      .filter(([, event]) => !sessionId || event?.sessionId === sessionId)
+      .map(([key]) => key);
+    for (let index = 0; index < keys.length; index += 128) {
+      await this.state.storage.delete(keys.slice(index, index + 128));
+    }
   }
 
-  async readSnapshotEvents(ttlHours = 24) {
-    const events = await this.readEvents(ttlHours);
+  async readEvents() {
+    const legacyEvents = await this.state.storage.get("events") || [];
+    const persistentEntries = await this.state.storage.list({ prefix: "event:" });
+    return mergeStoredEvents(legacyEvents, [...persistentEntries.values()]);
+  }
+
+  async readSnapshotEvents() {
+    const events = await this.readEvents();
     const nonChatEvents = events.filter((event) => event.type !== "chat_turn");
     const storedSessions = await this.state.storage.get("studentSessions") || {};
     const transcripts = await this.state.storage.list({ prefix: "transcript:" });
@@ -882,6 +885,7 @@ export class ClassroomRoom {
 
     const events = await this.state.storage.get("events") || [];
     await this.state.storage.put("events", events.filter((event) => event.sessionId !== key));
+    await this.deletePersistentEventEntries(key);
     const rateLimits = await this.state.storage.get("rateLimits") || {};
     delete rateLimits[key];
     await this.state.storage.put("rateLimits", rateLimits);
@@ -1064,6 +1068,30 @@ function getRoom(env, roomId = "default-classroom") {
   return env.ROOM.get(id);
 }
 
+function persistentEventStorageKey(event) {
+  const timestamp = Number.isFinite(Date.parse(event.at))
+    ? Date.parse(event.at)
+    : Date.now();
+  return `event:${String(timestamp).padStart(16, "0")}:${encodeURIComponent(event.eventId)}`;
+}
+
+function mergeStoredEvents(...eventGroups) {
+  const eventsByIdentity = new Map();
+  for (const event of eventGroups.flat()) {
+    if (!event || typeof event !== "object") continue;
+    const identity = event.eventId || JSON.stringify([
+      event.type || "",
+      event.sessionId || "",
+      event.at || "",
+      event.studentMessage || ""
+    ]);
+    eventsByIdentity.set(identity, event);
+  }
+  return [...eventsByIdentity.values()].sort((left, right) =>
+    Date.parse(left.at || 0) - Date.parse(right.at || 0)
+  );
+}
+
 function normalizeRoomId(value) {
   return String(value || "default-classroom")
     .toLowerCase()
@@ -1155,20 +1183,18 @@ async function writeConfig(room, body, env, roomId) {
 }
 
 async function readEvents(room, env) {
-  const res = await room.fetch(`https://room.local/events?ttlHours=${encodeURIComponent(env.EVENT_TTL_HOURS || 24)}`);
+  const res = await room.fetch("https://room.local/events");
   return await res.json();
 }
 
 async function readTranscriptEvents(room, env) {
-  const res = await room.fetch(
-    `https://room.local/snapshot?ttlHours=${encodeURIComponent(env.EVENT_TTL_HOURS || 24)}`
-  );
+  const res = await room.fetch("https://room.local/snapshot");
   const snapshot = await res.json();
   return Array.isArray(snapshot?.events) ? snapshot.events : [];
 }
 
 function roomEventUrl(env) {
-  return `https://room.local/event?ttlHours=${encodeURIComponent(env.EVENT_TTL_HOURS || 24)}`;
+  return "https://room.local/event";
 }
 
 async function buildAnswerCacheDescriptor({
@@ -1368,7 +1394,8 @@ function buildHealthPayload(env) {
     chatMaxQueuedPerSession: Number(env.CHAT_MAX_QUEUED_PER_SESSION || 3),
     answerCacheTtlMs: Number(env.ANSWER_CACHE_TTL_MS || 21600000),
     answerCacheMaxEntries: Number(env.ANSWER_CACHE_MAX_ENTRIES || 128),
-    eventTtlHours: Number(env.EVENT_TTL_HOURS || 24),
+    eventRetentionMode: "manual",
+    eventTtlHours: 0,
     openaiTimeoutMs: normalizeTimeoutMs(env.OPENAI_TIMEOUT_MS),
     strictDbFastPath: env.STRICT_DB_FAST_PATH === "true",
     strictDbAnswerGeneration: "llm-complete-answer",

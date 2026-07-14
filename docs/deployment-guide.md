@@ -237,7 +237,7 @@ GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 | 변수 | 기본값 | 용도 |
 |---|---:|---|
 | `CHAT_RATE_LIMIT_PER_MINUTE` | `12` | 학생 session별 분당 채팅 제한 |
-| `EVENT_TTL_HOURS` | `24` | Durable Object 이벤트 로그 보관 시간 |
+| `EVENT_TTL_HOURS` | `0` | `0`은 자동 만료 없음. 촬영 기록은 교사의 명시적 room 삭제 전까지 보존 |
 | `DEFAULT_FALSE_LEVEL` | `5` | 교사 설정 전 기본값. Combination은 과장·단순화와 관점 왜곡을 우선 조합 |
 | `DEFAULT_ROOM_ID` | `default-classroom` | `room` query가 없을 때 사용할 기본 촬영방 |
 | `OPENAI_MODEL` | `gpt-5.6-terra` | OpenAI provider 모델 |
@@ -248,11 +248,11 @@ GitHub Actions에서 수동 배포하려면 `Deploy` workflow를 실행한다.
 
 ## 7. 운영 전 필수 보강
 
-- 배포 직후 `/api/health`에서 `ok`, `provider`, `teacherProtected`, `openaiTimeoutMs`, `chatRateLimitPerMinute`, `eventTtlHours`를 확인
+- 배포 직후 `/api/health`에서 `ok`, `provider`, `teacherProtected`, `openaiTimeoutMs`, `chatRateLimitPerMinute`, `eventRetentionMode=manual`, `eventTtlHours=0`을 확인
 - 응답 헤더: `/api/health`, export, debrief 응답에 `cache-control: no-store`, `x-content-type-options: nosniff`, `x-robots-tag: noindex, nofollow`, `referrer-policy: no-referrer`, `content-security-policy`, `permissions-policy`가 있는지 확인
 - `/teacher` 보호: `TEACHER_TOKEN` 또는 Cloudflare Access 설정
 - rate limit: `CHAT_RATE_LIMIT_PER_MINUTE`를 촬영 규모에 맞게 조정
-- 데이터 보관: 촬영 종료 후 export하고 대시보드의 로그 삭제 버튼 또는 `/api/purge` 사용. 삭제 시 room 이름을 다시 입력하고, API 호출은 `x-purge-room: <room>` 헤더를 포함해야 한다.
+- 데이터 보관: 촬영 기록은 자동 만료되지 않는다. 필요한 기간 보존한 뒤 export를 확인하고 대시보드의 로그 삭제 버튼 또는 `/api/purge`로 수동 삭제한다. 삭제 시 room 이름을 다시 입력하고, API 호출은 `x-purge-room: <room>` 헤더를 포함해야 한다.
 - 정정 수업: 교사용 감사 JSON 기반 오류 정답표 제공
 - 로깅: 개인정보 최소화, 이름 외 식별자 저장 금지
 

@@ -105,6 +105,9 @@ test("ClassroomRoom redacts secrets before telemetry is stored", async () => {
     storage: {
       get: async (key) => storage.get(key),
       put: async (key, value) => storage.set(key, value),
+      list: async ({ prefix }) => new Map(
+        [...storage].filter(([key]) => key.startsWith(prefix))
+      ),
       delete: async (key) => storage.delete(key)
     }
   });
@@ -141,7 +144,7 @@ test("ClassroomRoom redacts secrets before telemetry is stored", async () => {
   assert.equal(events[0].nested.safe, "kept");
 });
 
-test("ClassroomRoom keeps student transcript after live telemetry eviction", async () => {
+test("ClassroomRoom keeps student transcript alongside legacy telemetry", async () => {
   const storage = new Map();
   const room = new ClassroomRoom({
     storage: {
@@ -189,6 +192,29 @@ test("ClassroomRoom keeps student transcript after live telemetry eviction", asy
   );
   assert.equal(restoredTurn.studentMessage, "명량해전에서 몇 척으로 싸웠어?");
   assert.equal(restoredTurn.studentVisibleAnswer, "조선 수군은 적은 수의 배로 해협의 물살을 활용했다.");
+});
+
+test("ClassroomRoom retains telemetry beyond 1000 events without time expiry", async () => {
+  const storage = new Map();
+  const room = createStoredRoom(storage);
+
+  for (let index = 0; index < 1005; index += 1) {
+    await room.fetch(new Request("https://room.local/event?ttlHours=1", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "student_joined",
+        sessionId: `student-${index}`,
+        studentName: `학생 ${index}`,
+        at: new Date(Date.UTC(2020, 0, 1, 0, 0, index)).toISOString()
+      })
+    }));
+  }
+
+  const read = await room.fetch(new Request("https://room.local/events?ttlHours=1"));
+  const events = await read.json();
+  assert.equal(events.length, 1005);
+  assert.equal(events[0].sessionId, "student-0");
+  assert.equal(events[1004].sessionId, "student-1004");
 });
 
 test("ClassroomRoom broadcasts heartbeat presence without evicting audit events", async () => {
@@ -241,6 +267,11 @@ test("ClassroomRoom broadcasts heartbeat presence without evicting audit events"
 test("ClassroomRoom purge deletes more than 128 transcripts without deleting config", async () => {
   const storage = new Map([
     ["config", { level: 2, responseMode: "experiment" }],
+    ["event:0000000000000001:event-1", {
+      eventId: "event-1",
+      type: "student_joined",
+      sessionId: "student-1"
+    }],
     ...Array.from({ length: 129 }, (_, index) => [
       `transcript:student-${index}`,
       [{ turn: 1, studentMessage: "질문", studentVisibleAnswer: "답변" }]
@@ -267,6 +298,7 @@ test("ClassroomRoom purge deletes more than 128 transcripts without deleting con
   }));
   assert.equal(purge.status, 200);
   assert.equal([...storage.keys()].some((key) => key.startsWith("transcript:")), false);
+  assert.equal([...storage.keys()].some((key) => key.startsWith("event:")), false);
   assert.deepEqual(storage.get("config"), { level: 2, responseMode: "experiment" });
   assert.equal(deleteBatches.some((batch) => batch.length > 128), false);
 });

@@ -221,7 +221,7 @@ export function buildExportPayload(events, now = new Date()) {
   };
 }
 
-export function pruneEventsByTtl(events, now = Date.now(), ttlHours = 24) {
+export function pruneEventsByTtl(events, now = Date.now(), ttlHours = 0) {
   const ttlMs = Number(ttlHours) * 60 * 60 * 1000;
   if (!Number.isFinite(ttlMs) || ttlMs <= 0) return normalizeEvents(events);
   return normalizeEvents(events).filter((event) => {

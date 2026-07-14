@@ -39,7 +39,9 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
         openaiVerifierReasoningEffort: "none",
         openaiTimeoutMs: 15000,
         openaiConfigured: false,
-        teacherProtected: true
+        teacherProtected: true,
+        eventRetentionMode: "manual",
+        eventTtlHours: 0
       });
     }
     if (url.pathname === "/api/evaluation-set") {
@@ -297,7 +299,8 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
       openaiTimeoutMs: 15000,
       teacherProtected: true,
       chatRateLimitPerMinute: null,
-      eventTtlHours: null
+      eventRetentionMode: "manual",
+      eventTtlHours: 0
     });
 
     const strictResult = await runNode(["scripts/verify-deploy.js"], {

@@ -30,7 +30,7 @@ test("worker는 LLM preflight 실패 시 학생에게 정답/audit를 숨기고 
     DEFAULT_PERSONA: "역사 도우미",
     TEACHER_TOKEN: "teacher-secret",
     CHAT_RATE_LIMIT_PER_MINUTE: "12",
-    EVENT_TTL_HOURS: "24",
+    EVENT_TTL_HOURS: "0",
     ROOM: {
       idFromName: (name) => name,
       get: () => ({ fetch: room.fetch })

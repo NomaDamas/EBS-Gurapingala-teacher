@@ -10,7 +10,7 @@ const env = {
   LLM_PROVIDER: "rules",
   TEACHER_TOKEN: "teacher-secret",
   CHAT_RATE_LIMIT_PER_MINUTE: "1",
-  EVENT_TTL_HOURS: "24",
+  EVENT_TTL_HOURS: "0",
   ROOM: {
     idFromName: (name) => name,
     get: (name) => ({

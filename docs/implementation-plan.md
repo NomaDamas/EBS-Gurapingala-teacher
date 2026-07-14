@@ -99,7 +99,7 @@ Acceptance:
 - 학생별 online/offline heartbeat가 표시된다.
 - 촬영 종료 후 정정 수업용 “오류 정답표”를 export한다.
 
-현재 상태: Level/persona 설정, unsafe persona 거절, 실시간 수신, 학생 heartbeat, online/offline 표시, turn timestamp/latency/Level/preflight verdict 기록, 전체 로그 export, 정정 수업용 오류표 JSON/CSV export, TTL, 삭제 버튼 구현됨.
+현재 상태: Level/persona 설정, unsafe persona 거절, 실시간 수신, 학생 heartbeat, online/offline 표시, turn timestamp/latency/Level/preflight verdict 기록, 전체 로그 export, 정정 수업용 오류표 JSON/CSV export, 자동 만료 없는 append-only 이벤트 보존, 삭제 버튼 구현됨.
 
 ## Issue 6. 보안·운영 보호장치
 
@@ -110,9 +110,9 @@ Acceptance:
 - 교사용 URL은 최소한 shared admin token 또는 Cloudflare Access로 보호한다.
 - rate limit을 학생 session별로 둔다.
 - prompt injection 방어 문구와 JSON schema 검수 실패 처리를 둔다.
-- 실험 종료 후 데이터 삭제 버튼 또는 TTL을 둔다.
+- 실험 종료 후 교사가 room 단위로 데이터를 명시적으로 삭제할 수 있게 한다.
 
-현재 상태: `TEACHER_TOKEN` 기반 교사용 URL/API/WebSocket 보호, token 누락 시 기본 fail-closed, 격리된 로컬 개발 전용 `ALLOW_INSECURE_TEACHER=true` opt-in, unsafe persona 설정 거절, 학생 session별 분당 rate limit, 이벤트 TTL, `/api/purge` 삭제 API와 대시보드 삭제 버튼, no-store 및 noindex 보안 헤더 구현됨. Cloudflare Access 연동은 선택 운영 설정으로 남는다.
+현재 상태: `TEACHER_TOKEN` 기반 교사용 URL/API/WebSocket 보호, token 누락 시 기본 fail-closed, 격리된 로컬 개발 전용 `ALLOW_INSECURE_TEACHER=true` opt-in, unsafe persona 설정 거절, 학생 session별 분당 rate limit, 자동 만료 없는 이벤트 보존, `/api/purge` 삭제 API와 대시보드 삭제 버튼, no-store 및 noindex 보안 헤더 구현됨. Cloudflare Access 연동은 선택 운영 설정으로 남는다.
 
 ## Issue 7. UI 고도화와 참고 디자인 반영
 

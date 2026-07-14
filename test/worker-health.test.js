@@ -33,7 +33,8 @@ test("/api/health returns safe deployment metadata without secrets", async () =>
   assert.equal(body.defaultFalseLevel, 3);
   assert.equal(body.defaultFalseDensity, "dynamic");
   assert.equal(body.chatRateLimitPerMinute, 9);
-  assert.equal(body.eventTtlHours, 6);
+  assert.equal(body.eventRetentionMode, "manual");
+  assert.equal(body.eventTtlHours, 0);
   assert.equal(body.openaiTimeoutMs, 4321);
   assert.equal(JSON.stringify(body).includes("secret-openai-key"), false);
   assert.equal(JSON.stringify(body).includes("secret-teacher-token"), false);

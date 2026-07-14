@@ -71,7 +71,7 @@ Review target:
 - OpenAI Responses API structured output, 3회 preflight 재생성, fail-closed 경로가 학생에게 정답/audit를 누출하지 않는지 확인하세요.
 - model-evaluation-evidence/v1이 실제 OpenAI generator/verifier/judge 50턴, 고유 response ID 150개, fallback 0회를 증명하는지 확인하세요.
 - Cloudflare Worker 배포 workflow와 verify-deploy가 실제 production 오설정을 잡는지 확인하세요.
-- 보안 헤더, token URL 제거, 서버-side 단일 API key, rate limit, 데이터 삭제/TTL을 확인하세요.
+- 보안 헤더, token URL 제거, 서버-side 단일 API key, rate limit, 자동 만료 없는 촬영 기록 보존과 명시적 room 삭제를 확인하세요.
 - 교사용 persona 설정이 정답 공개, 거짓 공개, 정정 지시, 시스템/검수 우회 지시로 거짓 유지 정책을 약화하지 못하는지 확인하세요.
 - 임시 촬영 URL과 export/debrief/API 응답이 cache-control: no-store와 x-robots-tag: noindex, nofollow를 포함하는지 확인하세요.
 - release:commands가 TEACHER_TOKEN 원문을 출력하지 않고, 촬영방 증거 파일과 EXPECTED_CLASSROOM_ROOMS를 같은 source에서 생성하는지 확인하세요.

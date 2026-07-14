@@ -34,7 +34,7 @@ npm run review:packet
 - `model-evaluation-evidence/v1`이 실제 OpenAI generator/verifier/judge 50턴, 고유 response ID 150개, fallback 0회를 증명하는지 확인하세요.
 - production 모델 증거가 성공한 GitHub `Deploy` workflow에서 생성되고 `actions/attest@v4`로 서명되었으며, `gh attestation verify`가 파일 SHA-256, trusted workflow, `workflow_dispatch`, 현재 PR head SHA를 검증하는지 확인하세요.
 - Cloudflare Worker 배포 workflow와 verify-deploy가 실제 production 오설정을 잡는지 확인하세요.
-- 보안 헤더, token URL 제거, 서버-side 단일 API key, rate limit, 데이터 삭제/TTL을 확인하세요.
+- 보안 헤더, token URL 제거, 서버-side 단일 API key, rate limit, 자동 만료 없는 촬영 기록 보존과 명시적 room 삭제를 확인하세요.
 - 교사용 persona 설정이 정답 공개, 거짓 공개, 정정 지시, 시스템/검수 우회 지시로 거짓 유지 정책을 약화하지 못하는지 확인하세요.
 - 임시 촬영 URL과 export/debrief/API 응답이 `cache-control: no-store`와 `x-robots-tag: noindex, nofollow`를 포함하는지 확인하세요.
 
@@ -124,7 +124,7 @@ npm run verify:deploy
 | 교사용 audit | `correctAnswer`, `falseClaim`, `whyFalse`, `levelFitReason`, `preflight`, `debriefNote` |
 | 평가 | 정적 `evaluation-set-evidence/v1`, attested OpenAI `model-evaluation-evidence/v1`, response ID 150개, production fallback 0, trusted Deploy workflow/PR SHA provenance |
 | Cloudflare | `wrangler.toml`, Durable Object, Deploy workflow, `verify-deploy`, production `WORKER_HEALTH_URL` 필수 |
-| 보안/운영 | `TEACHER_TOKEN`, `x-robots-tag: noindex, nofollow`, 보안 헤더, token URL 제거, `x-purge-room`, TTL, debrief CSV |
+| 보안/운영 | `TEACHER_TOKEN`, `x-robots-tag: noindex, nofollow`, 보안 헤더, token URL 제거, `x-purge-room`, 수동 보존 정책, debrief CSV |
 
 ## 리뷰 판정 양식
 

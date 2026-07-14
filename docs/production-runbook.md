@@ -42,7 +42,8 @@
    - `openaiModel`이 촬영에 사용할 모델과 일치하는지 확인한다.
    - `openaiVerifierModel`이 독립 검수에 사용할 모델과 일치하는지 확인한다.
    - `openaiTimeoutMs`가 촬영에 사용할 timeout과 일치하는지 확인한다.
-   - `chatRateLimitPerMinute`, `eventTtlHours`가 촬영 규모에 맞는지 확인한다.
+   - `chatRateLimitPerMinute`가 촬영 규모에 맞는지 확인한다.
+   - `eventRetentionMode=manual`, `eventTtlHours=0`인지 확인해 촬영 기록 자동 만료가 비활성화됐는지 확인한다.
    - 응답 헤더의 `cache-control: no-store`, `x-content-type-options: nosniff`, `x-robots-tag: noindex, nofollow`, `referrer-policy: no-referrer`, `content-security-policy`, `permissions-policy`를 확인한다.
 7. 배포 URL 전체 검증을 실행한다.
    - `WORKER_URL=https://<worker-domain> TEACHER_TOKEN=<TEACHER_TOKEN> VERIFY_ROOM=deploy-verify REQUIRE_OPENAI=true REQUIRE_TEACHER_TOKEN=true REQUIRE_CLOUDFLARE_EDGE=true EXPECTED_OPENAI_MODEL=gpt-5.6-terra EXPECTED_OPENAI_VERIFIER_MODEL=gpt-5.6-terra EXPECTED_OPENAI_TIMEOUT_MS=15000 PR_HEAD_SHA=<latest-sha> VERIFY_DEPLOY_EVIDENCE_FILE=artifacts/deploy-evidence.json npm run verify:deploy`
@@ -134,7 +135,7 @@
 1. export 파일이 안전하게 저장됐는지 확인한다.
 2. 교사용 대시보드의 `촬영 로그 삭제` 버튼을 누른 뒤 삭제할 room 이름을 정확히 다시 입력한다.
 3. `/api/health`와 `/api/export`를 확인해 운영 상태와 export 결과를 점검한다.
-4. `EVENT_TTL_HOURS`가 촬영 정책과 맞는지 재확인한다.
+4. 촬영 기록은 자동 만료되지 않는다. 보존이 끝난 방만 명시적으로 삭제한다.
 
 ## 6. 사고 대응
 
