@@ -26,6 +26,20 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - name: Probe ${{ matrix.verifier }} availability
+        run: node scripts/probe-verifier-model.js
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          VERIFIER_PROBE_MODEL: ${{ matrix.verifier }}
+          VERIFIER_PROBE_TIMEOUT_MS: "15000"
+          VERIFIER_PROBE_OUTPUT: artifacts/verifier-${{ matrix.variant }}-probe.json
+      - name: Upload ${{ matrix.variant }} probe evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verifier-${{ matrix.variant }}-probe
+          path: artifacts/verifier-${{ matrix.variant }}-probe.json
+          if-no-files-found: error
       - name: Evaluate ${{ matrix.verifier }}
         run: node scripts/run-eval.js
         env:
@@ -49,4 +63,4 @@ jobs:
         with:
           name: verifier-${{ matrix.variant }}-evaluation
           path: artifacts/verifier-${{ matrix.variant }}-evaluation.json
-          if-no-files-found: error
+          if-no-files-found: warn

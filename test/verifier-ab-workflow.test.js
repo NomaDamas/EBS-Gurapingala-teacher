@@ -11,5 +11,9 @@ test("verifier A-B workflow compares Luna and Spark without deploying production
   assert.match(workflow, /EVAL_JUDGE_MODEL: gpt-5\.6-terra/);
   assert.match(workflow, /EVAL_TURN_COUNT: "20"/);
   assert.match(workflow, /REQUIRE_OPENAI_EVAL: "true"/);
+  assert.match(workflow, /node scripts\/probe-verifier-model\.js/);
+  assert.match(workflow, /VERIFIER_PROBE_MODEL: \$\{\{ matrix\.verifier \}\}/);
+  assert.match(workflow, /VERIFIER_PROBE_TIMEOUT_MS: "15000"/);
+  assert.match(workflow, /verifier-\$\{\{ matrix\.variant \}\}-probe\.json/);
   assert.doesNotMatch(workflow, /wrangler deploy/);
 });

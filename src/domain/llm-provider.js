@@ -1083,7 +1083,7 @@ function materializeStrictDbDraft(draft) {
   };
 }
 
-function verifierSchema() {
+export function verifierSchema() {
   return {
     type: "object",
     additionalProperties: false,
