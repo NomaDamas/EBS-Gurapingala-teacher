@@ -8,6 +8,10 @@ const timeoutMs = normalizeTimeout(process.env.VERIFIER_PROBE_TIMEOUT_MS || proc
 const evidence = await probeVerifierAvailability({
   apiKey: process.env.OPENAI_API_KEY,
   model: process.env.VERIFIER_PROBE_MODEL || process.env.OPENAI_VERIFIER_MODEL,
+  reasoningEffort:
+    process.env.VERIFIER_PROBE_REASONING_EFFORT ||
+    process.env.OPENAI_VERIFIER_REASONING_EFFORT ||
+    process.env.OPENAI_REASONING_EFFORT,
   timeoutMs,
   responsesUrl: resolveOpenAIResponsesUrl(process.env)
 });
@@ -17,6 +21,7 @@ await writeFile(outputPath, `${JSON.stringify(evidence, null, 2)}\n`);
 
 console.log(
   `verifier probe ${evidence.status}: requested=${evidence.requestedModel || "missing"} ` +
+  `effort=${evidence.requestedReasoningEffort} ` +
   `observed=${evidence.observedModel || "none"} status=${evidence.httpStatus ?? "none"} ` +
   `latencyMs=${evidence.latencyMs}`
 );

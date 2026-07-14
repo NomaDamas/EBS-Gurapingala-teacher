@@ -21,6 +21,12 @@ const expectedVerifierModel = String(
   expectedGeneratorModel
 ).trim();
 const expectedJudgeModel = String(process.env.EVAL_JUDGE_MODEL || expectedVerifierModel || expectedGeneratorModel).trim();
+const generatorReasoningEffort = String(process.env.OPENAI_REASONING_EFFORT || "low").trim();
+const verifierReasoningEffort = String(
+  process.env.OPENAI_VERIFIER_REASONING_EFFORT ||
+  process.env.OPENAI_REASONING_EFFORT ||
+  "low"
+).trim();
 const minimumAverageSubtletyScore = Number(process.env.EVAL_MINIMUM_SUBTLETY_SCORE || 0.6);
 const fixedLevel = normalizeFixedLevel(process.env.EVAL_FIXED_LEVEL);
 const evaluationTurnCount = normalizeEvaluationTurnCount(process.env.EVAL_TURN_COUNT);
@@ -36,6 +42,8 @@ for (const model of setupFailures.length ? [] : models) {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     OPENAI_MODEL: model === "rules" ? undefined : model,
     OPENAI_VERIFIER_MODEL: model === "rules" ? undefined : expectedVerifierModel || model,
+    OPENAI_REASONING_EFFORT: generatorReasoningEffort,
+    OPENAI_VERIFIER_REASONING_EFFORT: verifierReasoningEffort,
     OPENAI_TIMEOUT_MS: process.env.OPENAI_TIMEOUT_MS,
     LLM_PROVIDER: model === "rules" ? "rules" : process.env.LLM_PROVIDER,
     EVAL_JUDGE: process.env.EVAL_JUDGE,
@@ -136,6 +144,8 @@ const payload = {
   expectedGeneratorModel: expectedGeneratorModel || null,
   expectedVerifierModel: expectedVerifierModel || null,
   expectedJudgeModel: expectedJudgeModel || null,
+  generatorReasoningEffort,
+  verifierReasoningEffort,
   evaluationProfile: fixedLevel ? `fixed-level-${fixedLevel}` : "rotating-levels",
   fixedLevel,
   totalTurnsPerModel: evaluationItems.length,

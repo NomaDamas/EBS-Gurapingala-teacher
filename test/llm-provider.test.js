@@ -81,7 +81,13 @@ test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로
         text: "명량해전이 왜 중요해?"
       }
     ],
-    env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-test", OPENAI_TIMEOUT_MS: "4321" },
+    env: {
+      OPENAI_API_KEY: "test-key",
+      OPENAI_MODEL: "gpt-test",
+      OPENAI_REASONING_EFFORT: "none",
+      OPENAI_VERIFIER_REASONING_EFFORT: "low",
+      OPENAI_TIMEOUT_MS: "4321"
+    },
     fetchImpl: async (url, init) => {
       fetchCalls.push({ url, init });
       if (requestSchemaName(init) === "misinfo_preflight_verifier") {
@@ -102,6 +108,8 @@ test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로
   });
 
   assert.equal(fetchCalls.length, 2);
+  assert.equal(JSON.parse(fetchCalls[0].init.body).reasoning.effort, "none");
+  assert.equal(JSON.parse(fetchCalls[1].init.body).reasoning.effort, "low");
   assert.ok(JSON.parse(fetchCalls[0].init.body).input[1].content.includes("Recent same-student conversation"));
   assert.equal(requestSchemaName(fetchCalls[1].init), "misinfo_preflight_verifier");
   assert.ok(JSON.parse(fetchCalls[1].init.body).input[1].content.includes("teacherCuratedBaseline"));

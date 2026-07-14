@@ -1,4 +1,4 @@
-name: Verifier A-B Evaluation
+name: Latency and Verifier A-B Evaluation
 
 on:
   workflow_dispatch:
@@ -8,17 +8,33 @@ permissions:
 
 jobs:
   evaluate:
-    name: ${{ matrix.variant }} verifier - 20 turns
+    name: ${{ matrix.variant }} - 20 turns
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         include:
-          - variant: luna
+          - variant: baseline-terra-low-luna-low
+            generator: gpt-5.6-terra
+            generator_effort: low
             verifier: gpt-5.6-luna
-          - variant: spark
-            verifier: gpt-5.6-spark
+            verifier_effort: low
+          - variant: luna-none-luna-none
+            generator: gpt-5.6-luna
+            generator_effort: none
+            verifier: gpt-5.6-luna
+            verifier_effort: none
+          - variant: luna-low-luna-none
+            generator: gpt-5.6-luna
+            generator_effort: low
+            verifier: gpt-5.6-luna
+            verifier_effort: none
+          - variant: luna-low-nano-none
+            generator: gpt-5.6-luna
+            generator_effort: low
+            verifier: gpt-5.4-nano
+            verifier_effort: none
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,6 +47,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           VERIFIER_PROBE_MODEL: ${{ matrix.verifier }}
+          VERIFIER_PROBE_REASONING_EFFORT: ${{ matrix.verifier_effort }}
           VERIFIER_PROBE_TIMEOUT_MS: "15000"
           VERIFIER_PROBE_OUTPUT: artifacts/verifier-${{ matrix.variant }}-probe.json
       - name: Upload ${{ matrix.variant }} probe evidence
@@ -40,15 +57,17 @@ jobs:
           name: verifier-${{ matrix.variant }}-probe
           path: artifacts/verifier-${{ matrix.variant }}-probe.json
           if-no-files-found: error
-      - name: Evaluate ${{ matrix.verifier }}
+      - name: Evaluate ${{ matrix.generator }} with ${{ matrix.verifier }}
         run: node scripts/run-eval.js
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LLM_PROVIDER: openai
-          EVAL_MODELS: gpt-5.6-terra
-          EXPECTED_OPENAI_MODEL: gpt-5.6-terra
+          EVAL_MODELS: ${{ matrix.generator }}
+          EXPECTED_OPENAI_MODEL: ${{ matrix.generator }}
           OPENAI_VERIFIER_MODEL: ${{ matrix.verifier }}
           EXPECTED_OPENAI_VERIFIER_MODEL: ${{ matrix.verifier }}
+          OPENAI_REASONING_EFFORT: ${{ matrix.generator_effort }}
+          OPENAI_VERIFIER_REASONING_EFFORT: ${{ matrix.verifier_effort }}
           EVAL_JUDGE: openai
           EVAL_JUDGE_MODEL: gpt-5.6-terra
           EVAL_JUDGE_TIMEOUT_MS: "45000"

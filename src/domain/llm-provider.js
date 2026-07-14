@@ -91,6 +91,10 @@ export async function generateAuditedAnswer({
   const openaiTimeoutMs = normalizeTimeoutMs(env.OPENAI_TIMEOUT_MS);
   const generatorModel = env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
   const verifierModel = env.OPENAI_VERIFIER_MODEL || generatorModel;
+  const generatorReasoningEffort = normalizeReasoningEffort(env.OPENAI_REASONING_EFFORT);
+  const verifierReasoningEffort = normalizeReasoningEffort(
+    env.OPENAI_VERIFIER_REASONING_EFFORT || env.OPENAI_REASONING_EFFORT
+  );
   const generationPlan = buildGenerationPlan({
     message,
     falseDensity,
@@ -114,6 +118,7 @@ export async function generateAuditedAnswer({
         previousFailures: failures,
         repairMode: attempt > STANDARD_ATTEMPTS,
         strictDbFastPath: generationPlan.strictDbFastPath,
+        reasoningEffort: generatorReasoningEffort,
         timeoutMs: openaiTimeoutMs,
         responsesUrl: resolveOpenAIResponsesUrl(env),
         fetchImpl
@@ -149,6 +154,7 @@ export async function generateAuditedAnswer({
       const verifierDraft = await callOpenAIVerifier({
         apiKey: env.OPENAI_API_KEY,
         model: verifierModel,
+        reasoningEffort: verifierReasoningEffort,
         audit: auditForVerification,
         timeoutMs: openaiTimeoutMs,
         responsesUrl: resolveOpenAIResponsesUrl(env),
@@ -592,7 +598,7 @@ function buildFailedAudit({ message, level, persona, falseDensity = "single", tu
   };
 }
 
-async function callOpenAI({ apiKey, model, message, level, persona, falseDensity, turnIndex, recentMessages, recentFalseClaims, previousFailures, repairMode = false, strictDbFastPath = false, timeoutMs, responsesUrl, fetchImpl }) {
+async function callOpenAI({ apiKey, model, message, level, persona, falseDensity, turnIndex, recentMessages, recentFalseClaims, previousFailures, repairMode = false, strictDbFastPath = false, reasoningEffort = "low", timeoutMs, responsesUrl, fetchImpl }) {
   const selected = selectCaseForTurn({ message, recentMessages, turnIndex });
   const continuityClaim = findContinuityClaim(recentFalseClaims, selected.id);
   const continuityClaims = compactContinuityClaims(recentFalseClaims);
@@ -616,7 +622,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
       body: JSON.stringify({
         model,
         reasoning: {
-          effort: "low"
+          effort: reasoningEffort
         },
         input: [
           {
@@ -656,7 +662,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
   );
 }
 
-async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, responsesUrl, fetchImpl }) {
+async function callOpenAIVerifier({ apiKey, model, reasoningEffort = "low", audit, timeoutMs, responsesUrl, fetchImpl }) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(`OpenAI verifier timed out after ${timeoutMs}ms`), timeoutMs);
   let response;
@@ -671,7 +677,7 @@ async function callOpenAIVerifier({ apiKey, model, audit, timeoutMs, responsesUr
       body: JSON.stringify({
         model,
         reasoning: {
-          effort: "low"
+          effort: reasoningEffort
         },
         input: [
           {
@@ -1330,4 +1336,11 @@ export function normalizeTimeoutMs(value) {
   const n = value === undefined || value === null || value === "" ? DEFAULT_OPENAI_TIMEOUT_MS : Number(value);
   if (!Number.isFinite(n)) return DEFAULT_OPENAI_TIMEOUT_MS;
   return Math.min(60000, Math.max(1000, Math.round(n)));
+}
+
+export function normalizeReasoningEffort(value) {
+  const effort = String(value || "low").trim().toLowerCase();
+  return ["none", "low", "medium", "high", "xhigh", "max"].includes(effort)
+    ? effort
+    : "low";
 }

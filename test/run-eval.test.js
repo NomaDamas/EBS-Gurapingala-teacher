@@ -35,6 +35,8 @@ test("run-eval writes model selection criteria, recommendation, and auditable fa
   assert.equal(Array.isArray(payload.models[0].failures), true);
   assert.equal(payload.models[0].turns.length, 50);
   assert.equal(payload.models[0].execution.totalTurns, 50);
+  assert.equal(payload.generatorReasoningEffort, "low");
+  assert.equal(payload.verifierReasoningEffort, "low");
 });
 
 test("run-eval fails closed before execution when production OpenAI evidence inputs are incomplete", () => {
@@ -86,12 +88,16 @@ test("run-eval can limit a time-sensitive evaluation to 20 turns", () => {
     env: {
       ...process.env,
       EVAL_OUTPUT: outputPath,
-      EVAL_TURN_COUNT: "20"
+      EVAL_TURN_COUNT: "20",
+      OPENAI_REASONING_EFFORT: "none",
+      OPENAI_VERIFIER_REASONING_EFFORT: "low"
     }
   });
 
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const payload = JSON.parse(readFileSync(outputPath, "utf8"));
   assert.equal(payload.totalTurnsPerModel, 20);
+  assert.equal(payload.generatorReasoningEffort, "none");
+  assert.equal(payload.verifierReasoningEffort, "low");
   assert.equal(payload.models[0].turns.length, 20);
 });

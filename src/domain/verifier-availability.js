@@ -1,9 +1,10 @@
 import { resolveOpenAIResponsesUrl } from "./openai-endpoint.js";
-import { verifierSchema } from "./llm-provider.js";
+import { normalizeReasoningEffort, verifierSchema } from "./llm-provider.js";
 
 export async function probeVerifierAvailability({
   apiKey,
   model,
+  reasoningEffort = "low",
   timeoutMs = 15000,
   responsesUrl,
   fetchImpl = fetch
@@ -16,6 +17,7 @@ export async function probeVerifierAvailability({
     completedAt: null,
     status: "fail",
     requestedModel: String(model || "").trim(),
+    requestedReasoningEffort: normalizeReasoningEffort(reasoningEffort),
     observedModel: null,
     responseId: null,
     latencyMs: null,
@@ -52,7 +54,7 @@ export async function probeVerifierAvailability({
         signal: controller.signal,
         body: JSON.stringify({
           model: evidence.requestedModel,
-          reasoning: { effort: "low" },
+          reasoning: { effort: evidence.requestedReasoningEffort },
           input: [
             {
               role: "system",

@@ -7,6 +7,7 @@ test("verifier availability probe records API-observed model, response ID, and s
   const evidence = await probeVerifierAvailability({
     apiKey: "test-key",
     model: "gpt-test-verifier",
+    reasoningEffort: "none",
     timeoutMs: 1000,
     responsesUrl: "https://example.test/v1/responses",
     fetchImpl: async (_url, init) => {
@@ -24,10 +25,12 @@ test("verifier availability probe records API-observed model, response ID, and s
 
   assert.equal(evidence.status, "pass");
   assert.equal(evidence.requestedModel, "gpt-test-verifier");
+  assert.equal(evidence.requestedReasoningEffort, "none");
   assert.equal(evidence.observedModel, "gpt-test-verifier");
   assert.equal(evidence.responseId, "resp-probe-1");
   assert.equal(evidence.httpStatus, 200);
   assert.equal(requestBody.text.format.name, "misinfo_preflight_verifier");
+  assert.equal(requestBody.reasoning.effort, "none");
   assert.equal(requestBody.text.format.strict, true);
   assert.ok(requestBody.text.format.schema.required.includes("question_relevant"));
 });
