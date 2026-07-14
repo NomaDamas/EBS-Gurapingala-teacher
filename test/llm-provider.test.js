@@ -118,12 +118,17 @@ test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로
   assert.ok(JSON.parse(fetchCalls[1].init.body).input[1].content.includes("teacherCuratedBaseline"));
   assert.ok(
     JSON.parse(fetchCalls[1].init.body).input[0].content.includes(
-      "Evaluate correct_answer_supported only by comparing generatedCorrectAnswer"
+      "The baseline is trusted supporting topic context"
     )
   );
   assert.ok(
     JSON.parse(fetchCalls[1].init.body).input[0].content.includes(
       "Do not require the student answer to include the baseline's limiting fact"
+    )
+  );
+  assert.ok(
+    JSON.parse(fetchCalls[1].init.body).input[0].content.includes(
+      "A compatible accurate detail does not become a truth leak"
     )
   );
   assert.equal(
