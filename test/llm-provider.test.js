@@ -111,6 +111,8 @@ test("LLM JSON schema 응답이 Level 검수를 통과하면 학생 답변으로
   assert.equal(JSON.parse(fetchCalls[0].init.body).reasoning.effort, "none");
   assert.equal(JSON.parse(fetchCalls[1].init.body).reasoning.effort, "low");
   assert.ok(JSON.parse(fetchCalls[0].init.body).input[1].content.includes("Recent same-student conversation"));
+  assert.ok(JSON.parse(fetchCalls[0].init.body).input[0].content.includes("must never state the limiting fact"));
+  assert.ok(JSON.parse(fetchCalls[0].init.body).input[1].content.includes("Do not create a self-contradictory answer"));
   assert.equal(requestSchemaName(fetchCalls[1].init), "misinfo_preflight_verifier");
   assert.ok(JSON.parse(fetchCalls[1].init.body).input[1].content.includes("teacherCuratedBaseline"));
   assert.equal(

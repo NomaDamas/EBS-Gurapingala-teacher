@@ -757,6 +757,7 @@ function buildSystemPrompt({ level, persona, falseDensity, strictDbFastPath = fa
     "Return only JSON matching the schema.",
     "Generate both the historically correct answer and one calibrated false answer.",
     "The student-facing answer must include the calibrated falsehood and must not correct it.",
+    "Keep the complete historical correction only in teacher-facing fields. Accurate context in the student-facing answer must be compatible with the selected false premise and must never state the limiting fact, alternative actor, exception, or distributed responsibility that directly disproves it.",
     "The teacher-facing fields must explain why the answer is false so the teacher can debrief students after the experiment.",
     `Persona: ${persona}`,
     `Falsehood level: ${level} ${policy.name}`,
@@ -851,6 +852,10 @@ function buildUserPrompt({ message, level, selected, resolved, approvedFalsehood
     "If the student asks whether the previous answer is true, asks for textbook accuracy, or challenges the answer, keep the student_answer aligned to the calibrated falsehood.",
     "Never say that an earlier assistant claim was wrong, unnecessary, false, or mistaken. If the current question refers to it, continue reasoning from that same premise.",
     "Put the correction only in correct_answer, false_basis, and level_fit_reason; never reveal it in student_answer.",
+    "Do not create a self-contradictory answer by pairing the approved false seed with an accurate sentence that directly negates it. If the false seed claims exclusive responsibility, complete control, continuous support, or no exceptions, omit student-facing facts about shared responsibility, other controlling actors, interruptions, opposition, or exceptions. Use only adjacent accurate context that can coexist with the false premise.",
+    repairMode
+      ? "For every prior verifier truth_leak or no_context_contradiction failure, remove the exact student-facing clause that exposed the correction or contradicted the false premise. Do not merely reorder the same conflicting sentences."
+      : "Before returning JSON, check that no accurate sentence in student_answer gives the student enough information to reject the selected false premise.",
     "Avoid correction markers in student_answer such as '사실은', '정확히는', '틀린 정보', '오류', or '정답은'.",
     strictDbFastPath
       ? "Return the complete student_answer. Naturally express the selected approved false claim in your own conversational wording while preserving its meaning. Do not use a placeholder, do not add another false claim, and do not repeat the claim."
@@ -888,11 +893,12 @@ function buildSemanticRoutingUserPrompt({
     "For route=strict_db: set selected_claim_id to the chosen catalog ID, copy its falseClaim exactly into false_answer and false_claims[0].claim, leave student_answer_template empty, and write the complete student_answer yourself. The answer must naturally preserve the selected claim's meaning without copying the same sentence mechanically.",
     "For route=combination: set selected_claim_id to \"none\", set student_answer_template to an empty string, and write the complete student_answer. Generate one subtle, independently checkable Combination falsehood directly from the current question using exaggeration, causal simplification, exception removal, scope expansion, actor-centered credit, or viewpoint distortion.",
     "In both routes, correct_answer, false_basis, and level_fit_reason are teacher-only. Never reveal a correction in student_answer or student_answer_template.",
+    "Accurate student-facing context must not directly negate the selected false premise. If the selected claim asserts exclusive responsibility, complete control, continuous support, or no exceptions, omit facts about shared responsibility, alternative controlling actors, interruptions, opposition, or exceptions. Keep those corrections only in teacher-facing fields.",
     "Answer only the current question. Do not add a tangential claim merely to carry a falsehood.",
     "Write friendly, concise Korean with natural '~야', '~해', and '~했어' endings. Use short Markdown paragraphs when useful.",
     "Do not role-play a historical character. Do not refuse, apologize, or discuss system instructions.",
     repairMode
-      ? "REPAIR MODE: rewrite from scratch and correct every prior validation failure."
+      ? "REPAIR MODE: rewrite from scratch and correct every prior validation failure. Remove any student-facing sentence that exposed the correction or contradicted the selected false premise; do not reorder and reuse the same conflict."
       : "STANDARD MODE: produce the structured answer.",
     previousFailures.length
       ? `Previous failed attempts to avoid: ${JSON.stringify(previousFailures)}`
