@@ -617,6 +617,9 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
   const approvedFalsehoods = [...new Set([...canonicalFalsehoods, ...combinationFalsehoods])];
   const generatedCombinationMode = selected.id === "general-history" &&
     approvedFalsehoods.length === 0;
+  const preferredStrictClaim = strictDbFastPath
+    ? strictDbClaimForFalsehood(exactClientFalsehoodForCase(selected, message))
+    : null;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(`OpenAI request timed out after ${timeoutMs}ms`), timeoutMs);
   let response;
@@ -640,7 +643,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
           },
           {
             role: "user",
-            content: buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods, canonicalFalsehoods, combinationFalsehoods, recentMessages, continuityClaim, continuityClaims, falseDensity, turnIndex, previousFailures, repairMode, generatedCombinationMode, strictDbFastPath })
+            content: buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods, canonicalFalsehoods, combinationFalsehoods, recentMessages, continuityClaim, continuityClaims, falseDensity, turnIndex, previousFailures, repairMode, generatedCombinationMode, strictDbFastPath, preferredStrictClaim })
           }
         ],
         text: {
@@ -665,7 +668,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
   const draft = parseStructuredOutput(payload);
   return withResponseMetadata(
     strictDbFastPath
-      ? materializeStrictDbDraft(draft)
+      ? materializeStrictDbDraft(draft, { preferredStrictClaim })
       : draft,
     payload
   );
@@ -785,7 +788,7 @@ function buildSystemPrompt({ level, persona, falseDensity, strictDbFastPath = fa
   ].join("\n");
 }
 
-function buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods = [], canonicalFalsehoods = [], combinationFalsehoods = [], recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures, repairMode = false, generatedCombinationMode = false, strictDbFastPath = false }) {
+function buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods = [], canonicalFalsehoods = [], combinationFalsehoods = [], recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures, repairMode = false, generatedCombinationMode = false, strictDbFastPath = false, preferredStrictClaim = null }) {
   if (strictDbFastPath) {
     return buildSemanticRoutingUserPrompt({
       message,
@@ -794,7 +797,8 @@ function buildUserPrompt({ message, level, selected, resolved, approvedFalsehood
       recentMessages,
       continuityClaims,
       previousFailures,
-      repairMode
+      repairMode,
+      preferredStrictClaim
     });
   }
   const requiredFalseSeed = continuityClaim?.falseClaim ||
@@ -891,7 +895,8 @@ function buildSemanticRoutingUserPrompt({
   recentMessages,
   continuityClaims,
   previousFailures,
-  repairMode
+  repairMode,
+  preferredStrictClaim
 }) {
   return [
     `Student question: ${message}`,
@@ -902,8 +907,14 @@ function buildSemanticRoutingUserPrompt({
       ? `Conversation-wide approved false premises: preserve them when the current question returns to the same topic: ${JSON.stringify(continuityClaims)}`
       : "Conversation-wide approved false premises: none.",
     `Historically correct supporting baseline: ${selected.truth}`,
+    preferredStrictClaim
+      ? `High-confidence question-matched strict-DB candidate: ${JSON.stringify(preferredStrictClaim)}`
+      : "High-confidence question-matched strict-DB candidate: none.",
     `Approved strict-DB catalog: ${JSON.stringify(STRICT_DB_CLAIM_CATALOG)}`,
     "Use semantic meaning, the current question, and conversation context. Do not select by isolated keyword overlap.",
+    preferredStrictClaim
+      ? "The server has already matched the current question to the strict-DB candidate above. Use route=strict_db and that exact selected_claim_id. Do not replace it with a newly generated Combination claim."
+      : "No high-confidence candidate was preselected, so choose strict_db only when one catalog claim is directly relevant; otherwise choose combination.",
     "Choose route=strict_db only when exactly one catalog claim directly answers the current question or preserves a directly relevant prior false premise.",
     "If no catalog claim directly answers the question, choose route=combination. Never force an unrelated catalog claim into the answer.",
     `Requested falsehood level: ${level}`,
@@ -1052,9 +1063,12 @@ function strictDbDraftSchema() {
   };
 }
 
-function materializeStrictDbDraft(draft) {
+function materializeStrictDbDraft(draft, { preferredStrictClaim = null } = {}) {
   const route = cleanString(draft?.route);
   if (route === "combination") {
+    if (preferredStrictClaim) {
+      throw new Error("Strict DB candidate cannot be replaced with a Combination route");
+    }
     if (cleanString(draft?.selected_claim_id) !== "none") {
       throw new Error("Combination route must use selected_claim_id=none");
     }
@@ -1080,6 +1094,9 @@ function materializeStrictDbDraft(draft) {
     throw new Error("Semantic route must be strict_db or combination");
   }
   const selectedClaimId = cleanString(draft?.selected_claim_id);
+  if (preferredStrictClaim && selectedClaimId !== preferredStrictClaim.id) {
+    throw new Error("Strict DB route changed the question-matched approved claim");
+  }
   const selectedClaim = STRICT_DB_CLAIM_CATALOG.find((item) => item.id === selectedClaimId);
   const seed = cleanString(selectedClaim?.falseClaim);
   const template = cleanString(draft?.student_answer_template);
@@ -1112,6 +1129,12 @@ function materializeStrictDbDraft(draft) {
     __strictDbSelectedFalsehood: seed,
     __answerGeneration: "llm-complete-answer"
   };
+}
+
+function strictDbClaimForFalsehood(falseClaim) {
+  const normalized = cleanString(falseClaim);
+  if (!normalized) return null;
+  return STRICT_DB_CLAIM_CATALOG.find((item) => item.falseClaim === normalized) || null;
 }
 
 export function verifierSchema() {
