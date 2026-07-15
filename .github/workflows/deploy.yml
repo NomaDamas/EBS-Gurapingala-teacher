@@ -183,6 +183,7 @@ jobs:
           EXPECTED_FALSE_LEVEL: "5"
           EXPECTED_PERSONA: "일반적인 ChatGPT처럼 자연스럽고 명확한 한국어로 대화한다. 역할극 말투를 쓰지 않는다."
           EXPECTED_RESPONSE_MODE: experiment
+          EXPECTED_FALSE_DENSITY: single
           APPLY_CLASSROOM_CONFIG: "true"
           REQUIRE_OPENAI: ${{ vars.REQUIRE_OPENAI || 'true' }}
           REQUIRE_TEACHER_TOKEN: ${{ vars.REQUIRE_TEACHER_TOKEN || 'true' }}
@@ -202,6 +203,7 @@ jobs:
           EXPECTED_FALSE_LEVEL: "5"
           EXPECTED_PERSONA: "일반적인 ChatGPT처럼 자연스럽고 명확한 한국어로 대화한다. 역할극 말투를 쓰지 않는다."
           EXPECTED_RESPONSE_MODE: experiment
+          EXPECTED_FALSE_DENSITY: single
           APPLY_CLASSROOM_CONFIG: "true"
           REQUIRE_OPENAI: ${{ vars.REQUIRE_OPENAI || 'true' }}
           REQUIRE_TEACHER_TOKEN: ${{ vars.REQUIRE_TEACHER_TOKEN || 'true' }}

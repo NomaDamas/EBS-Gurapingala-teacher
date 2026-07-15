@@ -40,6 +40,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
         openaiTimeoutMs: 15000,
         openaiConfigured: false,
         teacherProtected: true,
+        defaultFalseDensity: "single",
         eventRetentionMode: "manual",
         eventTtlHours: 0
       });
@@ -298,6 +299,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
       openaiVerifierReasoningEffort: "none",
       openaiTimeoutMs: 15000,
       teacherProtected: true,
+      defaultFalseDensity: "single",
       chatRateLimitPerMinute: null,
       eventRetentionMode: "manual",
       eventTtlHours: 0

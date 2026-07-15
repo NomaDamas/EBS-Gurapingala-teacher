@@ -84,6 +84,7 @@ const checks = [
       body.openaiTimeoutMs >= 1000 &&
       body.openaiTimeoutMs <= 60000 &&
       typeof body.teacherProtected === "boolean" &&
+      body.defaultFalseDensity === "single" &&
       body.eventRetentionMode === "manual" &&
       body.eventTtlHours === 0 &&
       res.headers.get("cache-control") === "no-store" &&
@@ -497,6 +498,7 @@ async function getHealthEvidence() {
       openaiVerifierReasoningEffort: safeString(body.openaiVerifierReasoningEffort),
       openaiTimeoutMs: Number.isFinite(body.openaiTimeoutMs) ? body.openaiTimeoutMs : null,
       teacherProtected: body.teacherProtected === true,
+      defaultFalseDensity: safeString(body.defaultFalseDensity),
       chatRateLimitPerMinute: Number.isFinite(body.chatRateLimitPerMinute) ? body.chatRateLimitPerMinute : null,
       eventRetentionMode: safeString(body.eventRetentionMode),
       eventTtlHours: Number.isFinite(body.eventTtlHours) ? body.eventTtlHours : null

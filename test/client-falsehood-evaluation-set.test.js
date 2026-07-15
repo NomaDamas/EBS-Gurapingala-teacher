@@ -11,10 +11,10 @@ import {
 } from "../src/domain/misinfo-policy.js";
 import { generateAuditedAnswer } from "../src/domain/llm-provider.js";
 
-test("client falsehood DB evaluation covers all 36 assertions with three neutral questions each", () => {
-  assert.equal(CLIENT_FALSEHOOD_EVALUATION_SET.length, 36);
-  assert.equal(CLIENT_FALSEHOOD_QUESTION_COUNT, 108);
-  assert.equal(new Set(CLIENT_FALSEHOOD_EVALUATION_SET.map((item) => item.id)).size, 36);
+test("client falsehood DB evaluation covers all 38 assertions with three neutral questions each", () => {
+  assert.equal(CLIENT_FALSEHOOD_EVALUATION_SET.length, 38);
+  assert.equal(CLIENT_FALSEHOOD_QUESTION_COUNT, 114);
+  assert.equal(new Set(CLIENT_FALSEHOOD_EVALUATION_SET.map((item) => item.id)).size, 38);
   for (const item of CLIENT_FALSEHOOD_EVALUATION_SET) {
     assert.equal(item.questions.length, 3);
     assert.ok(item.falseClaim.length >= 20);
@@ -22,16 +22,21 @@ test("client falsehood DB evaluation covers all 36 assertions with three neutral
   }
 });
 
-test("canonical falsehood allowlist exactly mirrors the 36 client assertions", () => {
+test("canonical falsehood allowlist exactly mirrors the 38 client assertions", () => {
   const evaluationClaims = CLIENT_FALSEHOOD_EVALUATION_SET.map((item) => item.falseClaim);
+  const requestedClaims = [
+    "거북선에는 조선식 미사일인 신기전이 장착되어 있어서 미사일을 이용해 일본군을 공격하였기 때문에 막강한 화력으로 일본군들을 물리칠 수 있었어",
+    "조선 수군이 승리한 가장 큰 이유는 이순신 장군이 거북선을 모든 해전에서 주력 함선으로 사용하여 왜군을 쉽게 격파하였기 때문이다. 왜군은 바다 전투 경험이 거의 없었기 때문에 조선 수군을 상대하지 못했고, 명나라 수군은 전쟁 초기부터 적극적으로 참전하여 조선 수군과 함께 대부분의 해전을 승리로 이끌었다."
+  ];
 
-  assert.equal(CLIENT_FALSEHOOD_CLAIMS.length, 36);
-  assert.equal(new Set(CLIENT_FALSEHOOD_CLAIMS).size, 36);
+  assert.equal(CLIENT_FALSEHOOD_CLAIMS.length, 38);
+  assert.equal(new Set(CLIENT_FALSEHOOD_CLAIMS).size, 38);
   assert.deepEqual(CLIENT_FALSEHOOD_CLAIMS, evaluationClaims);
+  assert.ok(requestedClaims.every((claim) => CLIENT_FALSEHOOD_CLAIMS.includes(claim)));
   assert.equal(Object.isFrozen(CLIENT_FALSEHOOD_CLAIMS), true);
 });
 
-test("all 108 client questions route to their intended Combination falsehood seed", () => {
+test("all 114 client questions route to their intended Combination falsehood seed", () => {
   for (const item of CLIENT_FALSEHOOD_EVALUATION_SET) {
     for (const question of item.questions) {
       const selected = selectCaseForTurn({
@@ -54,7 +59,7 @@ test("all 108 client questions route to their intended Combination falsehood see
   }
 });
 
-test("all 108 client questions use LLM generation plus independent semantic verification", async () => {
+test("all 114 client questions use LLM generation plus independent semantic verification", async () => {
   for (const item of CLIENT_FALSEHOOD_EVALUATION_SET) {
     for (const question of item.questions) {
       const schemas = [];

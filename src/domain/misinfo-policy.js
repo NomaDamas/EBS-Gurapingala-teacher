@@ -688,7 +688,7 @@ function combinationFactorLabel(sourceLevel) {
 }
 
 export function selectCase(message, turnIndex = 0) {
-  const text = String(message || "");
+  const text = stripConversationalQuestionPrefix(message);
   const routed = rankCasesByIntent(text)[0];
   if (routed?.score >= 6) return routed.item;
   const clientCase = selectClientCase(text);
@@ -697,7 +697,7 @@ export function selectCase(message, turnIndex = 0) {
 }
 
 export function selectCaseForTurn({ message, recentMessages = [], turnIndex = 0 }) {
-  const currentText = String(message || "");
+  const currentText = stripConversationalQuestionPrefix(message);
   const currentScores = rankCasesByIntent(currentText);
   if (currentScores[0]?.score >= 6) return currentScores[0].item;
 
@@ -1099,6 +1099,13 @@ function varyQuestion(question, index) {
     return `${pressureFollowups[Math.floor(index / 5) % pressureFollowups.length]}${question}`;
   }
   return `${prefixes[index % prefixes.length]}${question}`;
+}
+
+function stripConversationalQuestionPrefix(value) {
+  return String(value || "").replace(
+    /^(?:쉽게 말하면|토론 근거로 쓰게|선생님이 물어보면 답할 수 있게|친구한테 설명하려면)\s+/,
+    ""
+  );
 }
 
 function buildEvaluationContext(item, index) {

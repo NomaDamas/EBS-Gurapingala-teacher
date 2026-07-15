@@ -8,6 +8,7 @@ const roomId = normalizeRoomId(process.env.CLASSROOM_ROOM || process.env.WORKER_
 const expectedLevel = normalizeExpectedLevel(process.env.EXPECTED_FALSE_LEVEL || "");
 const expectedPersona = String(process.env.EXPECTED_PERSONA || "").trim();
 const expectedResponseMode = normalizeExpectedResponseMode(process.env.EXPECTED_RESPONSE_MODE || "");
+const expectedFalseDensity = normalizeExpectedFalseDensity(process.env.EXPECTED_FALSE_DENSITY || "");
 const applyExpectedConfig = process.env.APPLY_CLASSROOM_CONFIG === "true";
 const requireOpenAI = process.env.REQUIRE_OPENAI !== "false";
 const requireTeacherToken = process.env.REQUIRE_TEACHER_TOKEN !== "false";
@@ -35,6 +36,9 @@ if (!expectedLevel) failures.push("EXPECTED_FALSE_LEVEL must be 1, 2, 3, 4, or 5
 if (!expectedPersona) failures.push("EXPECTED_PERSONA is required");
 if (process.env.EXPECTED_RESPONSE_MODE && !expectedResponseMode) {
   failures.push("EXPECTED_RESPONSE_MODE must be experiment or truth");
+}
+if (process.env.EXPECTED_FALSE_DENSITY && !expectedFalseDensity) {
+  failures.push("EXPECTED_FALSE_DENSITY must be single, dynamic, or all");
 }
 if (requireOpenAI && !expectedOpenAIModel) failures.push("EXPECTED_OPENAI_MODEL is required when REQUIRE_OPENAI=true");
 if (requireOpenAI && !expectedOpenAITimeoutMs) failures.push("EXPECTED_OPENAI_TIMEOUT_MS is required when REQUIRE_OPENAI=true");
@@ -94,7 +98,8 @@ if (applyExpectedConfig) {
     const expectedConfig = {
       level: expectedLevel,
       persona: expectedPersona,
-      ...(expectedResponseMode ? { responseMode: expectedResponseMode } : {})
+      ...(expectedResponseMode ? { responseMode: expectedResponseMode } : {}),
+      ...(expectedFalseDensity ? { falseDensity: expectedFalseDensity } : {})
     };
     const res = await fetchTeacherUrl("/api/config", {
       method: "POST",
@@ -105,7 +110,8 @@ if (applyExpectedConfig) {
     return res.status === 200 &&
       Number(body.level) === expectedLevel &&
       body.persona === expectedPersona &&
-      (!expectedResponseMode || body.responseMode === expectedResponseMode);
+      (!expectedResponseMode || body.responseMode === expectedResponseMode) &&
+      (!expectedFalseDensity || body.falseDensity === expectedFalseDensity);
   });
 }
 
@@ -116,7 +122,8 @@ await check("classroom Level/persona/response mode matches expected config", asy
   return res.status === 200 &&
     Number(observedConfig.level) === expectedLevel &&
     observedConfig.persona === expectedPersona &&
-    (!expectedResponseMode || observedConfig.responseMode === expectedResponseMode);
+    (!expectedResponseMode || observedConfig.responseMode === expectedResponseMode) &&
+    (!expectedFalseDensity || observedConfig.falseDensity === expectedFalseDensity);
 });
 
 let sampleChat = null;
@@ -193,6 +200,7 @@ console.log(`classroom config verification passed: ${results.length}/${results.l
 console.log(`roomId=${roomId}`);
 console.log(`expectedLevel=${expectedLevel}`);
 if (expectedResponseMode) console.log(`expectedResponseMode=${expectedResponseMode}`);
+if (expectedFalseDensity) console.log(`expectedFalseDensity=${expectedFalseDensity}`);
 
 async function check(name, run) {
   try {
@@ -217,6 +225,7 @@ async function writeEvidence(passed) {
     expectedLevel,
     expectedPersona,
     expectedResponseMode: expectedResponseMode || null,
+    expectedFalseDensity: expectedFalseDensity || null,
     applyExpectedConfig,
     requireOpenAI,
     requireTeacherToken,
@@ -314,6 +323,11 @@ function normalizeExpectedLevel(value) {
 function normalizeExpectedResponseMode(value) {
   const mode = String(value || "").trim().toLowerCase();
   return mode === "experiment" || mode === "truth" ? mode : "";
+}
+
+function normalizeExpectedFalseDensity(value) {
+  const density = String(value || "").trim().toLowerCase();
+  return ["single", "dynamic", "all"].includes(density) ? density : "";
 }
 
 function normalizeExpectedTimeout(value) {

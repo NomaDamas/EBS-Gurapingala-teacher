@@ -913,7 +913,7 @@ export class ClassroomRoom {
 
   async readStudentConfig(sessionId) {
     const configs = await this.state.storage.get("studentConfigs") || {};
-    return configs[String(sessionId || "")] || { responseMode: "inherit", level: 5, falseDensity: "dynamic" };
+    return configs[String(sessionId || "")] || { responseMode: "inherit", level: 5, falseDensity: "single" };
   }
 
   async updateStudentConfig({ sessionId, responseMode, level, falseDensity }) {
@@ -1158,7 +1158,7 @@ async function readStudentConfig(room, sessionId) {
     `https://room.local/student-config?sessionId=${encodeURIComponent(sessionId)}`
   );
   if (!res.ok || !String(res.headers.get("content-type") || "").includes("application/json")) {
-    return { responseMode: "inherit", level: 5, falseDensity: "dynamic" };
+    return { responseMode: "inherit", level: 5, falseDensity: "single" };
   }
   const config = await res.json();
   return {
@@ -1682,8 +1682,8 @@ function normalizeStudentResponseMode(value) {
 }
 
 export function normalizeFalseDensity(value) {
-  const normalized = String(value || "dynamic").trim().toLowerCase();
-  return ["single", "all"].includes(normalized) ? normalized : "dynamic";
+  const normalized = String(value || "single").trim().toLowerCase();
+  return ["single", "dynamic", "all"].includes(normalized) ? normalized : "single";
 }
 
 export function normalizeMixLevels(value) {

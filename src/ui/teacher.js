@@ -550,8 +550,8 @@ export const teacherHtml = `<!doctype html>
           </label>
           <label>거짓 밀도
             <select id="falseDensity" aria-describedby="falseDensityHelp">
-              <option value="dynamic" selected>동적 · 거짓 1~3개</option>
-              <option value="single">거짓 주장 1개</option>
+              <option value="single" selected>거짓 주장 1개 · 기본</option>
+              <option value="dynamic">동적 · 거짓 1~3개</option>
               <option value="all">핵심 주장 전부 거짓</option>
             </select>
             <span class="fieldHelp" id="falseDensityHelp">실험 턴에는 선택과 관계없이 거짓 주장이 반드시 포함됩니다.</span>
@@ -1024,7 +1024,7 @@ export const teacherHtml = `<!doctype html>
         freshness.textContent = telemetryAgeLabel(session.lastSeenMs);
         freshness.title = state + " · 마지막 이벤트 " + (session.updatedAt || "없음");
         metaRow.append(meta, freshness);
-        const studentConfig = session.studentConfig || { responseMode: "inherit", level: 5, falseDensity: "dynamic" };
+        const studentConfig = session.studentConfig || { responseMode: "inherit", level: 5, falseDensity: "single" };
         const configRow = document.createElement("div");
         configRow.className = "studentConfig";
         const configTitle = document.createElement("p");
@@ -1194,7 +1194,7 @@ export const teacherHtml = `<!doctype html>
         responseModeEl.value = config.responseMode;
       }
       if (config.level) levelEl.value = String(config.level);
-      falseDensityEl.value = ["single", "all"].includes(config.falseDensity) ? config.falseDensity : "dynamic";
+      falseDensityEl.value = ["dynamic", "all"].includes(config.falseDensity) ? config.falseDensity : "single";
       if (Array.isArray(config.mixLevels)) {
         const selectedMix = new Set(config.mixLevels.map(Number));
         for (const checkbox of mixLevelEls) checkbox.checked = selectedMix.has(Number(checkbox.value));

@@ -31,7 +31,7 @@ test("/api/health returns safe deployment metadata without secrets", async () =>
   assert.equal(body.strictDbFastPath, false);
   assert.equal(body.teacherProtected, true);
   assert.equal(body.defaultFalseLevel, 3);
-  assert.equal(body.defaultFalseDensity, "dynamic");
+  assert.equal(body.defaultFalseDensity, "single");
   assert.equal(body.chatRateLimitPerMinute, 9);
   assert.equal(body.eventRetentionMode, "manual");
   assert.equal(body.eventTtlHours, 0);
