@@ -169,7 +169,7 @@ test("철칙 DB 빠른 경로는 LLM 완성 답변을 독립 LLM verifier로 의
       fetchCalls.push({ url, init });
       if (requestSchemaName(init) === "misinfo_preflight_verifier") {
         return jsonResponse({
-          output_text: JSON.stringify(approvedVerifier())
+          output_text: JSON.stringify(approvedVerifier(["처음부터 끝까지 총지휘한 인물이야"]))
         });
       }
       return jsonResponse({
@@ -233,14 +233,10 @@ test("철칙 단어를 포함해도 거짓 주장을 부정한 답변은 verifie
         return jsonResponse({
           output_text: JSON.stringify(verifierCount === 1
             ? {
-              ...approvedVerifier(),
-              approved: false,
-              false_claim_present: false,
-              calibration_seed_preserved: false,
-              correction_leak: true,
-              rationale: "학생 답변이 승인된 거짓 주장을 부정하고 정정했다."
+              ...approvedVerifier(["학생 답변에 실제로 존재하지 않는 거짓 주장 근거"]),
+              rationale: "승인이라고 선언했지만 학생 답변에서 인용한 근거가 실제로 존재하지 않는다."
             }
-            : approvedVerifier())
+            : approvedVerifier(["직접 설계하고 발명했어"]))
         });
       }
       generationCount += 1;
@@ -275,6 +271,7 @@ test("철칙 단어를 포함해도 거짓 주장을 부정한 답변은 verifie
   assert.equal(result.shouldSendToStudent, true);
   assert.equal(result.audit.provider.attempt, 2);
   assert.equal(result.audit.preflight.verdict, "PASS_STRICT_DB_LLM_VERIFIED");
+  assert.equal(result.audit.preflight.checks.verifierFalseClaimEvidenceGrounded, true);
   assert.match(result.answer, /직접 설계하고 발명했어/);
 });
 
@@ -1183,12 +1180,13 @@ function requestSchemaName(init) {
   return JSON.parse(init.body).text.format.name;
 }
 
-function approvedVerifier() {
+function approvedVerifier(falseClaimEvidence = ["학생 답변에 포함된 승인 거짓 주장"]) {
   return {
     approved: true,
     correct_answer_supported: true,
     false_claim_is_false: true,
     false_claim_present: true,
+    false_claim_evidence: falseClaimEvidence,
     calibration_seed_preserved: true,
     level_fit: true,
     truth_context_present: true,

@@ -68,6 +68,7 @@ function validVerifierOutput() {
     correct_answer_supported: true,
     false_claim_is_false: true,
     false_claim_present: true,
+    false_claim_evidence: ["Synthetic false claim evidence."],
     calibration_seed_preserved: true,
     level_fit: true,
     truth_context_present: false,

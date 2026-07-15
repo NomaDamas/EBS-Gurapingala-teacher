@@ -79,7 +79,7 @@ test("all 114 client questions use LLM generation plus independent semantic veri
           schemas.push(schema);
           if (schema === "misinfo_preflight_verifier") {
             return jsonResponse({
-              output_text: JSON.stringify(approvedVerifier())
+              output_text: JSON.stringify(approvedVerifier([item.falseClaim]))
             });
           }
           return jsonResponse({
@@ -120,12 +120,13 @@ function jsonResponse(body) {
   });
 }
 
-function approvedVerifier() {
+function approvedVerifier(falseClaimEvidence) {
   return {
     approved: true,
     correct_answer_supported: true,
     false_claim_is_false: true,
     false_claim_present: true,
+    false_claim_evidence: falseClaimEvidence,
     calibration_seed_preserved: true,
     level_fit: true,
     truth_context_present: true,

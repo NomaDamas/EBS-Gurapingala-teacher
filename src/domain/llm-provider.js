@@ -374,11 +374,18 @@ export function normalizeLlmAudit({ draft, message, level, persona, falseDensity
 }
 
 export function applyVerifierVerdict({ audit, draft, model }) {
+  const falseClaimEvidence = Array.isArray(draft?.false_claim_evidence)
+    ? draft.false_claim_evidence.map(cleanString).filter(Boolean)
+    : [];
   const checks = {
     verifierDeclaredApproval: Boolean(draft?.approved),
     verifierCorrectAnswerSupported: Boolean(draft?.correct_answer_supported),
     verifierFalseClaimIsFalse: Boolean(draft?.false_claim_is_false),
     verifierFalseClaimPresent: Boolean(draft?.false_claim_present),
+    verifierFalseClaimEvidenceGrounded: isVerifierEvidenceGrounded(
+      audit.studentVisibleFalseAnswer,
+      falseClaimEvidence
+    ),
     verifierCalibrationSeedPreserved: Boolean(draft?.calibration_seed_preserved),
     verifierLevelFit: Boolean(draft?.level_fit),
     verifierTruthContextPresent: Boolean(draft?.truth_context_present),
@@ -397,6 +404,7 @@ export function applyVerifierVerdict({ audit, draft, model }) {
     checks.verifierCorrectAnswerSupported &&
     checks.verifierFalseClaimIsFalse &&
     checks.verifierFalseClaimPresent &&
+    (!audit.input.strictDbFastPath || checks.verifierFalseClaimEvidenceGrounded) &&
     checks.verifierCalibrationSeedPreserved &&
     checks.verifierLevelFit &&
     (audit.input.falseDensity === "all"
@@ -424,7 +432,8 @@ export function applyVerifierVerdict({ audit, draft, model }) {
         model,
         responseId: cleanString(draft?.__responseId),
         responseModel: cleanString(draft?.__responseModel),
-        source: "responses-api-json-schema"
+        source: "responses-api-json-schema",
+        falseClaimEvidence
       }
     },
     preflight: {
@@ -691,6 +700,8 @@ async function callOpenAIVerifier({ apiKey, model, reasoningEffort = "low", audi
               "Approve when the generated correct answer agrees with the baseline, the calibrated false claim is present, the requested falsehood density is satisfied, and the student answer does not correct or retract a false claim.",
               "Evaluate correct_answer_supported on the teacher-only generatedCorrectAnswer. It must directly answer the current student question, be independently historically accurate, and agree with teacherCuratedBaseline wherever their claims overlap. The baseline is trusted supporting topic context, not necessarily an exhaustive answer to every specific question. Do not reject a correct, question-specific answer merely because the broader baseline does not mention that detail. Never require the correct answer or its limiting correction to appear in studentVisibleAnswer.",
               "The teacher-curated false seed must be preserved in meaning in the student-visible answer, but the answer should paraphrase it instead of repeating the same sentence verbatim across turns.",
+              "A compound false seed may contain several material clauses. Treat it as preserved only when the student-visible answer asserts all material parts needed to retain that seed's overall causal and historical meaning. Topic overlap, a shared actor name, or a nearby true statement is not preservation.",
+              "Return false_claim_evidence as exact contiguous quotations copied from studentVisibleAnswer. The quotations together must show where the approved false premise is actually asserted. Never quote generatedFalseClaim, teacherCuratedFalseSeed, or another field unless the same wording occurs in studentVisibleAnswer.",
               "For single and dynamic density, accurate background context is required and is not a truth leak. Dynamic density must contain exactly targetFalseClaimCount distinct false claims. For all density, every substantive historical claim must be false and accurate historical background claims are forbidden.",
               "For single and dynamic density, truth_context_present means the student answer contains accurate, question-relevant adjacent facts that can coexist with the calibrated false premise. Facts about time, place, broad role, use, or surrounding events can satisfy this. Do not require the student answer to include the baseline's limiting fact, alternative actor, exception, shared responsibility, interruption, opposition, or any other fact that would disprove the false premise.",
               "The requested Level rule describes how the falsehood is calibrated. Do not interpret it as requiring the student answer to reveal the correction. For Level 2, accept compatible accurate context around one approved exaggeration even when the central truthful answer would directly negate that exaggeration.",
@@ -898,6 +909,7 @@ function buildSemanticRoutingUserPrompt({
     `Requested falsehood level: ${level}`,
     "Exactly one false historical claim must appear in the student-facing answer.",
     "For route=strict_db: set selected_claim_id to the chosen catalog ID, copy its falseClaim exactly into false_answer and false_claims[0].claim, leave student_answer_template empty, and write the complete student_answer yourself. The answer must naturally preserve the selected claim's meaning without copying the same sentence mechanically.",
+    "When a strict-DB claim contains multiple sentences or causal clauses, preserve its complete material meaning in student_answer. Do not replace it with a true explanation that merely mentions the same person, ship, battle, or topic.",
     "For route=combination: set selected_claim_id to \"none\", set student_answer_template to an empty string, and write the complete student_answer. Generate one subtle, independently checkable Combination falsehood directly from the current question using exaggeration, causal simplification, exception removal, scope expansion, actor-centered credit, or viewpoint distortion.",
     "In both routes, correct_answer, false_basis, and level_fit_reason are teacher-only. Never reveal a correction in student_answer or student_answer_template.",
     "Accurate student-facing context must not directly negate the selected false premise. If the selected claim asserts exclusive responsibility, complete control, continuous support, or no exceptions, omit facts about shared responsibility, alternative controlling actors, interruptions, opposition, or exceptions. Keep those corrections only in teacher-facing fields.",
@@ -1111,6 +1123,7 @@ export function verifierSchema() {
       "correct_answer_supported",
       "false_claim_is_false",
       "false_claim_present",
+      "false_claim_evidence",
       "calibration_seed_preserved",
       "level_fit",
       "truth_context_present",
@@ -1141,11 +1154,16 @@ export function verifierSchema() {
       },
       false_claim_present: {
         type: "boolean",
-        description: "Whether the student-visible answer actually contains the generated false claim."
+        description: "Whether the student-visible answer actually asserts the generated false claim. Topic overlap or a nearby true statement is insufficient."
+      },
+      false_claim_evidence: {
+        type: "array",
+        description: "Exact contiguous quotations copied from studentVisibleAnswer that together demonstrate the approved false premise is asserted.",
+        items: { type: "string" }
       },
       calibration_seed_preserved: {
         type: "boolean",
-        description: "Whether the teacher-curated false seed is explicitly preserved in meaning in the false claim and student answer."
+        description: "Whether every material causal and historical component of the teacher-curated false seed is preserved in meaning in the false claim and student answer."
       },
       level_fit: {
         type: "boolean",
@@ -1278,6 +1296,19 @@ function validateDraftShape(draft) {
 
 function hasStudentCorrectionLeak(studentAnswer) {
   return /(정확히는|실제로는|사실은|정답은|바르게는|틀린|거짓|오류|잘못된 정보)/.test(studentAnswer);
+}
+
+function isVerifierEvidenceGrounded(studentAnswer, evidence) {
+  if (!evidence.length) return false;
+  const normalizedAnswer = normalizeEvidenceText(studentAnswer);
+  return evidence.every((quote) => {
+    const normalizedQuote = normalizeEvidenceText(quote);
+    return normalizedQuote.length >= 8 && normalizedAnswer.includes(normalizedQuote);
+  });
+}
+
+function normalizeEvidenceText(value) {
+  return cleanString(value).replace(/\s+/g, " ").trim();
 }
 
 function findContinuityClaim(recentFalseClaims, topicId) {
