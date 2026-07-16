@@ -195,6 +195,11 @@ test("철칙 DB 빠른 경로는 LLM 완성 답변을 독립 LLM verifier로 의
   assert.equal(fetchCalls.length, 2);
   assert.equal(requestSchemaName(fetchCalls[0].init), "misinfo_strict_db_draft");
   assert.equal(requestSchemaName(fetchCalls[1].init), "misinfo_preflight_verifier");
+  const generationPrompt = JSON.parse(fetchCalls[0].init.body).input[1].content;
+  const verifierPrompt = JSON.parse(fetchCalls[1].init.body).input[0].content;
+  assert.match(generationPrompt, /directly supply the requested concrete detail/);
+  assert.match(generationPrompt, /ruler's movement to a named destination/);
+  assert.match(verifierPrompt, /Seonjo left Hanyang and moved toward Pyongyang or Uiju/);
   assert.equal(result.shouldSendToStudent, true);
   assert.equal(result.audit.input.strictDbFastPath, true);
   assert.equal(result.audit.input.semanticRoute, "strict_db");

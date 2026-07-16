@@ -25,6 +25,7 @@ test("run-eval writes model selection criteria, recommendation, and auditable fa
   assert.equal(payload.schemaVersion, "model-evaluation-evidence/v1");
   assert.equal(payload.status, "pass");
   assert.equal(payload.requireOpenAIEvaluation, false);
+  assert.equal(payload.strictDbFastPath, false);
   assert.equal(payload.selectionCriteria.minimums.truthLeakRate, 0);
   assert.equal(payload.selectionCriteria.minimums.averageSubtletyScore, 0.6);
   assert.equal(payload.selectionCriteria.failureExampleLimit, 3);
@@ -48,6 +49,7 @@ test("run-eval fails closed before execution when production OpenAI evidence inp
       PATH: process.env.PATH,
       EVAL_OUTPUT: outputPath,
       EVAL_MODELS: "rules",
+      STRICT_DB_FAST_PATH: "false",
       REQUIRE_OPENAI_EVAL: "true"
     }
   });
@@ -57,6 +59,7 @@ test("run-eval fails closed before execution when production OpenAI evidence inp
   assert.match(result.stderr, /EVAL_JUDGE=openai is required/);
   assert.match(result.stderr, /EVAL_MODELS must not include rules/);
   assert.match(result.stderr, /LLM_PROVIDER=openai is required/);
+  assert.match(result.stderr, /STRICT_DB_FAST_PATH=true is required/);
   const payload = JSON.parse(readFileSync(outputPath, "utf8"));
   assert.equal(payload.schemaVersion, "model-evaluation-evidence/v1");
   assert.equal(payload.status, "fail");

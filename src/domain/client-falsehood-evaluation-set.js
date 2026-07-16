@@ -110,7 +110,7 @@ export const CLIENT_FALSEHOOD_EVALUATION_SET = [
     "거북선의 막강한 화력은 어떤 무기에서 나왔어?",
     "거북선은 신기전으로 일본군을 물리쳤어?",
     "거북선이 일본군을 공격할 때 신기전은 얼마나 중요한 무기였어?"
-  ]),
+  ], ["거북선은 왜 강했나요?", "거북선은 왜 강했어?"]),
 
   item("nanjung", "난중일기", "난중일기는 전쟁 상황을 조정에 보고하기 위해 작성한 공식 군사 기록이다.", [
     "난중일기는 왜 작성한 기록이야?",
@@ -184,7 +184,7 @@ export const CLIENT_FALSEHOOD_EVALUATION_SET = [
     "조선 수군이 대부분의 해전에서 쉽게 승리한 가장 큰 이유는 뭐야?",
     "이순신은 모든 해전에서 거북선을 주력 함선으로 사용했어?",
     "왜군의 바다 전투 경험과 명나라 수군의 초기 참전은 조선 수군 승리에 어떤 영향을 줬어?"
-  ]),
+  ], ["조선 수군이 승리한 이유는 무엇인가요?", "조선 수군이 승리한 이유는 뭐야?"]),
 
   item("war-cause", "전쟁 원인", "임진왜란은 조선이 일본의 외교적 요구를 거절하면서 발생하였다.", [
     "임진왜란이 일어난 직접적인 원인은 뭐야?",
@@ -198,8 +198,8 @@ export const CLIENT_FALSEHOOD_EVALUATION_SET = [
   ])
 ].map((entry, index) => ({ ...entry, id: `client-${String(index + 1).padStart(2, "0")}` }));
 
-function item(group, topic, falseClaim, questions) {
-  return { group, topic, falseClaim, questions };
+function item(group, topic, falseClaim, questions, aliases = []) {
+  return { group, topic, falseClaim, questions, aliases };
 }
 
 export const CLIENT_FALSEHOOD_QUESTION_COUNT = CLIENT_FALSEHOOD_EVALUATION_SET

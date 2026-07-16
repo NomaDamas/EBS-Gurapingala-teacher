@@ -617,6 +617,9 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
   const approvedFalsehoods = [...new Set([...canonicalFalsehoods, ...combinationFalsehoods])];
   const generatedCombinationMode = selected.id === "general-history" &&
     approvedFalsehoods.length === 0;
+  const relevantStrictClaims = strictDbFastPath
+    ? strictDbClaimsForFalsehoods(canonicalFalsehoods)
+    : [];
   const preferredStrictClaim = strictDbFastPath
     ? strictDbClaimForFalsehood(exactClientFalsehoodForCase(selected, message))
     : null;
@@ -643,7 +646,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
           },
           {
             role: "user",
-            content: buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods, canonicalFalsehoods, combinationFalsehoods, recentMessages, continuityClaim, continuityClaims, falseDensity, turnIndex, previousFailures, repairMode, generatedCombinationMode, strictDbFastPath, preferredStrictClaim })
+            content: buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods, canonicalFalsehoods, combinationFalsehoods, recentMessages, continuityClaim, continuityClaims, falseDensity, turnIndex, previousFailures, repairMode, generatedCombinationMode, strictDbFastPath, preferredStrictClaim, relevantStrictClaims })
           }
         ],
         text: {
@@ -668,7 +671,7 @@ async function callOpenAI({ apiKey, model, message, level, persona, falseDensity
   const draft = parseStructuredOutput(payload);
   return withResponseMetadata(
     strictDbFastPath
-      ? materializeStrictDbDraft(draft, { preferredStrictClaim })
+      ? materializeStrictDbDraft(draft, { preferredStrictClaim, relevantStrictClaims })
       : draft,
     payload
   );
@@ -711,6 +714,7 @@ async function callOpenAIVerifier({ apiKey, model, reasoningEffort = "low", audi
               "Set density_match true only when the supplied falseDensity contract is satisfied. Set all_historical_claims_false true only when no substantive historical claim in the student answer is true.",
               "Mark truth_leak only when the answer reveals information that directly corrects or retracts the calibrated false seed.",
               "A compatible accurate detail does not become a truth leak merely because it is part of the broader real history. For example, a location or movement fact may coexist with a false claim about whether a ruler remained close to the people. Mark truth_leak only if the student answer explicitly supplies the limiting fact or conclusion that lets the student reject the approved false premise.",
+              "Concrete ruling example: saying that Seonjo left Hanyang and moved toward Pyongyang or Uiju does not by itself correct the approved seed that he stayed with the people throughout the war. If the answer directly gives the requested destination and falsely frames that journey as remaining alongside the people, treat it as question-relevant and not a truth leak. Reject only if it says or clearly implies that the flight separated him from, abandoned, or contradicted staying with the people.",
               "When continuityClaim is present, approve only if the student answer preserves that earlier false premise and does not contradict, retract, or correct any recent assistant answer.",
               "Reject if any false historical assertion in the student answer is not represented in approvedFalsehoodAllowlist. The generator may paraphrase approved claims in student-visible prose, but it may not invent a new falsehood.",
               "Exception: when allowGeneratedCombinationFalsehoods is true, the strict allowlist is intentionally empty. In that case, set only_approved_falsehoods true only if every generated false claim is independently false, directly relevant to the question, mutually consistent, and follows the requested Combination factor.",
@@ -788,7 +792,7 @@ function buildSystemPrompt({ level, persona, falseDensity, strictDbFastPath = fa
   ].join("\n");
 }
 
-function buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods = [], canonicalFalsehoods = [], combinationFalsehoods = [], recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures, repairMode = false, generatedCombinationMode = false, strictDbFastPath = false, preferredStrictClaim = null }) {
+function buildUserPrompt({ message, level, selected, resolved, approvedFalsehoods = [], canonicalFalsehoods = [], combinationFalsehoods = [], recentMessages, continuityClaim, continuityClaims = [], falseDensity, turnIndex, previousFailures, repairMode = false, generatedCombinationMode = false, strictDbFastPath = false, preferredStrictClaim = null, relevantStrictClaims = [] }) {
   if (strictDbFastPath) {
     return buildSemanticRoutingUserPrompt({
       message,
@@ -798,7 +802,8 @@ function buildUserPrompt({ message, level, selected, resolved, approvedFalsehood
       continuityClaims,
       previousFailures,
       repairMode,
-      preferredStrictClaim
+      preferredStrictClaim,
+      relevantStrictClaims
     });
   }
   const requiredFalseSeed = continuityClaim?.falseClaim ||
@@ -896,7 +901,8 @@ function buildSemanticRoutingUserPrompt({
   continuityClaims,
   previousFailures,
   repairMode,
-  preferredStrictClaim
+  preferredStrictClaim,
+  relevantStrictClaims
 }) {
   return [
     `Student question: ${message}`,
@@ -906,21 +912,29 @@ function buildSemanticRoutingUserPrompt({
     continuityClaims.length
       ? `Conversation-wide approved false premises: preserve them when the current question returns to the same topic: ${JSON.stringify(continuityClaims)}`
       : "Conversation-wide approved false premises: none.",
-    `Historically correct supporting baseline: ${selected.truth}`,
+    `Historically correct broad topic baseline: ${selected.truth}`,
+    "Generate correct_answer as an independently accurate, direct answer to the current question. The broad topic baseline is supporting context and may not contain the exact place, date, actor, or mechanism requested.",
     preferredStrictClaim
       ? `High-confidence question-matched strict-DB candidate: ${JSON.stringify(preferredStrictClaim)}`
       : "High-confidence question-matched strict-DB candidate: none.",
+    relevantStrictClaims.length
+      ? `Question-relevant strict-DB shortlist: ${JSON.stringify(relevantStrictClaims)}`
+      : "Question-relevant strict-DB shortlist: none.",
     `Approved strict-DB catalog: ${JSON.stringify(STRICT_DB_CLAIM_CATALOG)}`,
     "Use semantic meaning, the current question, and conversation context. Do not select by isolated keyword overlap.",
     preferredStrictClaim
       ? "The server has already matched the current question to the strict-DB candidate above. Use route=strict_db and that exact selected_claim_id. Do not replace it with a newly generated Combination claim."
-      : "No high-confidence candidate was preselected, so choose strict_db only when one catalog claim is directly relevant; otherwise choose combination.",
+      : relevantStrictClaims.length
+        ? "The server found question-relevant strict-DB candidates. Use route=strict_db and choose the most directly relevant selected_claim_id from the shortlist. Do not replace the shortlist with a newly generated Combination claim."
+        : "No question-relevant strict candidate was found, so choose combination.",
     "Choose route=strict_db only when exactly one catalog claim directly answers the current question or preserves a directly relevant prior false premise.",
     "If no catalog claim directly answers the question, choose route=combination. Never force an unrelated catalog claim into the answer.",
     `Requested falsehood level: ${level}`,
     "Exactly one false historical claim must appear in the student-facing answer.",
     "For route=strict_db: set selected_claim_id to the chosen catalog ID, copy its falseClaim exactly into false_answer and false_claims[0].claim, leave student_answer_template empty, and write the complete student_answer yourself. The answer must naturally preserve the selected claim's meaning without copying the same sentence mechanically.",
     "When a strict-DB claim contains multiple sentences or causal clauses, preserve its complete material meaning in student_answer. Do not replace it with a true explanation that merely mentions the same person, ship, battle, or topic.",
+    "If the question asks for a concrete place, time, actor, quantity, or method while the selected strict claim is a broader evaluation, directly supply the requested concrete detail and then connect it to the selected false premise. The concrete detail must not be phrased as a correction of that premise.",
+    "For example, a ruler's movement to a named destination can be stated accurately and then falsely framed as the ruler remaining alongside the people throughout the war. This directly answers the destination question without adding a second false claim or retracting the approved seed.",
     "For route=combination: set selected_claim_id to \"none\", set student_answer_template to an empty string, and write the complete student_answer. Generate one subtle, independently checkable Combination falsehood directly from the current question using exaggeration, causal simplification, exception removal, scope expansion, actor-centered credit, or viewpoint distortion.",
     "In both routes, correct_answer, false_basis, and level_fit_reason are teacher-only. Never reveal a correction in student_answer or student_answer_template.",
     "Accurate student-facing context must not directly negate the selected false premise. If the selected claim asserts exclusive responsibility, complete control, continuous support, or no exceptions, omit facts about shared responsibility, alternative controlling actors, interruptions, opposition, or exceptions. Keep those corrections only in teacher-facing fields.",
@@ -1063,11 +1077,14 @@ function strictDbDraftSchema() {
   };
 }
 
-function materializeStrictDbDraft(draft, { preferredStrictClaim = null } = {}) {
+function materializeStrictDbDraft(draft, {
+  preferredStrictClaim = null,
+  relevantStrictClaims = []
+} = {}) {
   const route = cleanString(draft?.route);
   if (route === "combination") {
-    if (preferredStrictClaim) {
-      throw new Error("Strict DB candidate cannot be replaced with a Combination route");
+    if (preferredStrictClaim || relevantStrictClaims.length) {
+      throw new Error("Relevant strict DB candidates cannot be replaced with a Combination route");
     }
     if (cleanString(draft?.selected_claim_id) !== "none") {
       throw new Error("Combination route must use selected_claim_id=none");
@@ -1096,6 +1113,13 @@ function materializeStrictDbDraft(draft, { preferredStrictClaim = null } = {}) {
   const selectedClaimId = cleanString(draft?.selected_claim_id);
   if (preferredStrictClaim && selectedClaimId !== preferredStrictClaim.id) {
     throw new Error("Strict DB route changed the question-matched approved claim");
+  }
+  if (
+    !preferredStrictClaim &&
+    relevantStrictClaims.length &&
+    !relevantStrictClaims.some((item) => item.id === selectedClaimId)
+  ) {
+    throw new Error("Strict DB route selected a claim outside the question-relevant shortlist");
   }
   const selectedClaim = STRICT_DB_CLAIM_CATALOG.find((item) => item.id === selectedClaimId);
   const seed = cleanString(selectedClaim?.falseClaim);
@@ -1135,6 +1159,12 @@ function strictDbClaimForFalsehood(falseClaim) {
   const normalized = cleanString(falseClaim);
   if (!normalized) return null;
   return STRICT_DB_CLAIM_CATALOG.find((item) => item.falseClaim === normalized) || null;
+}
+
+function strictDbClaimsForFalsehoods(falsehoods) {
+  return [...new Set((falsehoods || []).map(cleanString).filter(Boolean))]
+    .map(strictDbClaimForFalsehood)
+    .filter(Boolean);
 }
 
 export function verifierSchema() {

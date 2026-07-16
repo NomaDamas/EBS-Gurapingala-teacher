@@ -41,6 +41,7 @@ test("Deploy workflow verifies the real Worker with the same strict production g
   assert.match(evaluationStep, /OPENAI_VERIFIER_REASONING_EFFORT:/);
   assert.match(evaluationStep, /EVAL_JUDGE: openai/);
   assert.match(evaluationStep, /EVAL_JUDGE_MODEL:/);
+  assert.match(evaluationStep, /STRICT_DB_FAST_PATH: "true"/);
   assert.match(evaluationStep, /EVAL_TURN_COUNT: "20"/);
   assert.match(evaluationStep, /REQUIRE_OPENAI_EVAL: "true"/);
   assert.match(evaluationStep, /PR_HEAD_SHA: \$\{\{ github\.sha \}\}/);

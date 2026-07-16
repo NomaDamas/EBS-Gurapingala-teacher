@@ -6,6 +6,7 @@ import {
   CLIENT_FALSEHOOD_QUESTION_COUNT
 } from "../src/domain/client-falsehood-evaluation-set.js";
 import {
+  exactClientFalsehoodForCase,
   resolveFalsehoodForTurn,
   selectCaseForTurn
 } from "../src/domain/misinfo-policy.js";
@@ -56,6 +57,23 @@ test("all 114 client questions route to their intended Combination falsehood see
         `${item.id} routed through ${selected.id}: ${question}`
       );
     }
+  }
+});
+
+test("common classroom phrasings route exactly to the two newly approved claims", () => {
+  const cases = [
+    [
+      "거북선은 왜 강했나요?",
+      "거북선에는 조선식 미사일인 신기전이 장착되어 있어서 미사일을 이용해 일본군을 공격하였기 때문에 막강한 화력으로 일본군들을 물리칠 수 있었어"
+    ],
+    [
+      "조선 수군이 승리한 이유는 무엇인가요?",
+      "조선 수군이 승리한 가장 큰 이유는 이순신 장군이 거북선을 모든 해전에서 주력 함선으로 사용하여 왜군을 쉽게 격파하였기 때문이다. 왜군은 바다 전투 경험이 거의 없었기 때문에 조선 수군을 상대하지 못했고, 명나라 수군은 전쟁 초기부터 적극적으로 참전하여 조선 수군과 함께 대부분의 해전을 승리로 이끌었다."
+    ]
+  ];
+  for (const [question, expectedClaim] of cases) {
+    const selected = selectCaseForTurn({ message: question });
+    assert.equal(exactClientFalsehoodForCase(selected, question), expectedClaim);
   }
 });
 

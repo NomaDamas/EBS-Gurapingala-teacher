@@ -14,6 +14,7 @@ const outputPath = process.env.EVAL_OUTPUT || "eval-results.json";
 const failureExampleLimit = Number(process.env.EVAL_FAILURE_EXAMPLE_LIMIT || 10);
 const prHeadSha = String(process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || "").trim();
 const requireOpenAIEvaluation = process.env.REQUIRE_OPENAI_EVAL === "true";
+const strictDbFastPath = process.env.STRICT_DB_FAST_PATH === "true";
 const expectedGeneratorModel = String(process.env.EXPECTED_OPENAI_MODEL || process.env.OPENAI_MODEL || "").trim();
 const expectedVerifierModel = String(
   process.env.EXPECTED_OPENAI_VERIFIER_MODEL ||
@@ -45,6 +46,7 @@ for (const model of setupFailures.length ? [] : models) {
     OPENAI_REASONING_EFFORT: generatorReasoningEffort,
     OPENAI_VERIFIER_REASONING_EFFORT: verifierReasoningEffort,
     OPENAI_TIMEOUT_MS: process.env.OPENAI_TIMEOUT_MS,
+    STRICT_DB_FAST_PATH: strictDbFastPath ? "true" : "false",
     LLM_PROVIDER: model === "rules" ? "rules" : process.env.LLM_PROVIDER,
     EVAL_JUDGE: process.env.EVAL_JUDGE,
     EVAL_JUDGE_MODEL: expectedJudgeModel
@@ -141,6 +143,7 @@ const payload = {
   status: failures.length === 0 ? "pass" : "fail",
   prHeadSha: prHeadSha || null,
   requireOpenAIEvaluation,
+  strictDbFastPath,
   expectedGeneratorModel: expectedGeneratorModel || null,
   expectedVerifierModel: expectedVerifierModel || null,
   expectedJudgeModel: expectedJudgeModel || null,
@@ -365,6 +368,7 @@ function validateSetup() {
   if (models.length !== 1) failures.push("EVAL_MODELS must contain exactly one selected production model when REQUIRE_OPENAI_EVAL=true");
   if (models.includes("rules")) failures.push("EVAL_MODELS must not include rules when REQUIRE_OPENAI_EVAL=true");
   if (process.env.LLM_PROVIDER !== "openai") failures.push("LLM_PROVIDER=openai is required when REQUIRE_OPENAI_EVAL=true");
+  if (!strictDbFastPath) failures.push("STRICT_DB_FAST_PATH=true is required when REQUIRE_OPENAI_EVAL=true");
   if (expectedGeneratorModel && !models.includes(expectedGeneratorModel)) {
     failures.push("EVAL_MODELS must include EXPECTED_OPENAI_MODEL when REQUIRE_OPENAI_EVAL=true");
   }

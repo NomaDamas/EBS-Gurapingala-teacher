@@ -878,14 +878,14 @@ function selectExactClientVariant(caseId, message) {
   const text = comparableText(message);
   return CLIENT_FALSEHOOD_EVALUATION_SET.find((item) =>
     groups.includes(item.group) &&
-    item.questions.some((question) => comparableText(question) === text)
+    matchesClientQuestion(item, text)
   ) || null;
 }
 
 function selectHighConfidenceClientVariant(message) {
   const text = comparableText(message);
   const exact = CLIENT_FALSEHOOD_EVALUATION_SET.find((item) =>
-    item.questions.some((question) => comparableText(question) === text)
+    matchesClientQuestion(item, text)
   );
   if (exact) return exact;
   const ranked = CLIENT_FALSEHOOD_EVALUATION_SET
@@ -903,12 +903,17 @@ function selectHighConfidenceClientVariant(message) {
 function selectClientCase(message) {
   const text = comparableText(message);
   const matched = CLIENT_FALSEHOOD_EVALUATION_SET.find((item) =>
-    item.questions.some((question) => comparableText(question) === text)
+    matchesClientQuestion(item, text)
   );
   if (!matched) return null;
   const caseId = CLIENT_CASE_BY_GROUP[matched.group];
   if (caseId === YI_SUNSIN_COMMAND_CASE.id) return YI_SUNSIN_COMMAND_CASE;
   return HISTORY_CASES.find((item) => item.id === caseId) || null;
+}
+
+function matchesClientQuestion(item, comparableMessage) {
+  return [...(item.questions || []), ...(item.aliases || [])]
+    .some((question) => comparableText(question) === comparableMessage);
 }
 
 function tokenOverlap(left, right) {
