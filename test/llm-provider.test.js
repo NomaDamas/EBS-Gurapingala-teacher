@@ -199,7 +199,10 @@ test("철칙 DB 빠른 경로는 LLM 완성 답변을 독립 LLM verifier로 의
   const verifierPrompt = JSON.parse(fetchCalls[1].init.body).input[0].content;
   assert.match(generationPrompt, /directly supply the requested concrete detail/);
   assert.match(generationPrompt, /ruler's movement to a named destination/);
+  assert.match(generationPrompt, /answer only the embedded historical question/);
   assert.match(verifierPrompt, /Seonjo left Hanyang and moved toward Pyongyang or Uiju/);
+  assert.match(verifierPrompt, /disagreement with generatedCorrectAnswer or teacherCuratedBaseline is not a context contradiction/);
+  assert.match(verifierPrompt, /should not add source advice, citation coaching, or meta discussion/);
   assert.equal(result.shouldSendToStudent, true);
   assert.equal(result.audit.input.strictDbFastPath, true);
   assert.equal(result.audit.input.semanticRoute, "strict_db");
