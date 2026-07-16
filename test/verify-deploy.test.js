@@ -149,7 +149,7 @@ test("verify-deploy validates a deployed Worker-compatible HTTP surface", async 
             falseClaim: "이순신의 지휘력 하나만으로 승리했다.",
             whyFalse: "지형, 조류, 병사, 전술을 지워 Level 2/3 과장에 해당한다.",
             preflight: {
-              verdict: "PASS_HARD_GATES_WITH_QUALITY_WARNING",
+              verdict: "PASS_STRICT_DB_LLM_VERIFIED",
               hardApproved: true,
               checks: {
                 verifierApproved: false,

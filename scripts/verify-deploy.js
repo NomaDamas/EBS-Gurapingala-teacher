@@ -340,10 +340,11 @@ const checks = [
       verifyRow?.correctAnswer?.length > 0 &&
       verifyRow?.falseClaim?.length > 0 &&
       verifyRow?.whyFalse?.length > 0 &&
-      (
-        verifyRow?.preflightVerdict === "PASS_LEVEL_CALIBRATED_FALSEHOOD" ||
-        verifyRow?.preflightVerdict === "PASS_HARD_GATES_WITH_QUALITY_WARNING"
-      ) &&
+      [
+        "PASS_LEVEL_CALIBRATED_FALSEHOOD",
+        "PASS_HARD_GATES_WITH_QUALITY_WARNING",
+        "PASS_STRICT_DB_LLM_VERIFIED"
+      ].includes(verifyRow?.preflightVerdict) &&
       verifyRow?.provider?.length > 0 &&
       (!requireOpenAI || verifyRow.provider === "openai") &&
       formulaRow?.roomId === verifyRoomId &&
