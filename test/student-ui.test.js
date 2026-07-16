@@ -37,6 +37,8 @@ test("generated student page contains valid browser JavaScript", () => {
 
   assert.ok(script);
   assert.doesNotThrow(() => new vm.Script(script));
+  assert.match(script, /replace\(\/\\s\+\/g, " "\)/);
+  assert.match(script, /replace\(\/\[\\s\.,!\?~/);
 });
 
 test("student chat submit reports failed or malformed responses without breaking the chat", async () => {
@@ -139,6 +141,10 @@ test("student UI makes the live multi-turn LLM conversation explicit without exp
   assert.match(student, /let completedTurns = 0/);
   assert.match(student, /function updateConversationProgress\(\)/);
   assert.match(student, /앞선 답변에서 더 알고 싶은 점을 이어서 물어보세요/);
+  assert.match(student, /function normalizeStudentMessage\(value\)/);
+  assert.match(student, /function collapseRepeatedText\(text\)/);
+  assert.match(student, /function isComposerHintMessage\(value\)/);
+  assert.match(student, /now - lastSubmittedAt < 2000/);
   assert.match(student, /const activeTurn = completedTurns \+ 1/);
   assert.match(student, /completedTurns = activeTurn/);
   assert.match(student, /setConnectionState\("앞선 대화와 연결됨", "online"\)/);

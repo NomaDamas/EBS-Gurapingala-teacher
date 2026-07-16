@@ -68,6 +68,36 @@ test("student inputs are normalized before telemetry is stored", async () => {
   assert.equal(storedEvents[1].studentMessage, "명량해전에서 몇 척으로 싸웠어?");
 });
 
+test("repeated composer guidance is rejected before OpenAI or telemetry work", async () => {
+  let roomCalls = 0;
+  const env = {
+    ROOM: {
+      idFromName: (name) => name,
+      get: () => ({
+        fetch: async () => {
+          roomCalls += 1;
+          throw new Error("composer guidance must be rejected before Durable Object access");
+        }
+      })
+    }
+  };
+  const guidance = "앞선 대답에서 더 알고 싶은 점을 이어서 물어보세요";
+  const res = await worker.fetch(new Request("https://example.com/api/chat", {
+    method: "POST",
+    body: JSON.stringify({
+      sessionId: "student-1",
+      sessionSecret: "secret-1",
+      studentName: "민준",
+      message: guidance.repeat(10) + guidance.slice(0, 12)
+    })
+  }), env);
+  const payload = await res.json();
+
+  assert.equal(res.status, 400);
+  assert.equal(payload.error, "invalid_message");
+  assert.equal(roomCalls, 0);
+});
+
 test("student JSON body limit applies while streaming without content-length", async () => {
   const env = {
     ROOM: {

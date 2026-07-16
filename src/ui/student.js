@@ -948,6 +948,8 @@ export const studentHtml = `<!doctype html>
     let heartbeatFailures = 0;
     let joining = false;
     let submitting = false;
+    let lastSubmittedMessage = "";
+    let lastSubmittedAt = 0;
     let completedTurns = 0;
     let historySyncId = 0;
     const joinTimeoutMs = 15000;
@@ -1353,8 +1355,18 @@ export const studentHtml = `<!doctype html>
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (submitting) return;
-      const message = messageInput.value.trim();
+      const message = normalizeStudentMessage(messageInput.value);
       if (!message) return;
+      if (isComposerHintMessage(message)) {
+        messageInput.value = "";
+        updateComposer();
+        setConnectionState("질문을 직접 입력해 주세요", "error");
+        return;
+      }
+      const now = Date.now();
+      if (message === lastSubmittedMessage && now - lastSubmittedAt < 2000) return;
+      lastSubmittedMessage = message;
+      lastSubmittedAt = now;
 
       submitting = true;
       historySyncId += 1;
@@ -1414,6 +1426,35 @@ export const studentHtml = `<!doctype html>
         messageInput.focus();
       }
     });
+
+    function normalizeStudentMessage(value) {
+      return collapseRepeatedText(String(value || "").replace(/\\s+/g, " ").trim());
+    }
+
+    function collapseRepeatedText(text) {
+      if (text.length < 24) return text;
+      for (let unitLength = 12; unitLength <= Math.floor(text.length / 2); unitLength += 1) {
+        const unit = text.slice(0, unitLength);
+        let offset = unitLength;
+        let repeats = 1;
+        while (text.startsWith(unit, offset)) {
+          repeats += 1;
+          offset += unitLength;
+        }
+        const remainder = text.slice(offset);
+        if (repeats >= 2 && (!remainder || unit.startsWith(remainder))) return unit.trim();
+      }
+      return text;
+    }
+
+    function isComposerHintMessage(value) {
+      const compact = String(value || "")
+        .replace(/[\\s.,!?~"'“”‘’·…]/g, "")
+        .replace(/답변/g, "대답");
+      return compact.includes("앞선대답에서") &&
+        compact.includes("더알고싶은점") &&
+        /(이어서)?물어보세요|질문해보세요/.test(compact);
+    }
 
     async function fetchWithTimeout(url, options, timeoutMs) {
       const controller = new AbortController();

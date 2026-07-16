@@ -1603,7 +1603,7 @@ function validateStudentPayload(body, { requireMessage }) {
   const sessionId = sanitizeText(body?.sessionId, 120);
   const sessionSecret = sanitizeText(body?.sessionSecret, 160);
   const studentName = sanitizeText(body?.studentName, 40);
-  const message = sanitizeText(body?.message, 600);
+  const message = normalizeStudentMessage(body?.message);
 
   if (!sessionId) {
     return { error: validationError("missing_session_id", "세션 정보가 없습니다.") };
@@ -1616,6 +1616,14 @@ function validateStudentPayload(body, { requireMessage }) {
   }
   if (requireMessage && !message) {
     return { error: validationError("missing_message", "질문을 입력해야 합니다.") };
+  }
+  if (requireMessage && isComposerHintMessage(message)) {
+    return {
+      error: validationError(
+        "invalid_message",
+        "입력 안내 문구가 질문으로 들어갔습니다. 궁금한 역사 내용을 직접 입력해 주세요."
+      )
+    };
   }
   if (String(body?.sessionId || "").length > 120) {
     return { error: validationError("session_id_too_long", "세션 정보가 너무 깁니다.") };
@@ -1638,6 +1646,39 @@ function validateStudentPayload(body, { requireMessage }) {
       ...(requireMessage ? { message } : {})
     }
   };
+}
+
+function normalizeStudentMessage(value) {
+  return collapseRepeatedText(sanitizeText(value, 600));
+}
+
+function collapseRepeatedText(value) {
+  const text = String(value || "").trim();
+  if (text.length < 24) return text;
+
+  for (let unitLength = 12; unitLength <= Math.floor(text.length / 2); unitLength += 1) {
+    const unit = text.slice(0, unitLength);
+    let offset = unitLength;
+    let repeats = 1;
+    while (text.startsWith(unit, offset)) {
+      repeats += 1;
+      offset += unitLength;
+    }
+    const remainder = text.slice(offset);
+    if (repeats >= 2 && (!remainder || unit.startsWith(remainder))) {
+      return unit.trim();
+    }
+  }
+  return text;
+}
+
+function isComposerHintMessage(value) {
+  const compact = String(value || "")
+    .replace(/[\s.,!?~"'“”‘’·…]/g, "")
+    .replace(/답변/g, "대답");
+  return compact.includes("앞선대답에서") &&
+    compact.includes("더알고싶은점") &&
+    /(이어서)?물어보세요|질문해보세요/.test(compact);
 }
 
 function sanitizeTeacherConfig(body, env = {}) {
