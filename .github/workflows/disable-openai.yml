@@ -25,7 +25,12 @@ jobs:
         run: npm ci
 
       - name: Delete OpenAI Worker secret
-        run: printf 'y\n' | npx wrangler secret delete OPENAI_API_KEY
+        run: |
+          if npx wrangler secret list | grep -q '"name": "OPENAI_API_KEY"'; then
+            printf 'y\n' | npx wrangler secret delete OPENAI_API_KEY
+          else
+            echo "OPENAI_API_KEY is already absent."
+          fi
         env:
           CI: "true"
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -34,7 +39,8 @@ jobs:
       - name: Verify OpenAI is disconnected
         run: |
           node - <<'NODE'
-          const response = await fetch(process.env.WORKER_HEALTH_URL);
+          const healthUrl = new URL("/api/health", process.env.WORKER_HEALTH_URL);
+          const response = await fetch(healthUrl);
           const health = await response.json();
           if (!response.ok || health.openaiConfigured !== false) {
             console.error("OpenAI Worker secret is still configured.");
